@@ -21,6 +21,8 @@ end
 
 local angle_dir = "external/angle/"
 local common_dir = angle_dir .. "src/common/"
+local samples_dir = angle_dir .. "samples/"
+local util_dir = angle_dir .. "util/"
 
 -- Common sources/headers
 local common = {
@@ -874,21 +876,21 @@ local libangle_mac_sources = { angle_dir .. "src/libANGLE/renderer/driver_utils_
 -- The frame capture headers are always visible to libANGLE.
 
 local libangle_capture_sources = {
-  	angle_dir .. "src/libANGLE/FrameCapture.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_1_0_autogen.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_1_0_params.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_2_0_autogen.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_2_0_params.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_3_0_autogen.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_3_0_params.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_3_1_autogen.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_3_1_params.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_3_2_autogen.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_3_2_params.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_ext_autogen.cpp",
-  	angle_dir .. "src/libANGLE/capture_gles_ext_params.cpp",
-  	angle_dir .. "src/libANGLE/frame_capture_replay_autogen.cpp",
-  	angle_dir .. "src/libANGLE/frame_capture_utils_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/FrameCapture.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_1_0_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_1_0_params.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_2_0_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_2_0_params.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_3_0_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_3_0_params.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_3_1_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_3_1_params.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_3_2_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_3_2_params.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_ext_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/capture_gles_ext_params.cpp",
+  	-- angle_dir .. "src/libANGLE/frame_capture_replay_autogen.cpp",
+  	-- angle_dir .. "src/libANGLE/frame_capture_utils_autogen.cpp",
   	angle_dir .. "src/libANGLE/gl_enum_utils.cpp",
   	angle_dir .. "src/libANGLE/gl_enum_utils_autogen.cpp",
 }
@@ -1033,21 +1035,396 @@ local libegl_sources = {
   	angle_dir .. "src/libGLESv2/entry_points_egl_ext.h",
 }
 
+local no_gl_prototypes = {
+    "GL_GLES_PROTOTYPES=0",
+    "EGL_EGL_PROTOTYPES=0",
+}
+
+local gl_prototypes = {
+	"GL_GLES_PROTOTYPES=1",
+	"EGL_EGL_PROTOTYPES=1",
+	"GL_GLEXT_PROTOTYPES",
+	"EGL_EGLEXT_PROTOTYPES",
+}
+
+local global_defines = {
+	'ANGLE_EGL_LIBRARY_NAME=\\"libEGL\\"',
+	"ANGLE_GENERATE_SHADER_DEBUG_INFO",
+	"USE_UDEV -DUSE_AURA=1",
+	"USE_GLIB=1",
+	"USE_NSS_CERTS=1",
+	"USE_X11=1",
+	"_FILE_OFFSET_BITS=64",
+	"_LARGEFILE_SOURCE",
+	"_LARGEFILE64_SOURCE",
+	"_GNU_SOURCE",
+	"__STDC_CONSTANT_MACROS",
+	"__STDC_FORMAT_MACROS",
+	"COMPONENT_BUILD",
+	"_DEBUG",
+	"DYNAMIC_ANNOTATIONS_ENABLED=1",
+	"ANGLE_IS_64_BIT_CPU",
+	"ANGLE_ENABLE_DEBUG_ANNOTATIONS",
+	"LIBANGLE_IMPLEMENTATION",
+	"ANGLE_USE_X11",
+	"ANGLE_ENABLE_OPENGL",
+	"ANGLE_ENABLE_OPENGL_NULL",
+	"ANGLE_ENABLE_NULL",
+	{ "ANGLE_USE_X11"; Config = "linux-*-*" },
+	"ANGLE_ENABLE_NULL",
+	"_CRT_SECURE_NO_DEPRECATE",
+	"_SCL_SECURE_NO_WARNINGS",
+	"_HAS_EXCEPTIONS=0",
+	"NOMINMAX",
+	-- TODO: Change this for actually replay target, on PC we assume 64-bit
+	"ANGLE_IS_64_BIT_CPU",
+}
+
+local angle_translator_exported_headers = {
+	angle_dir .. "include/GLSLANG/ShaderLang.h",
+	angle_dir .. "include/GLSLANG/ShaderVars.h",
+	angle_dir .. "src/compiler/translator/blocklayout.h",
+	angle_dir .. "src/compiler/translator/blocklayoutHLSL.h",
+}
+
+local angle_translator_sources = {
+	angle_dir .. "include/EGL/egl.h",
+	angle_dir .. "include/EGL/eglext.h",
+	angle_dir .. "include/EGL/eglplatform.h",
+	angle_dir .. "include/GLES2/gl2.h",
+	angle_dir .. "include/GLES2/gl2ext.h",
+	angle_dir .. "include/GLES2/gl2platform.h",
+	angle_dir .. "include/GLES3/gl3.h",
+	angle_dir .. "include/GLES3/gl31.h",
+	angle_dir .. "include/GLES3/gl32.h",
+	angle_dir .. "include/GLES3/gl3platform.h",
+	angle_dir .. "include/KHR/khrplatform.h",
+	angle_dir .. "include/angle_gl.h",
+	angle_dir .. "src/compiler/translator/BaseTypes.h",
+	angle_dir .. "src/compiler/translator/BuiltInFunctionEmulator.cpp",
+	angle_dir .. "src/compiler/translator/BuiltInFunctionEmulator.h",
+	angle_dir .. "src/compiler/translator/CallDAG.cpp",
+	angle_dir .. "src/compiler/translator/CallDAG.h",
+	angle_dir .. "src/compiler/translator/CodeGen.cpp",
+	angle_dir .. "src/compiler/translator/CollectVariables.cpp",
+	angle_dir .. "src/compiler/translator/CollectVariables.h",
+	angle_dir .. "src/compiler/translator/Common.h",
+	angle_dir .. "src/compiler/translator/Compiler.cpp",
+	angle_dir .. "src/compiler/translator/Compiler.h",
+	angle_dir .. "src/compiler/translator/ConstantUnion.cpp",
+	angle_dir .. "src/compiler/translator/ConstantUnion.h",
+	angle_dir .. "src/compiler/translator/Declarator.cpp",
+	angle_dir .. "src/compiler/translator/Declarator.h",
+	angle_dir .. "src/compiler/translator/Diagnostics.cpp",
+	angle_dir .. "src/compiler/translator/Diagnostics.h",
+	angle_dir .. "src/compiler/translator/DirectiveHandler.cpp",
+	angle_dir .. "src/compiler/translator/DirectiveHandler.h",
+	angle_dir .. "src/compiler/translator/ExtensionBehavior.cpp",
+	angle_dir .. "src/compiler/translator/ExtensionBehavior.h",
+	angle_dir .. "src/compiler/translator/FlagStd140Structs.cpp",
+	angle_dir .. "src/compiler/translator/FlagStd140Structs.h",
+	angle_dir .. "src/compiler/translator/FunctionLookup.cpp",
+	angle_dir .. "src/compiler/translator/FunctionLookup.h",
+	angle_dir .. "src/compiler/translator/HashNames.cpp",
+	angle_dir .. "src/compiler/translator/HashNames.h",
+	angle_dir .. "src/compiler/translator/ImmutableString.h",
+	angle_dir .. "src/compiler/translator/ImmutableStringBuilder.cpp",
+	angle_dir .. "src/compiler/translator/ImmutableStringBuilder.h",
+	angle_dir .. "src/compiler/translator/InfoSink.cpp",
+	angle_dir .. "src/compiler/translator/InfoSink.h",
+	angle_dir .. "src/compiler/translator/Initialize.cpp",
+	angle_dir .. "src/compiler/translator/Initialize.h",
+	angle_dir .. "src/compiler/translator/InitializeDll.cpp",
+	angle_dir .. "src/compiler/translator/InitializeDll.h",
+	angle_dir .. "src/compiler/translator/InitializeGlobals.h",
+	angle_dir .. "src/compiler/translator/IntermNode.cpp",
+	angle_dir .. "src/compiler/translator/IntermNode.h",
+	angle_dir .. "src/compiler/translator/IsASTDepthBelowLimit.cpp",
+	angle_dir .. "src/compiler/translator/IsASTDepthBelowLimit.h",
+	angle_dir .. "src/compiler/translator/Operator.cpp",
+	angle_dir .. "src/compiler/translator/Operator.h",
+	angle_dir .. "src/compiler/translator/OutputTree.cpp",
+	angle_dir .. "src/compiler/translator/OutputTree.h",
+	angle_dir .. "src/compiler/translator/ParseContext.cpp",
+	angle_dir .. "src/compiler/translator/ParseContext.h",
+	angle_dir .. "src/compiler/translator/ParseContext_ESSL_autogen.h",
+	angle_dir .. "src/compiler/translator/ParseContext_complete_autogen.h",
+	angle_dir .. "src/compiler/translator/ParseContext_interm.h",
+	angle_dir .. "src/compiler/translator/PoolAlloc.cpp",
+	angle_dir .. "src/compiler/translator/PoolAlloc.h",
+	angle_dir .. "src/compiler/translator/Pragma.h",
+	angle_dir .. "src/compiler/translator/QualifierTypes.cpp",
+	angle_dir .. "src/compiler/translator/QualifierTypes.h",
+	angle_dir .. "src/compiler/translator/Severity.h",
+	angle_dir .. "src/compiler/translator/ShaderLang.cpp",
+	angle_dir .. "src/compiler/translator/ShaderVars.cpp",
+	angle_dir .. "src/compiler/translator/StaticType.h",
+	angle_dir .. "src/compiler/translator/Symbol.cpp",
+	angle_dir .. "src/compiler/translator/Symbol.h",
+	angle_dir .. "src/compiler/translator/SymbolTable.cpp",
+	angle_dir .. "src/compiler/translator/SymbolTable.h",
+	angle_dir .. "src/compiler/translator/SymbolTable_autogen.h",
+	angle_dir .. "src/compiler/translator/SymbolUniqueId.cpp",
+	angle_dir .. "src/compiler/translator/SymbolUniqueId.h",
+	angle_dir .. "src/compiler/translator/Types.cpp",
+	angle_dir .. "src/compiler/translator/Types.h",
+	angle_dir .. "src/compiler/translator/ValidateAST.cpp",
+	angle_dir .. "src/compiler/translator/ValidateAST.h",
+	angle_dir .. "src/compiler/translator/ValidateGlobalInitializer.cpp",
+	angle_dir .. "src/compiler/translator/ValidateGlobalInitializer.h",
+	angle_dir .. "src/compiler/translator/ValidateLimitations.cpp",
+	angle_dir .. "src/compiler/translator/ValidateLimitations.h",
+	angle_dir .. "src/compiler/translator/ValidateMaxParameters.cpp",
+	angle_dir .. "src/compiler/translator/ValidateMaxParameters.h",
+	angle_dir .. "src/compiler/translator/ValidateOutputs.cpp",
+	angle_dir .. "src/compiler/translator/ValidateOutputs.h",
+	angle_dir .. "src/compiler/translator/ValidateSwitch.cpp",
+	angle_dir .. "src/compiler/translator/ValidateSwitch.h",
+	angle_dir .. "src/compiler/translator/ValidateVaryingLocations.cpp",
+	angle_dir .. "src/compiler/translator/ValidateVaryingLocations.h",
+	angle_dir .. "src/compiler/translator/VariablePacker.cpp",
+	angle_dir .. "src/compiler/translator/VariablePacker.h",
+	angle_dir .. "src/compiler/translator/blocklayout.cpp",
+	angle_dir .. "src/compiler/translator/glslang.h",
+	angle_dir .. "src/compiler/translator/glslang_lex_autogen.cpp",
+	angle_dir .. "src/compiler/translator/glslang_tab_autogen.cpp",
+	angle_dir .. "src/compiler/translator/glslang_tab_autogen.h",
+	angle_dir .. "src/compiler/translator/length_limits.h",
+	angle_dir .. "src/compiler/translator/tree_ops/AddAndTrueToLoopCondition.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/AddAndTrueToLoopCondition.h",
+	angle_dir .. "src/compiler/translator/tree_ops/BreakVariableAliasingInInnerLoops.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/BreakVariableAliasingInInnerLoops.h",
+	angle_dir .. "src/compiler/translator/tree_ops/ClampFragDepth.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/ClampFragDepth.h",
+	angle_dir .. "src/compiler/translator/tree_ops/ClampPointSize.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/ClampPointSize.h",
+	angle_dir .. "src/compiler/translator/tree_ops/DeclareAndInitBuiltinsForInstancedMultiview.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/DeclareAndInitBuiltinsForInstancedMultiview.h",
+	angle_dir .. "src/compiler/translator/tree_ops/DeferGlobalInitializers.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/DeferGlobalInitializers.h",
+	angle_dir .. "src/compiler/translator/tree_ops/EmulateGLFragColorBroadcast.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/EmulateGLFragColorBroadcast.h",
+	angle_dir .. "src/compiler/translator/tree_ops/EmulateMultiDrawShaderBuiltins.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/EmulateMultiDrawShaderBuiltins.h",
+	angle_dir .. "src/compiler/translator/tree_ops/EmulatePrecision.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/EmulatePrecision.h",
+	angle_dir .. "src/compiler/translator/tree_ops/ExpandIntegerPowExpressions.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/ExpandIntegerPowExpressions.h",
+	angle_dir .. "src/compiler/translator/tree_ops/FoldExpressions.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/FoldExpressions.h",
+	angle_dir .. "src/compiler/translator/tree_ops/InitializeVariables.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/InitializeVariables.h",
+	angle_dir .. "src/compiler/translator/tree_ops/NameEmbeddedUniformStructs.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/NameEmbeddedUniformStructs.h",
+	angle_dir .. "src/compiler/translator/tree_ops/PruneEmptyCases.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/PruneEmptyCases.h",
+	angle_dir .. "src/compiler/translator/tree_ops/PruneNoOps.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/PruneNoOps.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RecordConstantPrecision.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RecordConstantPrecision.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RegenerateStructNames.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RegenerateStructNames.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveArrayLengthMethod.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveArrayLengthMethod.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveAtomicCounterBuiltins.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveAtomicCounterBuiltins.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveDynamicIndexing.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveDynamicIndexing.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveInactiveInterfaceVariables.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveInactiveInterfaceVariables.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveInvariantDeclaration.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveInvariantDeclaration.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RemovePow.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RemovePow.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveUnreferencedVariables.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RemoveUnreferencedVariables.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteAtomicCounters.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteAtomicCounters.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteAtomicFunctionExpressions.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteAtomicFunctionExpressions.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteCubeMapSamplersAs2DArray.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteCubeMapSamplersAs2DArray.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteDfdy.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteDfdy.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteDoWhile.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteDoWhile.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteExpressionsWithShaderStorageBlock.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteExpressionsWithShaderStorageBlock.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteRepeatedAssignToSwizzled.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteRepeatedAssignToSwizzled.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteRowMajorMatrices.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteRowMajorMatrices.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteStructSamplers.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteStructSamplers.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteStructSamplersOld.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteTexelFetchOffset.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteTexelFetchOffset.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteUnaryMinusOperatorFloat.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteUnaryMinusOperatorFloat.h",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteUnaryMinusOperatorInt.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/RewriteUnaryMinusOperatorInt.h",
+	angle_dir .. "src/compiler/translator/tree_ops/ScalarizeVecAndMatConstructorArgs.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/ScalarizeVecAndMatConstructorArgs.h",
+	angle_dir .. "src/compiler/translator/tree_ops/SeparateDeclarations.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/SeparateDeclarations.h",
+	angle_dir .. "src/compiler/translator/tree_ops/SimplifyLoopConditions.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/SimplifyLoopConditions.h",
+	angle_dir .. "src/compiler/translator/tree_ops/SplitSequenceOperator.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/SplitSequenceOperator.h",
+	angle_dir .. "src/compiler/translator/tree_ops/UnfoldShortCircuitAST.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/UnfoldShortCircuitAST.h",
+	angle_dir .. "src/compiler/translator/tree_ops/UseInterfaceBlockFields.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/UseInterfaceBlockFields.h",
+	angle_dir .. "src/compiler/translator/tree_ops/VectorizeVectorScalarArithmetic.cpp",
+	angle_dir .. "src/compiler/translator/tree_ops/VectorizeVectorScalarArithmetic.h",
+	angle_dir .. "src/compiler/translator/tree_util/BuiltIn.h",
+	angle_dir .. "src/compiler/translator/tree_util/BuiltIn_ESSL_autogen.h",
+	angle_dir .. "src/compiler/translator/tree_util/BuiltIn_complete_autogen.h",
+	angle_dir .. "src/compiler/translator/tree_util/FindFunction.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/FindFunction.h",
+	angle_dir .. "src/compiler/translator/tree_util/FindMain.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/FindMain.h",
+	angle_dir .. "src/compiler/translator/tree_util/FindSymbolNode.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/FindSymbolNode.h",
+	angle_dir .. "src/compiler/translator/tree_util/IntermNodePatternMatcher.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/IntermNodePatternMatcher.h",
+	angle_dir .. "src/compiler/translator/tree_util/IntermNode_util.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/IntermNode_util.h",
+	angle_dir .. "src/compiler/translator/tree_util/IntermTraverse.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/IntermTraverse.h",
+	angle_dir .. "src/compiler/translator/tree_util/NodeSearch.h",
+	angle_dir .. "src/compiler/translator/tree_util/ReplaceShadowingVariables.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/ReplaceShadowingVariables.h",
+	angle_dir .. "src/compiler/translator/tree_util/ReplaceVariable.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/ReplaceVariable.h",
+	angle_dir .. "src/compiler/translator/tree_util/RunAtTheEndOfShader.cpp",
+	angle_dir .. "src/compiler/translator/tree_util/RunAtTheEndOfShader.h",
+	angle_dir .. "src/compiler/translator/tree_util/Visit.h",
+	angle_dir .. "src/compiler/translator/util.cpp",
+	angle_dir .. "src/compiler/translator/util.h",
+	angle_dir .. "src/compiler/translator/ImmutableString_autogen.cpp",
+	angle_dir .. "src/compiler/translator/SymbolTable_autogen.cpp",
+	angle_dir .. "src/third_party/compiler/ArrayBoundsClamper.cpp",
+	angle_dir .. "src/third_party/compiler/ArrayBoundsClamper.h",
+}
+
+local angle_translator_essl_sources = {
+	angle_dir .. "src/compiler/translator/OutputESSL.cpp",
+	angle_dir .. "src/compiler/translator/OutputESSL.h",
+	angle_dir .. "src/compiler/translator/TranslatorESSL.cpp",
+	angle_dir .. "src/compiler/translator/TranslatorESSL.h",
+}
+
+local angle_translator_glsl_sources = {
+	angle_dir .. "src/compiler/translator/BuiltInFunctionEmulatorGLSL.cpp",
+	angle_dir .. "src/compiler/translator/BuiltInFunctionEmulatorGLSL.h",
+	angle_dir .. "src/compiler/translator/BuiltinsWorkaroundGLSL.cpp",
+	angle_dir .. "src/compiler/translator/BuiltinsWorkaroundGLSL.h",
+	angle_dir .. "src/compiler/translator/ExtensionGLSL.cpp",
+	angle_dir .. "src/compiler/translator/ExtensionGLSL.h",
+	angle_dir .. "src/compiler/translator/OutputGLSL.cpp",
+	angle_dir .. "src/compiler/translator/OutputGLSL.h",
+	angle_dir .. "src/compiler/translator/OutputGLSLBase.cpp",
+	angle_dir .. "src/compiler/translator/OutputGLSLBase.h",
+	angle_dir .. "src/compiler/translator/TranslatorGLSL.cpp",
+	angle_dir .. "src/compiler/translator/TranslatorGLSL.h",
+	angle_dir .. "src/compiler/translator/VersionGLSL.cpp",
+	angle_dir .. "src/compiler/translator/VersionGLSL.h",
+}
+
+local angle_translator_lib_metal_sources = {
+	angle_dir .. "src/compiler/translator/OutputVulkanGLSLForMetal.h",
+	angle_dir .. "src/compiler/translator/OutputVulkanGLSLForMetal.mm",
+	angle_dir .. "src/compiler/translator/TranslatorMetal.cpp",
+	angle_dir .. "src/compiler/translator/TranslatorMetal.h",
+}
+
+local angle_preprocessor_sources = {
+	angle_dir .. "src/compiler/preprocessor/DiagnosticsBase.cpp",
+	angle_dir .. "src/compiler/preprocessor/DiagnosticsBase.h",
+	angle_dir .. "src/compiler/preprocessor/DirectiveHandlerBase.cpp",
+	angle_dir .. "src/compiler/preprocessor/DirectiveHandlerBase.h",
+	angle_dir .. "src/compiler/preprocessor/DirectiveParser.cpp",
+	angle_dir .. "src/compiler/preprocessor/DirectiveParser.h",
+	angle_dir .. "src/compiler/preprocessor/ExpressionParser.h",
+	angle_dir .. "src/compiler/preprocessor/Input.cpp",
+	angle_dir .. "src/compiler/preprocessor/Input.h",
+	angle_dir .. "src/compiler/preprocessor/Lexer.cpp",
+	angle_dir .. "src/compiler/preprocessor/Lexer.h",
+	angle_dir .. "src/compiler/preprocessor/Macro.cpp",
+	angle_dir .. "src/compiler/preprocessor/Macro.h",
+	angle_dir .. "src/compiler/preprocessor/MacroExpander.cpp",
+	angle_dir .. "src/compiler/preprocessor/MacroExpander.h",
+	angle_dir .. "src/compiler/preprocessor/Preprocessor.cpp",
+	angle_dir .. "src/compiler/preprocessor/Preprocessor.h",
+	angle_dir .. "src/compiler/preprocessor/SourceLocation.h",
+	angle_dir .. "src/compiler/preprocessor/Token.cpp",
+	angle_dir .. "src/compiler/preprocessor/Token.h",
+	angle_dir .. "src/compiler/preprocessor/Tokenizer.h",
+	angle_dir .. "src/compiler/preprocessor/numeric_lex.h",
+	angle_dir .. "src/compiler/preprocessor/preprocessor_lex_autogen.cpp",
+	angle_dir .. "src/compiler/preprocessor/preprocessor_tab_autogen.cpp",
+}
+
+StaticLibrary {
+	Name = "angle_translator",
+
+	Defines = {
+		global_defines,
+		"ANGLE_ENABLE_ESSL",
+		{ "ANGLE_ENABLE_GLSL" ; Config = { "win*-*", "linux-*-*" } },
+		{ "ANGLE_ENABLE_METAL" ; Config = "mac-*-*" },
+	},
+
+    Includes = {
+		angle_dir .. "src/common/third_party/base",
+		angle_dir .. "include",
+		angle_dir .. "src",
+    },
+
+    Sources = {
+		angle_translator_exported_headers,
+		angle_translator_sources,
+		angle_preprocessor_sources,
+		{ angle_translator_lib_metal_sources ; Config = { "mac-*-*" } },
+		{ angle_translator_glsl_sources ; Config = { "linux*-*", "win*-*" } },
+    }
+}
+
 StaticLibrary {
 	Name = "angle",
 
 	Defines = {
-		{ "ANGLE_USE_X11"; Config = "linux-*-*" },
-		"ANGLE_ENABLE_NULL",
-        "_CRT_SECURE_NO_DEPRECATE",
-        "_SCL_SECURE_NO_WARNINGS",
-        "_HAS_EXCEPTIONS=0",
-        "NOMINMAX",
-        "ANGLE_STANDALONE_BUILD",
-        "ANGLE_ENABLE_DEBUG_ANNOTATIONS",
-        -- TODO: Change this for actually replay target, on PC we assume 64-bit
-        "ANGLE_IS_64_BIT_CPU",
+		global_defines,
+		gl_prototypes,
+	},
+
+    Includes = {
+		angle_dir .. "src/common/third_party/base",
+		angle_dir .. "include",
+		angle_dir .. "src",
     },
+
+    Sources = {
+		libangle_image_util_sources,
+		libangle_gpu_info_util_sources,
+		libangle_image_util_headers,
+		libangle_sources,
+		libangle_headers,
+		libangle_null_sources,
+		libangle_gl_null_sources,
+		libglesv2_sources,
+		libangle_capture_sources,
+		libangle_gl_sources,
+		libegl_sources,
+		-- TODO: Only build on Linux
+		libangle_gl_glx_sources,
+		-- { libangle_gl_sources ; Config = { "linux*-*", "win*-*" } },
+    }
+}
+
+StaticLibrary {
+	Name = "angle_common",
 
     Includes = {
 		angle_dir .. "src/common/third_party/base",
@@ -1057,19 +1434,275 @@ StaticLibrary {
 
     Sources = {
     	common,
-		libangle_sources,
-		libangle_headers,
-		libangle_null_sources,
-		libglesv2_sources,
-		{ libangle_gl_glx_sources ; Config = { "linux-*" } },
-		{ libangle_gl_sources ; Config = { "linux-*", "win*-*" } },
-    }
+    },
 }
+
+StaticLibrary {
+	Name = "angle_util",
+
+    Includes = {
+		angle_dir .. "include",
+		samples_dir .. "sample_util",
+		angle_dir .. "src",
+		angle_dir,
+    },
+
+	Defines = {
+		global_defines,
+		gl_prototypes,
+	},
+
+	Sources = {
+		util_dir .. "EGLPlatformParameters.h",
+		-- util_dir .. "EGLWindow.cpp",
+		-- util_dir .. "EGLWindow.h",
+		util_dir .. "Event.h",
+		util_dir .. "Matrix.cpp",
+		util_dir .. "Matrix.h",
+		util_dir .. "OSPixmap.h",
+		util_dir .. "OSWindow.cpp",
+		util_dir .. "OSWindow.h",
+		util_dir .. "com_utils.h",
+		util_dir .. "frame_capture_utils.h",
+		util_dir .. "geometry_utils.cpp",
+		util_dir .. "geometry_utils.h",
+		util_dir .. "keyboard.h",
+		util_dir .. "mouse.h",
+		util_dir .. "random_utils.cpp",
+		util_dir .. "random_utils.h",
+		util_dir .. "shader_utils.cpp",
+		util_dir .. "shader_utils.h",
+		util_dir .. "util_export.h",
+		util_dir .. "util_gl.h",
+		util_dir .. "Timer.cpp",
+		util_dir .. "Timer.h",
+    	util_dir .. "test_utils.cpp",
+    	util_dir .. "test_utils.h",
+    	-- TODO: Linux/macOS
+      	util_dir .. "posix/test_utils_posix.cpp",
+
+		--{
+    	 -- util_dir .. "windows/wgl_loader_autogen.cpp",
+		--  util_dir .. "windows/win32/Win32Pixmap.cpp",
+      	--  util_dir .. "windows/win32/Win32Pixmap.h",
+        --  util_dir .. "windows/win32/Win32Window.cpp",
+        --   util_dir .. "windows/win32/Win32Window.h"
+        -- } ; Config = { "win*-*" },
+	    --{
+		  util_dir .. "x11/X11Pixmap.cpp",
+		  util_dir .. "x11/X11Pixmap.h",
+		  util_dir .. "x11/X11Window.cpp",
+		  util_dir .. "x11/X11Window.h",
+        --} ; Config = { "linux*-*" },
+		--{
+    	  -- util_dir .. "osx/OSXPixmap.h",
+    	  -- util_dir .. "osx/OSXPixmap.mm",
+    	  -- util_dir .. "osx/OSXWindow.h",
+    	  -- util_dir .. "osx/OSXWindow.mm",
+        --} ; Config = { "mac*-*" },
+    },
+
+}
+
+StaticLibrary {
+	Name = "angle_util_2",
+
+    Includes = {
+		angle_dir .. "include",
+		samples_dir .. "sample_util",
+		angle_dir .. "src",
+		angle_dir,
+    },
+
+	Defines = {
+		global_defines,
+		gl_prototypes,
+	},
+
+	Sources = {
+		util_dir .. "EGLWindow.cpp",
+		util_dir .. "EGLWindow.h",
+    },
+}
+
+StaticLibrary {
+	Name = "angle_sample_util",
+
+    Includes = {
+		angle_dir .. "include",
+		samples_dir .. "sample_util",
+		angle_dir .. "src",
+		angle_dir,
+    },
+
+	Defines = {
+		global_defines,
+		no_gl_prototypes,
+	},
+
+	Sources = {
+    	util_dir .. "egl_loader_autogen.cpp",
+    	util_dir .. "gles_loader_autogen.cpp",
+
+
+    	samples_dir .. "sample_util/SampleApplication.cpp",
+    	samples_dir .. "sample_util/SampleApplication.h",
+    	samples_dir .. "sample_util/texture_utils.cpp",
+    	samples_dir .. "sample_util/texture_utils.h",
+    	samples_dir .. "sample_util/tga_utils.cpp",
+    	samples_dir .. "sample_util/tga_utils.h",
+    },
+}
+
+--[[
+if (is_win) {
+  _util_sources += [ "windows/WGLWindow.h" ]
+  if (!angle_is_winuwp) {
+    _util_sources += [
+      "windows/win32/Win32Pixmap.cpp",
+      "windows/win32/Win32Pixmap.h",
+      "windows/win32/Win32Window.cpp",
+      "windows/win32/Win32Window.h",
+    ]
+  }
+}
+
+if (angle_use_x11) {
+  _util_sources += [
+    "x11/X11Pixmap.cpp",
+    "x11/X11Pixmap.h",
+    "x11/X11Window.cpp",
+    "x11/X11Window.h",
+  ]
+}
+
+if (is_fuchsia) {
+  _util_sources += [
+    "fuchsia/ScenicWindow.cpp",
+    "fuchsia/ScenicWindow.h",
+  ]
+} else if (use_ozone) {
+  _util_sources += [
+    "ozone/OzonePixmap.cpp",
+    "ozone/OzoneWindow.cpp",
+    "ozone/OzoneWindow.h",
+  ]
+}
+
+if (is_mac) {
+  _util_sources += [
+    "osx/OSXPixmap.h",
+    "osx/OSXPixmap.mm",
+    "osx/OSXWindow.h",
+    "osx/OSXWindow.mm",
+  ]
+}
+
+if (is_android) {
+  _util_sources += [
+    "android/AndroidPixmap.cpp",
+    "android/AndroidWindow.cpp",
+    "android/AndroidWindow.h",
+    "android/third_party/android_native_app_glue.c",
+    "android/third_party/android_native_app_glue.h",
+  ]
+}
+
+
+    	samples_dir .. "sample_util/SampleApplication.cpp",
+    	samples_dir .. "sample_util/SampleApplication.h",
+    	samples_dir .. "sample_util/texture_utils.cpp",
+    	samples_dir .. "sample_util/texture_utils.h",
+    	samples_dir .. "sample_util/tga_utils.cpp",
+    	samples_dir .. "sample_util/tga_utils.h",
+	}
+}
+--]]
+
+--[[
+[232/4232] ../../third_party/llvm-build/Release+Asserts/bin/clang++ -MMD -MF obj/samples/hello_triangle/HelloTriangle.o.d
+	-DUSE_UDEV
+	-DUSE_AURA=1
+	-DUSE_GLIB=1
+	-DUSE_NSS_CERTS=1
+	-DUSE_X11=1
+	-D_FILE_OFFSET_BITS=64
+	-D_LARGEFILE_SOURCE
+	-D_LARGEFILE64_SOURCE
+	-D_GNU_SOURCE
+	-DCR_CLANG_REVISION=\"n344329-9284abd0-6\"
+	-D__STDC_CONSTANT_MACROS
+	-D__STDC_FORMAT_MACROS
+	-DCOMPONENT_BUILD
+	-DCR_SYSROOT_HASH=79a7783607a69b6f439add567eb6fcb48877085c
+	-D_DEBUG
+	-DDYNAMIC_ANNOTATIONS_ENABLED=1
+	-DANGLE_IS_64_BIT_CPU
+	-DGL_GLES_PROTOTYPES=0
+	-DEGL_EGL_PROTOTYPES=0
+	-DANGLE_USE_UTIL_LOADER
+	-I../../include -I../../src -I../../samples/sample_util
+	-I../../src/common/third_party/base
+	-Igen/angle
+	-I../../include
+	-I../..
+	-I../..
+	-I../..
+	-fno-strict-aliasing
+	--param=ssp-buffer-size=4
+	-fstack-protector
+	-funwind-tables
+	-fPIC
+	-pthread
+	-fcolor-diagnostics
+	-fmerge-all-constants
+	-fcrash-diagnostics-dir=../../tools/clang/crashreports
+	-Xclang
+	-mllvm
+	-Xclang
+	-instcombine-lower-dbg-declare=0
+	-m64
+	-march=x86-64
+	-Wno-builtin-macro-redefined
+	-D__DATE__= -D__TIME__= -D__TIMESTAMP__= -Xclang -fdebug-compilation-dir -Xclang . -no-canonical-prefixes -Wall -Werror -Wextra -Wimplicit-fallthrough -Wthread-safety -Wextra-semi -Wno-missing-field-initializers -Wno-unused-parameter -Wno-c++11-narrowing -Wno-unneeded-internal-declaration -Wno-undefined-var-template -Wno-ignored-pragma-optimize -Wno-implicit-int-float-conversion -Wno-final-dtor-non-final-class -Wno-builtin-assume-aligned-alignment -Wno-deprecated-copy -Wno-non-c-typedef-for-linkage -O0 -fno-omit-frame-pointer -g2 -Xclang -debug-info-kind=constructor -gsplit-dwarf -ggnu-pubnames -ftrivial-auto-var-init=pattern -fvisibility=hidden -Wheader-hygiene -Wstring-conversion -Wtautological-overlap-compare -Wexit-time-destructors -Wglobal-constructors -Wconditional-uninitialized -Wextra-semi-stmt -Wfloat-conversion -Winconsistent-missing-destructor-override -Wmissing-field-initializers -Wnon-virtual-dtor -Wredundant-parens -Wshadow-field -Wtautological-type-limit-compare -Wundefined-reinterpret-cast -Wunneeded-internal-declaration -Wparentheses -Wrange-loop-analysis -Wstrict-prototypes -Wunreachable-code -Wshorten-64-to-32 -Wno-undefined-bool-conversion
+	-Wno-tautological-undefined-compare -std=c++14 -fno-exceptions -fno-rtti
+	--sysroot=../../build/linux/debian_sid_amd64-sysroot -fvisibility-inlines-hidden
+	-c ../../samples/hello_triangle/HelloTriangle.cpp -o obj/samples/hello_triangle/HelloTriangle.o
+--]]
+
+
+
 
 Program {
-    Name = "dummy",
-    Sources = { "src/dummy/dummy.cpp" },
-    Depends = { "angle" }
+    Name = "hello_triangle",
+
+	Defines = {
+		"ANGLE_USE_UTIL_LOADER",
+		global_defines,
+		no_gl_prototypes,
+	},
+
+    Includes = {
+		angle_dir .. "include",
+		angle_dir .. "src",
+		samples_dir .. "sample_util",
+		angle_dir .. "src/common/third_party/base",
+    	angle_dir
+    },
+
+    -- Env = {
+-- 		PROGCOM = {
+-- 			{  "-lx11", "-ldl"; Config = "linux-*-*" },
+-- 		},
+-- 	},
+
+    Sources = { samples_dir .. "hello_triangle/HelloTriangle.cpp" },
+
+	Libs = {
+		{ "X11", "dl", "pthread" ; Config = "linux-*-*" },
+	},
+
+    Depends = { "angle_sample_util", "angle_util_2", "angle", "angle_util", "angle_translator", "angle_common" },
 }
 
-Always "dummy"
+Always "hello_triangle"
