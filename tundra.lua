@@ -82,6 +82,10 @@ local linux = {
 
 	ReplaceEnv = {
 		["LD"] = "$(CXX)",
+		["RUST_SUFFIXES"] = { ".rs", },
+		["RUST_CARGO"] = "cargo",
+		["RUST_CARGO_OPTS"] = "",
+		["RUST_OPTS"] = "",
 	},
 }
 
@@ -125,7 +129,7 @@ Build {
 	},
 
 	Units = {
-		"units.libs.lua",
+		"units.apps.lua",
 		"units.bgfx.lua",
 	},
 }
