@@ -31,11 +31,10 @@ RustProgram  {
     Name = "frontend",
     CargoConfig = "src/frontend/Cargo.toml",
     Sources = {
-        get_rs_src("src/frontend/src"),
+        get_rs_src("src/frontend"),
     },
 
-    -- Depends = { "bgfx", "glfw" }
-    Depends = { "glfw" }
+    Depends = { "bgfx", "glfw" }
 }
 
 -----------------------------------------------------------------------------------------------------------------------
