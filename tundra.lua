@@ -4,15 +4,16 @@ require "tundra.syntax.glob"
 local native = require('tundra.native')
 local common = { }
 
-local win32 = {
+local win64 = {
 	Inherit = common,
 	Env = {
-		HOSTPLATFORM = "win32",
+		BGFX_SHADERC = "$(OBJECTDIR)$(SEP)bgfx_shaderc$(PROGSUFFIX)",
+		HOSTPLATFORM = "win64",
 		GENERATE_PDB = "1",
 		CCOPTS = {
 			"/FS",
 			"/W4",
-			"/WX", "/I.", "/DWIN32", "/D_CRT_SECURE_NO_WARNINGS", "\"/DOBJECT_DIR=$(OBJECTDIR:#)\"",
+			"/WX", "/I.", "/Dwin64", "/D_CRT_SECURE_NO_WARNINGS", "\"/DOBJECT_DIR=$(OBJECTDIR:#)\"",
 			{ "/Od"; Config = "*-*-debug" },
 			{ "/O2"; Config = "*-*-release" },
 		},
@@ -20,7 +21,7 @@ local win32 = {
 			"/FS",
 			"/EHsc",
 			"/W4",
-			"/I.", "/DWIN32", "/D_CRT_SECURE_NO_WARNINGS", "\"/DOBJECT_DIR=$(OBJECTDIR:#)\"",
+			"/I.", "/Dwin64", "/D_CRT_SECURE_NO_WARNINGS", "\"/DOBJECT_DIR=$(OBJECTDIR:#)\"",
 			{ "/Od"; Config = "*-*-debug" },
 			{ "/O2"; Config = "*-*-release" },
 		},
@@ -39,6 +40,7 @@ local win32 = {
 local macosx = {
 	Inherit = common,
 	Env = {
+		BGFX_SHADERC = "$(OBJECTDIR)$(SEP)bgfx_shaderc$(PROGSUFFIX)",
 		HOSTPLATFORM = "Darwin",
 		CCOPTS = {
 			"-I.", "-DMACOS", "-Wall",
@@ -63,6 +65,7 @@ local macosx = {
 local linux = {
 	Inherit = common,
 	Env = {
+		BGFX_SHADERC = "$(OBJECTDIR)$(SEP)bgfx_shaderc$(PROGSUFFIX)",
 		HOSTPLATFORM = "Linux",
 		CCOPTS = {
 			"-I.", "-DLINUX", "-Wall",
@@ -90,8 +93,8 @@ Build {
 
 	Configs = {
 		Config {
-			Name = "win32-msvc",
-			Inherit = win32,
+			Name = "win64-msvc",
+			Inherit = win64,
 			Tools = { "msvc" },
 			DefaultOnHost = "windows",
 			SupportedHosts = { "windows"},
@@ -123,5 +126,6 @@ Build {
 
 	Units = {
 		"units.libs.lua",
+		"units.bgfx.lua",
 	},
 }
