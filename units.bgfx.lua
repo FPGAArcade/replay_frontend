@@ -299,3 +299,4 @@ StaticLibrary {
 
 	IdeGenerationHints = { Msvc = { SolutionFolder = "External" } },
 }
+
