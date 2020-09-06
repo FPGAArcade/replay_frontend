@@ -39,6 +39,19 @@ RustProgram  {
 
 -----------------------------------------------------------------------------------------------------------------------
 
+RustProgram  {
+    Name = "testbed",
+    CargoConfig = "src/testbed/Cargo.toml",
+    Sources = {
+        get_rs_src("src/egui"),
+        get_rs_src("src/egui_glium"),
+        get_rs_src("src/testbed"),
+    },
+}
+
+-----------------------------------------------------------------------------------------------------------------------
+
 Default "frontend"
+Default "testbed"
 Always "dummy"
 

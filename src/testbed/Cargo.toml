@@ -1,0 +1,12 @@
+[package]
+name = "testbed"
+version = "0.1.0"
+authors = ["Daniel Collin <daniel@collin.com>"]
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[dependencies]
+egui = { path = "../egui" }
+egui_glium = { path = "../egui_glium" }
+serde = { version = "1", features = ["derive"] }
+
