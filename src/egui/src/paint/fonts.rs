@@ -47,7 +47,7 @@ impl FontDefinitions {
     pub fn with_pixels_per_point(pixels_per_point: f32) -> Self {
         let mut fonts = BTreeMap::new();
         fonts.insert(TextStyle::Body, (FontFamily::VariableWidth, 14.0));
-        fonts.insert(TextStyle::Button, (FontFamily::VariableWidth, 16.0));
+        fonts.insert(TextStyle::Button, (FontFamily::VariableWidth, 24.0));
         fonts.insert(TextStyle::Heading, (FontFamily::VariableWidth, 24.0));
         fonts.insert(TextStyle::Monospace, (FontFamily::Monospace, 13.0));
 

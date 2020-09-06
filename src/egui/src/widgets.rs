@@ -286,7 +286,7 @@ impl Widget for Button {
             text,
             text_color,
             text_style,
-            fill,
+            fill: _fill,
             sense,
         } = self;
 
@@ -300,13 +300,15 @@ impl Widget for Button {
 
         let response = ui.interact(rect, id, sense);
         let text_cursor = response.rect.center() - 0.5 * galley.size;
-        let fill = fill.unwrap_or(ui.style().interact(&response).bg_fill);
+        //let fill = fill.unwrap_or(ui.style().interact(&response).bg_fill);
+        /*
         ui.painter().add(PaintCmd::Rect {
             rect: response.rect,
             corner_radius: ui.style().interact(&response).corner_radius,
             fill,
             stroke: ui.style().interact(&response).bg_stroke,
         });
+        */
         let text_color = text_color.unwrap_or_else(|| ui.style().interact(&response).text_color());
         ui.painter()
             .galley(text_cursor, galley, text_style, text_color);

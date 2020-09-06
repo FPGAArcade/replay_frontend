@@ -1,3 +1,6 @@
 .tundra2.*
 t2-output
 src/frontend/target
+src/testbed/target
+src/egui/target
+src/egui/Cargo.lock
