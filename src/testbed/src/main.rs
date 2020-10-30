@@ -1,9 +1,9 @@
 //! Example of how to use Egui
 
-#![deny(warnings)]
+//#![deny(warnings)]
 #![warn(clippy::all)]
 
-use egui::{Window};
+use egui::*;
 use egui_glium::{storage::FileStorage, RunMode};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -19,13 +19,21 @@ impl egui::app::App for MyApp {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut dyn egui::app::Backend) {
         //let MyApp { value } = self;
 
-        // Example used in `README.md`.
-        Window::new("").show(ui.ctx(), |ui| {
-            ui.button("Collection");
-            ui.button("Cores");
-            ui.button("Demos");
-            ui.button("Settings");
-        });
+        Area::new(Id::new("Side Panel"))
+            .order(Order::Foreground)
+            .fixed_pos(pos2(0.0, 0.0))
+            .show(ui.ctx(), |ui| {
+                Frame::window(ui.style()).show(ui, |ui| {
+                    ui.expand_to_size(vec2(200.0, ui.input().screen_size.y));
+                    ui.allocate_space(vec2(200.0, 200.0));
+
+                    ui.button("Cores");
+                    ui.button("Games");
+                    ui.button("Demos");
+                    ui.button("Music");
+                    ui.button("Settings");
+                })
+            });
     }
 
     fn on_exit(&mut self, storage: &mut dyn egui::app::Storage) {
@@ -34,7 +42,7 @@ impl egui::app::App for MyApp {
 }
 
 fn main() {
-    let title = "My Egui Window";
+    let title = "Replay Arcade Frontend";
     let storage = FileStorage::from_path(".egui_example_glium.json".into()); // Where to persist app state
     let app: MyApp = egui::app::get_value(&storage, egui::app::APP_KEY).unwrap_or_default(); // Restore `MyApp` from file, or create new `MyApp`.
     egui_glium::run(title, RunMode::Reactive, storage, app);
