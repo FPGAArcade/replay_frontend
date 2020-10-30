@@ -635,14 +635,14 @@ pub fn get_current_surface(readdraw: Int) -> Option<Surface> {
 }
 
 /// Return an EGL display connection.
-pub fn get_display(display_id: NativeDisplayType) -> Option<Display> {
+pub fn get_display(display_id: NativeDisplayType) -> Result<Display, Error> {
 	unsafe {
 		let display = ffi::eglGetDisplay(display_id);
 
 		if display != NO_DISPLAY {
-			Some(Display(display))
+			Ok(Display(display))
 		} else {
-			None
+			Err(Error::NotInitialized)
 		}
 	}
 }
