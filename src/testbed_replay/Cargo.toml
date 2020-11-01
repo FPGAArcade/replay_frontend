@@ -9,4 +9,8 @@ build = "build.rs"
 
 [dependencies]
 khronos-egl = { path = "../../external/khronos-egl" }
+input = "0.5"
+
+[patch.crates-io]
+libudev-sys = { path = "../../external/libudev-sys" }
 
