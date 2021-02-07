@@ -1,8 +1,6 @@
-//! Example of how to use Egui
+use minifb::{Key, Window, WindowOptions};
 
-//#![deny(warnings)]
-#![warn(clippy::all)]
-
+/*
 use egui::*;
 use egui_glium::{storage::FileStorage, RunMode};
 
@@ -14,8 +12,6 @@ struct MyApp {
 }
 
 impl egui::app::App for MyApp {
-    /// This function will be called whenever the Ui needs to be shown,
-    /// which may be many times per second.
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut dyn egui::app::Backend) {
         //let MyApp { value } = self;
 
@@ -40,16 +36,35 @@ impl egui::app::App for MyApp {
         egui::app::set_value(storage, egui::app::APP_KEY, self);
     }
 }
+*/
 
 fn main() {
-    let title = "Replay Arcade Frontend";
-    let storage = FileStorage::from_path(".egui_example_glium.json".into()); // Where to persist app state
-    let app: MyApp = egui::app::get_value(&storage, egui::app::APP_KEY).unwrap_or_default(); // Restore `MyApp` from file, or create new `MyApp`.
-    egui_glium::run(title, RunMode::Reactive, storage, app);
-}
+    const WIDTH: usize = 1280;
+    const HEIGHT: usize = 720;
 
-/*
-fn my_save_function() {
-    // dummy
+    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
+
+    let mut window = Window::new(
+        "Test - ESC to exit",
+        WIDTH,
+        HEIGHT,
+        WindowOptions::default(),
+    )
+    .unwrap_or_else(|e| {
+        panic!("{}", e);
+    });
+
+    // Limit to max ~60 fps update rate
+    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        for i in buffer.iter_mut() {
+            *i = 0; // write something more funny here!
+        }
+
+        // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
+        window
+            .update_with_buffer(&buffer, WIDTH, HEIGHT)
+            .unwrap();
+    }
 }
-*/
