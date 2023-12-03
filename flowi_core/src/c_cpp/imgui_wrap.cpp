@@ -81,8 +81,9 @@ struct FontAtlas {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 extern "C" FontAtlas imgui_build_rgba32_texture() {
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.Fonts->Build();
+    ImGuiIO& io = ImGui::GetIO();
+    
+    bool b = io.Fonts->Build();
 
     uint8_t* data;
     int32_t width;
@@ -1253,7 +1254,7 @@ void fl_style_init_priv() {
 }
 
 
-//extern FlFontApi g_font_funcs;
+extern FlFontApi g_font_funcs;
 //extern FlImageApi g_f
 //extern "C" FlImageApi g_image_funcs;
 //extern FlButtonApi g_button_funcs;
@@ -1557,7 +1558,7 @@ extern "C" void* c_create(const FlApplicationSettings* settings, void* rust_stat
 
     state->button_api = g_button_funcs;
     state->cursor_api = g_cursor_funcs;
-    //state->font_api = g_font_funcs;
+    state->font_api = g_font_funcs;
     state->image_api = g_image_funcs;
     state->input_api = g_input_funcs;
     state->item_api = g_item_funcs;
@@ -1583,6 +1584,7 @@ extern "C" void* c_create(const FlApplicationSettings* settings, void* rust_stat
     g_flowi_button_api = &state->button_api;
     g_flowi_cursor_api = &state->cursor_api;
     g_flowi_input_api = &state->input_api;
+    g_flowi_font_api = &state->font_api; 
     g_flowi_image_api = &state->image_api; 
     g_flowi_io_api = &state->io_api;
     g_flowi_item_api = &state->item_api;

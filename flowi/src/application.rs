@@ -30,10 +30,11 @@ struct WrappedMainData {
 
 #[repr(C)]
 pub struct Application {
-    pub(crate) renderer: Box<dyn Renderer>,
+    pub(crate) renderer: Option<Box<dyn Renderer>>,
     pub(crate) window: Box<dyn Window>,
     pub(crate) core: Instance, 
     pub(crate) user: WrappedMainData,
+    pub(crate) settings: ApplicationSettings,
 }
 
 unsafe extern "C" fn user_trampoline_ud<T>(wd: &WrappedMainData) {
@@ -52,7 +53,10 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         user_trampoline_ud::<T>(&mut state.user);
 
         state.core.post_update();
-        state.renderer.render();
+
+        if let Some(renderer) = &mut state.renderer {
+            renderer.render();
+        }
 
         // TODO: This is a hack to not use 100% CPU
         std::thread::sleep(std::time::Duration::from_millis(1));
@@ -63,12 +67,12 @@ impl Application {
     pub fn new(settings: &ApplicationSettings) -> Result<Box<Self>> {
         let core = Instance::new(settings); 
         let window = Box::new(GlfwWindow::new(settings));
-        let renderer = Box::new(BgfxRenderer::new(settings, &window.raw_window_handle()));
 
         Ok(Box::new(Self {
             window,
-            renderer,
+            renderer: None,
             core,
+            settings: settings.clone(),
             user: WrappedMainData { user_data: null_mut(), user_func: null_mut() }, 
         }))
     }
@@ -77,6 +81,9 @@ impl Application {
     where
         F: Fn(&mut T) + 'a,
     {
+        let renderer = Box::new(BgfxRenderer::new(&self.settings, &self.window.raw_window_handle()));
+        self.renderer = Some(renderer);
+
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end
         let f: Box<Box<dyn Fn(&mut T) + 'a>> = Box::new(Box::new(func));
         let func = Box::into_raw(f) as *const _;
