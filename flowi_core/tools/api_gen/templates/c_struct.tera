@@ -1,0 +1,14 @@
+{% import "macros.tera" as macros %}
+
+{% for sdef in structs %}
+{% if sdef.is_handle_type %} 
+typedef uint64_t Fl{{ sdef.name }};
+{%- else %}
+typedef struct Fl{{ sdef.name }} {
+    {%- for var in sdef.variables %}
+    {{ macros::gen_comments(comments=var.doc_comments) }}
+    {{ get_ctype_struct(var=var, self=sdef.name) }}
+    {%- endfor %}
+} Fl{{ sdef.name }};
+{%- endif -%}
+{% endfor %}

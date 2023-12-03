@@ -1,0 +1,7 @@
+{% macro gen_comments(comments) %}
+    {%- for c in comments -%}
+// {{ c }}
+    {%- endfor -%}
+{% endmacro gen_comments %} 
+
+

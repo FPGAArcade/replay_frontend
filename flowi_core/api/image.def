@@ -1,0 +1,51 @@
+//mod render_commands
+
+enum ImageFormat {
+    /// 8-bit per channel Red, Green and Blue
+    Rgb,
+    /// 8-bit per channel Red, Green, Blue and Alpha
+    Rgba,
+    /// 8-bit per channel Blue, Green and Red
+    Bgr,
+    /// 8-bit per channel Blue, Green and Red and Alpha
+    Bgra,
+    /// 8-bit per channel Alpha only
+    Alpha,
+}
+
+struct ImageInfo {
+    /// Format of the image. See the ImageFormat enum
+    image_format: u32,
+    /// width of the image
+    width: u32,
+    /// height of the Image
+    height: u32,
+    /// Number of frames. This is 1 for static images and > 1 for animated images 
+    frame_count: u32,
+}
+
+enum SvgFlags {
+    /// Render the SVG image using RGBA format
+    Rgba = 0,
+    /// Render the SVG image using Alpha only
+    Alpha = 1,
+}
+
+#[attributes(Handle)]
+struct Image {
+    /// Load image from file. Supported formats are:
+    /// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
+    /// PNG 1/2/4/8/16-bit-per-channel
+    /// Notice that this will return a async handle so the data may not be acceassable directly.
+    [static] create_from_file(filename: String) -> Image?,
+    /// Load image from file. Supported formats are:
+    /// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
+    /// PNG 1/2/4/8/16-bit-per-channel
+    /// This call will block until the loading has finished. It's recommended to use the async version instead.
+    [static] create_from_file_block(filename: String) -> Image?,
+    /// Get data amout the image
+    [static] get_info(image: Image) -> *const ImageInfo?,
+}
+
+// vim: syntax=rust expandtab ts=4 sw=4
+
