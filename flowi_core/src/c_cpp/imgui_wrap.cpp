@@ -1370,7 +1370,6 @@ extern "C" void fl_input_add_mouse_pos_event_impl(struct FlInternalData* priv, f
 extern "C" void fl_input_add_mouse_button_event_impl(struct FlInternalData* priv, int button, bool down) {
     FL_UNUSED(priv);
     ImGuiIO& io = ImGui::GetIO();
-    printf("fl_input_add_mouse_button_event_impl %d %d\n", button, down);
     io.AddMouseButtonEvent(button, down);
 }
 
