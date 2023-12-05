@@ -9,7 +9,7 @@ edition = "2021"
 base64ct = { version = "1.6.0", features = ["alloc"] }
 bitflags = "2.0.0-rc.1"
 bytemuck = "1.14.0"
-# fileorama = { path = "../fileorama" }
+fileorama = { path = "../fileorama" }
 glam = "0.23.0"
 log = "0.4"
 notify = "5.1.0"

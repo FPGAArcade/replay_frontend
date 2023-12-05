@@ -1,7 +1,7 @@
 use crate::image::{ImageFormat, ImageInfo};
 use crate::manual::FlString;
 use crate::InternalState;
-//use fileorama::{Driver, DriverType, Error, FilesDirs, LoadStatus, Progress, Fileorama, RecvMsg};
+use fileorama::{MemoryDriver, MemoryDriverType,  Error, FilesDirs, LoadStatus, Progress, Fileorama, RecvMsg};
 use std::collections::HashMap;
 use std::{thread, time};
 
@@ -103,41 +103,26 @@ fn decode_jpeg(data: &[u8]) -> Result<LoadStatus, Error> {
 }
 */
 
-/*
-impl Driver for ImageLoader {
-    /// We return true here as we don't know
-    fn is_remote(&self) -> bool {
-        dbg!();
-        true
-    }
-
+impl MemoryDriver for ImageLoader {
     fn name(&self) -> &'static str {
         dbg!();
         "flowi_image_loader"
     }
 
-    fn supports_url(&self, url: &str) -> bool {
-        url.ends_with(".png")
-        //dbg!();
-        // We always let other drivers load to memory
-        //false
-    }
-
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_instance(&self) -> DriverType {
+    fn create_instance(&self) -> MemoryDriverType {
         Box::<ImageLoader>::default()
     }
 
     // Get some data in and returns true if driver can be mounted from it
-    fn can_load_from_data(&self, data: &[u8]) -> bool {
-        dbg!();
+    fn can_create_from_data(&self, data: &[u8]) -> bool {
         let mut png_decoder = PngDecoder::new(data);
         let headers = png_decoder.decode_headers();
         headers.is_ok()
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(&self, data: Box<[u8]>) -> Option<DriverType> {
+    fn create_from_data(&self, data: Box<[u8]>) -> Option<MemoryDriverType> {
         dbg!();
         // Check if png or jpeg loader can open the data
         /*
@@ -161,20 +146,8 @@ impl Driver for ImageLoader {
         None
     }
 
-    fn can_load_from_url(&self, url: &str) -> bool {
-        url.ends_with(".png")
-        //dbg!();
-        //false
-    }
-
-    /// Used when creating an instance of the driver with a path to load from
-    fn create_from_url(&self, _url: &str) -> Option<DriverType> {
-        dbg!();
-        None
-    }
-
     /// Returns a handle which updates the progress and returns the loaded data. This will try to
-    fn load_url(&mut self, _path: &str, progress: &mut Progress) -> Result<LoadStatus, Error> {
+    fn load(&mut self, _path: &str, progress: &mut Progress) -> Result<LoadStatus, Error> {
         println!("loading url: {} for image loader", _path);
         //progress.set_step(1);
 
@@ -210,10 +183,9 @@ impl Driver for ImageLoader {
         Ok(FilesDirs::default())
     }
 }
-*/
 
 enum Image {
-    //Async(fileorama::Handle),
+    Async(fileorama::Handle),
     Data(Vec<u8>),
 }
 
@@ -224,9 +196,8 @@ pub(crate) struct ImageHandler {
 }
 
 impl ImageHandler {
-    //pub fn new(vfs: &Fileorama) -> Self {
-    pub fn new() -> Self {
-        //vfs.add_driver(Box::new(ImageLoader::default()));
+    pub fn new(vfs: &Fileorama) -> Self {
+        vfs.add_memory_driver(Box::new(ImageLoader::default()));
 
         Self {
             images: HashMap::new(),
@@ -235,10 +206,7 @@ impl ImageHandler {
     }
 }
 
-/*
-fn load_sync(url: &str) -> Result<Vec<u8>, Error> {
-//fn load_sync(vfs: &Fileorama, url: &str) -> Result<Vec<u8>, Error> {
-    /*
+fn load_sync(vfs: &Fileorama, url: &str) -> Result<Vec<u8>, Error> {
     let handle = vfs.load_url(url);
 
     for _ in 0..10_000 {
@@ -253,24 +221,17 @@ fn load_sync(url: &str) -> Result<Vec<u8>, Error> {
     }
 
     Err(Error::Generic(format!("Loading of {} didn't complete within timeout", url)))
-    */
-    Err(Error::Generic(format!("Loading of {} didn't complete within timeout", url)))
 }
-*/
 
-
-/*
 #[inline]
-fn create_from_file_sync(state: &mut InternalState, filename: &str) -> std::io::Result<u64> {
-    let data = load_sync(filename)?;
+fn create_from_file_sync(state: &mut InternalState, filename: &str) -> Result<u64, Error> {
+    let data = load_sync(&state.vfs, filename)?;
     let id = state.image_handler.id_counter;
     state.image_handler.images.insert(id, Image::Data(data));
     state.image_handler.id_counter += 1;
     Ok(id)
 }
-*/
 
-/*
 #[inline]
 fn create_from_file(state: &mut InternalState, filename: &str) -> Result<u64, Error> {
     let handle = state.vfs.load_url(filename);
@@ -279,7 +240,6 @@ fn create_from_file(state: &mut InternalState, filename: &str) -> Result<u64, Er
     state.image_handler.id_counter += 1;
     Ok(id)
 }
-*/
 
 struct WrapState<'a> {
     s: &'a mut crate::InternalState,
@@ -289,15 +249,10 @@ struct WrapState<'a> {
 #[no_mangle]
 pub fn fl_image_create_from_file_block_impl(data: *mut core::ffi::c_void, filename: FlString) -> u64 {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    /*
     let name = filename.as_str();
     create_from_file_sync(state, name).unwrap_or_else(|e| {
-        //panic!("{:?}", e);
-        // TODO: set_last_error
-        return 0;
+        panic!("{:?}", e);
     })
-    */
-    0
 }
 
 // FFI functions
@@ -305,14 +260,9 @@ pub fn fl_image_create_from_file_block_impl(data: *mut core::ffi::c_void, filena
 pub fn fl_image_create_from_file_impl(data: *mut core::ffi::c_void, filename: FlString) -> u64 {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
     let name = filename.as_str();
-    /*
     create_from_file(state, name).unwrap_or_else(|e| {
         panic!("{:?}", e);
-        // TODO: set_last_error
-        return 0;
     })
-    */
-    0
 }
 
 #[no_mangle]

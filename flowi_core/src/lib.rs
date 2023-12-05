@@ -1,5 +1,5 @@
 use core::ffi::c_void;
-//use fileorama::Fileorama;
+use fileorama::Fileorama;
 use image_api::ImageHandler;
 
 pub mod generated;
@@ -14,7 +14,7 @@ pub use manual::Result;
 
 #[repr(C)]
 pub(crate) struct InternalState {
-    //pub(crate) vfs: Fileorama,
+    pub(crate) vfs: Fileorama,
     pub(crate) image_handler: ImageHandler,
 }
 
@@ -31,19 +31,18 @@ extern "C" {
     ) -> *const c_void;
     fn c_pre_update(data: *const c_void);
     fn c_post_update(data: *const c_void);
-    fn fl_set_display_size_impl(data: *const c_void, width: u32, height: u32);
-    fn fl_set_display_buffer_scale_impl(data: *const c_void, width: f32, height: f32);
-    fn fl_set_delta_time_impl(data: *const c_void, delta_time: f32);
+    //fn fl_set_display_size_impl(data: *const c_void, width: u32, height: u32);
+    //fn fl_set_display_buffer_scale_impl(data: *const c_void, width: f32, height: f32);
+    //fn fl_set_delta_time_impl(data: *const c_void, delta_time: f32);
 }
 
 impl Instance {
     pub fn new(settings: &ApplicationSettings) -> Self {
-        //let vfs = Fileorama::new(vfs_thread_count);
-        //let image_handler = ImageHandler::new(&vfs);
-        let image_handler = ImageHandler::new();
+        let vfs = Fileorama::new(2);
+        let image_handler = ImageHandler::new(&vfs);
 
         let state = Box::new(InternalState {
-            //vfs,
+            vfs,
             image_handler,
         });
 
@@ -54,6 +53,7 @@ impl Instance {
         Self { c_data, state }
     }
 
+    /*
     pub fn set_display_size(&self, width: u32, height: u32) {
         unsafe { fl_set_display_size_impl(self.c_data, width, height) }
     }
@@ -65,6 +65,7 @@ impl Instance {
     pub fn set_delta_time(&self, delta_time: f32) { 
         unsafe { fl_set_delta_time_impl(self.c_data, delta_time) }
     }
+    */
 
     pub fn pre_update(&self) {
         unsafe { c_pre_update(self.c_data) }
