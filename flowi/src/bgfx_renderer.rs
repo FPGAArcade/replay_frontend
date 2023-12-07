@@ -100,6 +100,13 @@ impl BgfxRenderer {
 
         bgfx::create_program(&vs_shader, &ps_shader, false)
     }
+
+    fn reset(width: u32, height: u32) { 
+        bgfx::reset(width, height, ResetArgs {
+            flags: ResetFlags::SRGB_BACKBUFFER.bits(),
+            ..Default::default()
+        });
+    }
 }
 
 impl Renderer for BgfxRenderer {
@@ -155,6 +162,7 @@ impl Renderer for BgfxRenderer {
         }
     }
 
+
     fn render(&mut self) {
         let draw_data = DrawData::get_data();
         let index_32 = false;
@@ -169,7 +177,7 @@ impl Renderer for BgfxRenderer {
         let size = (draw_data.display_size[0] as _, draw_data.display_size[1] as _);
 
         if self.old_size != size {
-            bgfx::reset(size.0 as _, size.1 as _, ResetArgs::default());
+            Self::reset(size.0 as _, size.1 as _);
             self.old_size = size;
         }
 
@@ -290,7 +298,7 @@ impl Renderer for BgfxRenderer {
                         //callback(draw_list.raw(), raw_cmd);
                     },
                     DrawCmd::ResetRenderState => {
-                        bgfx::reset(fb_width as u32, fb_height as u32, ResetArgs::default());
+                        Self::reset(fb_width as _, fb_height as _);
                     }
                 }
             }
