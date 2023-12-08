@@ -1,3 +1,4 @@
+#include "imgui_wrap.h"
 #include <flowi/ui.h>
 #include <flowi/style.h>
 #include <flowi/window.h>
@@ -18,35 +19,6 @@
 #include <stdio.h>
 //#include "imgui_impl_glfw.h"
 #include "internal.h"
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Malloc based allocator. We should use tslf or similar in a sandbox, but this is atleast in one place
-
-static void* alloc_malloc(void* user_data, u64 size) {
-    FL_UNUSED(user_data);
-    return malloc(size);
-}
-
-static void* realloc_malloc(void* user_data, void* ptr, u64 size) {
-    FL_UNUSED(user_data);
-    return realloc(ptr, size);
-}
-
-static void free_malloc(void* user_data, void* ptr) {
-    FL_UNUSED(user_data);
-    free(ptr);
-}
-
-static void memory_error(void* user_data, const char* text, int text_len) {
-    FL_UNUSED(user_data);
-    FL_UNUSED(text);
-    FL_UNUSED(text_len);
-    printf("Ran out of memory! :(\n");
-}
-
-static FlAllocator malloc_allocator = {
-    FlAllocatorError_Exit, NULL, memory_error, alloc_malloc, NULL, realloc_malloc, free_malloc,
-};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // translate from FlColor to ImGuiCol_
@@ -111,29 +83,16 @@ extern "C" FontAtlas imgui_build_r8_texture() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" bool c_should_close(FlInternalData* state) { 
-    FL_UNUSED(state);
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-extern "C" void c_pre_update(FlInternalData* state) {
+void imgui_pre_update(FlInternalData* state) {
     FL_UNUSED(state);
     ImGui::NewFrame();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" void c_post_update(FlInternalData* state) {
-    ImGui::Render();
-    LinearAllocator_rewind(&state->frame_allocator);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-extern "C" void c_pre_update_create(FlInternalData* state) {
+void imgui_post_update(FlInternalData* state) {
     FL_UNUSED(state);
+    ImGui::Render();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,40 +103,14 @@ extern "C" ImDrawData imgui_get_draw_data() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" void c_destroy(FlInternalData* data) {
-    FL_UNUSED(data);
-    ImGui::DestroyContext();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-extern "C" void fl_set_display_size_impl(FlInternalData* data, uint32_t width, uint32_t height) {
-    FL_UNUSED(data);
-    ImGuiIO& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2((float)width, (float)height);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-extern "C" void fl_set_display_buffer_scale_impl(FlInternalData* data, float width, float height) {
-    FL_UNUSED(data);
-    ImGuiIO& io = ImGui::GetIO();
-    io.DisplayFramebufferScale = ImVec2(width, height);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-extern "C" void fl_set_delta_time_impl(FlInternalData* data, float delta_time) {
-    FL_UNUSED(data);
-    ImGuiIO& io = ImGui::GetIO();
-    io.DeltaTime = delta_time;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-static void image_show(FlInternalData* ctx, FlImage image) {
+static void image_show(FlInternalData* ctx, FlImage image_id) {
     FL_UNUSED(ctx);
-    FL_UNUSED(image);
+    FL_UNUSED(image_id);
+
+    //FlTextureHandle handle = fl_renderer_texture_handle(image_id);
+    //ImageData* data = fl_image_get_data(image_id); 
+
+
     /*
     ImagePrivate* image_data = (ImagePrivate*)Handles_get_data(&ctx->global->image_handles, image);
 
@@ -1239,7 +1172,7 @@ static int s_imgui_vec2_styles[] = {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void fl_style_init_priv() {
+static void style_init_priv() {
     for (int i = 0; i < ImGuiCol_COUNT; ++i) {
         s_color_lut[s_imgui_colors[i]] = s_flowi_colors[i];
     }
@@ -1444,7 +1377,7 @@ FlInputApi g_input_funcs = {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" void* c_create(const FlApplicationSettings* settings, void* rust_state) {
+void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) {
     FL_UNUSED(settings);
 
     ImGui::CreateContext();
@@ -1552,8 +1485,6 @@ extern "C" void* c_create(const FlApplicationSettings* settings, void* rust_stat
     //ImGui_ImplGlfw_InitForOther(window, true);
     //glfwSetKeyCallback(window, key_callback);
 
-    FlInternalData* state = new FlInternalData;
-    state->rust_state = rust_state;
     //state->window = window;
 
     state->button_api = g_button_funcs;
@@ -1595,16 +1526,10 @@ extern "C" void* c_create(const FlApplicationSettings* settings, void* rust_stat
     g_flowi_ui_api = &state->ui_api;
     g_flowi_window_api = &state->window_api;
 
-    LinearAllocator_create_with_allocator(&state->frame_allocator, "string tracking allocator", &malloc_allocator,
-                                          10 * 1024, true);
-
-    StringAllocator_create(&state->string_allocator, &malloc_allocator, &state->frame_allocator);
-
-    return state;
+    style_init_priv();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 extern "C" void Errors_add(FlError err, const char* filename, int line, const char* fmt, ...) {
     FL_UNUSED(err);

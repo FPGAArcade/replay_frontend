@@ -4,9 +4,9 @@
 #include <string.h>
 
 #include <flowi/ui.h>
-#include <flowi/flowi.h>
+//#include <flowi/flowi.h>
 #include <flowi/io.h>
-#include <flowi/application.h>
+#include <flowi/application_settings.h>
 #include "allocator.h"
 #include "atlas.h"
 #include "flowi_internal.h"
@@ -21,24 +21,7 @@
 #include "style_internal.h"
 #include "text.h"
 #include "vertex_allocator.h"
-
-#if defined(_MSC_VER)
-#include <malloc.h>
-#undef aligned_alloc
-#define aligned_alloc(align, size) _aligned_malloc(size, align)
-#endif
-
-// TODO: Block based allocations
-#define MAX_CONTROLS 1024
-#define WIDGET_SPACING 2
-#define MAX_RENDER_COMMANDS 256
-#define MAX_RENDER_COMMAND_DATA (1024 * 1024)
-
-// Temp
-#define MAX_VERTS 1024
-
-// We allocate SIMD size extra memory so we can read "out of bounds"
-#define MEMORY_PADDING 4
+#include "imgui_wrap.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Malloc based allocator. We should use tslf or similar in a sandbox, but this is atleast in one place
@@ -65,90 +48,99 @@ static void memory_error(void* user_data, const char* text, int text_len) {
     printf("Ran out of memory! :(\n");
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 static FlAllocator malloc_allocator = {
     FlAllocatorError_Exit, NULL, memory_error, alloc_malloc, NULL, realloc_malloc, free_malloc,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" FlContext* fl_context_create(struct FlGlobalState* state) {
-    // TODO: Custom allocator
-    FlContext*  ctx = FlAllocator_alloc_zero_type(&malloc_allocator, FlContext);
-    FlInternalData* data = FlAllocator_alloc_zero_type(&malloc_allocator, FlInternalData);
-    // TODO: Configure these values
-    // int vertex_sizes[VertexAllocType_SIZEOF] = {1024 * 1024, 1024 * 1024};
-    // int index_sizes[VertexAllocType_SIZEOF] = {512 * 1024, 512 * 1024};
+extern "C" void* c_create(const FlApplicationSettings* settings, void* rust_state) {
+    FlInternalData* state = FlAllocator_alloc_zero_type(&malloc_allocator, FlInternalData);
 
-    LinearAllocator_create_with_allocator(&data->frame_allocator, "string tracking allocator", &malloc_allocator,
+    state->rust_state = rust_state;
+
+    CommandBuffer_create(&state->render_commands, "primitives", &malloc_allocator, 4 * 1024);
+
+    LinearAllocator_create_with_allocator(&state->frame_allocator, "string tracking allocator", &malloc_allocator,
                                           10 * 1024, true);
 
-    // VertexAllocator_create(&ctx->vertex_allocator, &malloc_allocator, vertex_sizes, index_sizes, true);
-    // LinearAllocator_create_with_allocator(&ctx->layout_allocator, "layout allocator", &malloc_allocator, 1024, true);
-    StringAllocator_create(&data->string_allocator, &malloc_allocator, &data->frame_allocator);
+    StringAllocator_create(&state->string_allocator, &malloc_allocator, &state->frame_allocator);
 
-    for (int i = 0; i < FlLayerType_Count; ++i) {
-        CommandBuffer_create(&data->layers[i].primitive_commands, "primitives", state->global_allocator, 4 * 1024);
-    }
-    
-    printf("create context\n");
+    imgui_create(state, settings);
 
-    //*ctx = s_context;
-    ctx->priv = data;
-
-    /*
-    data->button_funcs = g_button_funcs;
-    data->cursor_funcs = g_cursor_funcs;
-    data->font_funcs = g_font_funcs;
-    data->image_funcs = g_image_funcs;
-    data->io_funcs = g_io_funcs;
-    data->item_funcs = g_item_funcs;
-    data->menu_funcs = g_menu_funcs;
-    data->text_funcs = g_text_funcs;
-    data->ui_funcs = g_ui_funcs;
-    data->style_funcs = g_style_funcs;
-    data->window_funcs = g_window_funcs;
-
-    data->button_funcs.priv = data;
-    data->cursor_funcs.priv = data;
-    data->font_funcs.priv = data;
-    data->image_funcs.priv = data;
-    data->io_funcs.priv = (FlInternalData*)data->io_handler;
-    data->item_funcs.priv = data;
-    data->menu_funcs.priv = data;
-    data->text_funcs.priv = data;
-    data->ui_funcs.priv = data;
-    data->style_funcs.priv = data;
-    data->window_funcs.priv = data;
-    */
-
-    // Layout_create_default(ctx);
-    // ctx->layout_mode = FlLayoutMode_Automatic;
-
-    // TODO: Fixuw
-    data->global = state;
-
-    /*
-    if (hashmap_create(FL_MAX_WIDGET_IDS, &data->widget_states) != 0) {
-        // TODO: Error
-        return NULL;
-    }
-    */
-
-    /*
-    for (int i = 0; i < FlLayerType_Count; ++i) {
-        CommandBuffer_create(&ctx->layers[i].primitive_commands, "primitives", state->global_allocator, 4 * 1024);
-    }
-    */
-
-    return ctx;
+    return state;
 }
-//
 
-void fl_style_init_priv();
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+extern "C" void c_destroy(FlInternalData* state) {
+    StringAllocator_destroy(&state->string_allocator);
+    LinearAllocator_destroy(&state->frame_allocator);
+
+    CommandBuffer_destroy(&state->render_commands);
+
+    imgui_destroy(state);
+
+    FlAllocator* allocator = &malloc_allocator;
+
+    FlAllocator_free(allocator, state);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+extern "C" void c_pre_update(FlInternalData* state) {
+    // Rewind all allocators at the start of the frame
+    CommandBuffer_rewind(&state->render_commands);
+    LinearAllocator_rewind(&state->frame_allocator);
+
+    imgui_pre_update(state);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+extern "C" void c_post_update(FlInternalData* data) {
+    imgui_post_update(data);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Returns the number of render commands. use fl_render_get_cmd to get each command
+
+/*
+extern "C" int fl_render_begin_commands(FlGlobalState* state) {
+    return CommandBuffer_begin_read_commands(&state->render_commands);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+extern "C" u16 fl_render_get_command(FlGlobalState* state, const u8** data) {
+    return CommandBuffer_read_next_cmd(&state->render_commands, data);
+}
+*/
+
+static char s_dummy_buffer[512];
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+extern "C" FlString fl_error_last_error() {
+    strcpy(s_dummy_buffer, "TODO: Correct error");
+    FlString ret = fl_cstr_to_flstring(s_dummy_buffer);
+    return ret;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// OLD STUFF
+
+#if 0
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // This to be called before using any other functions
-
+/*
 extern "C" struct FlGlobalState* fl_create(const FlSettings* settings) {
     FL_UNUSED(settings);
 
@@ -168,8 +160,7 @@ extern "C" struct FlGlobalState* fl_create(const FlSettings* settings) {
 
     return state;
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+*/
 
 extern "C" void fl_frame_begin(FlInternalData* ctx, int width, int height, float delta_time) {
     FL_UNUSED(width);
@@ -186,54 +177,8 @@ extern "C" void fl_frame_begin(FlInternalData* ctx, int width, int height, float
     ctx->delta_time = delta_time;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-void draw_text(struct FlContext* ctx, const u8* cmd) {
-    PrimitiveText* prim = (PrimitiveText*)cmd;
-
-    Font* font = prim->font;
-
-    if (!font) {
-        ERROR_ADD(FlError_Font, "No font set, unable to draw_text: %s", "TODO: Name");
-        return;
-    }
-
-    const int text_len = prim->codepoint_count;
-
-    FlVertPosUvColor* vertices = NULL;
-    FlIdxSize* indices = NULL;
-
-    if (!VertexAllocator_alloc_pos_uv_color(&ctx->vertex_allocator, &vertices, &indices, text_len * 4, text_len * 6)) {
-        // TODO: Better error handling
-        assert(0);
-    }
-
-    Text_generate_vertex_buffer_ref(vertices, indices, font, prim->font_size, prim->codepoints, 0x0fffffff,
-                                    prim->position, 0, text_len);
-
-    FlTexturedTriangles* tri_data = Render_textured_triangles_cmd(ctx->global);
-
-    tri_data->offset = ctx->vertex_allocator.index_offset;
-    tri_data->vertex_buffer = vertices;
-    tri_data->index_buffer = indices;
-    tri_data->vertex_buffer_size = text_len * 4;
-    tri_data->index_buffer_size = text_len * 6;
-    tri_data->texture_id = ctx->global->mono_fonts_atlas->texture_id;  // TODO: Fix me
-}
-*/
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// void generate_glyphs(struct FlContext* ctx, const u8* cmd) {
-//    PrimitiveText* prim = (PrimitiveText*)cmd;
-//   Font_generate_glyphs(ctx, prim->font, prim->codepoints, prim->codepoint_count, prim->font_size);
-//}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 extern "C" void fl_frame_end(struct FlInternalData* data) {
-#if 0
     FlGlobalState* state = data->global;
 
     // first do generation pass to build up all glyphs and other data
@@ -258,9 +203,7 @@ extern "C" void fl_frame_end(struct FlInternalData* data) {
     }
 
     Atlas_end_add_rects(state->images_atlas, state);
-#endif
-    //
-#if 0
+
     for (int l = 0; l < 1; ++l) {
         Layer* layer = &ctx->layers[l];
 
@@ -310,36 +253,10 @@ extern "C" void fl_frame_end(struct FlInternalData* data) {
 
         CommandBuffer_rewind(&layer->primitive_commands);
     }
-#endif
 
     // VertexAllocator_end_frame(&ctx->vertex_allocator);
     LinearAllocator_rewind(&data->frame_allocator);
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-void fl_ui_text_impl(struct FlContext* ctx, FlString text) {
-    Utf8Result res = Utf8_to_codepoints_u32(&ctx->frame_allocator, (u8*)text.str, text.len);
-
-    if (FL_UNLIKELY(res.error != FlError_None)) {
-        // TODO: Proper error
-        printf("String is mall-formed\n");
-        return;
-    }
-
-    Layer* layer = ctx_get_active_layer(ctx);
-
-    PrimitiveText* prim = Primitive_alloc_text(layer);
-
-    prim->font = ctx->current_font;
-    prim->position = ctx->cursor;
-    prim->font_size = ctx->current_font_size != 0 ? ctx->current_font_size : ctx->current_font->default_size;
-    prim->codepoints = res.codepoints;
-    prim->codepoint_count = res.len;
-    prim->position_index = 0;  // TODO: Fixme
-}
-*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -373,6 +290,75 @@ extern "C" void fl_context_destroy(FlContext* self) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void draw_text(struct FlContext* ctx, const u8* cmd) {
+    PrimitiveText* prim = (PrimitiveText*)cmd;
+
+    Font* font = prim->font;
+
+    if (!font) {
+        ERROR_ADD(FlError_Font, "No font set, unable to draw_text: %s", "TODO: Name");
+        return;
+    }
+
+    const int text_len = prim->codepoint_count;
+
+    FlVertPosUvColor* vertices = NULL;
+    FlIdxSize* indices = NULL;
+
+    if (!VertexAllocator_alloc_pos_uv_color(&ctx->vertex_allocator, &vertices, &indices, text_len * 4, text_len * 6)) {
+        // TODO: Better error handling
+        assert(0);
+    }
+
+    Text_generate_vertex_buffer_ref(vertices, indices, font, prim->font_size, prim->codepoints, 0x0fffffff,
+                                    prim->position, 0, text_len);
+
+    FlTexturedTriangles* tri_data = Render_textured_triangles_cmd(ctx->global);
+
+    tri_data->offset = ctx->vertex_allocator.index_offset;
+    tri_data->vertex_buffer = vertices;
+    tri_data->index_buffer = indices;
+    tri_data->vertex_buffer_size = text_len * 4;
+    tri_data->index_buffer_size = text_len * 6;
+    tri_data->texture_id = ctx->global->mono_fonts_atlas->texture_id;  // TODO: Fix me
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// void generate_glyphs(struct FlContext* ctx, const u8* cmd) {
+//    PrimitiveText* prim = (PrimitiveText*)cmd;
+//   Font_generate_glyphs(ctx, prim->font, prim->codepoints, prim->codepoint_count, prim->font_size);
+//}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+void fl_ui_text_impl(struct FlContext* ctx, FlString text) {
+    Utf8Result res = Utf8_to_codepoints_u32(&ctx->frame_allocator, (u8*)text.str, text.len);
+
+    if (FL_UNLIKELY(res.error != FlError_None)) {
+        // TODO: Proper error
+        printf("String is mall-formed\n");
+        return;
+    }
+
+    Layer* layer = ctx_get_active_layer(ctx);
+
+    PrimitiveText* prim = Primitive_alloc_text(layer);
+
+    prim->font = ctx->current_font;
+    prim->position = ctx->cursor;
+    prim->font_size = ctx->current_font_size != 0 ? ctx->current_font_size : ctx->current_font->default_size;
+    prim->codepoints = res.codepoints;
+    prim->codepoint_count = res.len;
+    prim->position_index = 0;  // TODO: Fixme
+}
+*/
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 extern "C" void fl_destroy(FlGlobalState* self) {
     FlAllocator* allocator = self->global_allocator;
 
@@ -383,25 +369,6 @@ extern "C" void fl_destroy(FlGlobalState* self) {
     FlAllocator_free(allocator, self);
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Returns the number of render commands. use fl_render_get_cmd to get each command
 
-extern "C" int fl_render_begin_commands(FlGlobalState* state) {
-    return CommandBuffer_begin_read_commands(&state->render_commands);
-}
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-extern "C" u16 fl_render_get_command(FlGlobalState* state, const u8** data) {
-    return CommandBuffer_read_next_cmd(&state->render_commands, data);
-}
-
-static char s_dummy_buffer[512];
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-extern "C" FlString fl_error_last_error() {
-    strcpy(s_dummy_buffer, "TODO: Correct error");
-    FlString ret = fl_cstr_to_flstring(s_dummy_buffer);
-    return ret;
-}
+#endif

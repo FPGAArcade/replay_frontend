@@ -39,9 +39,12 @@ extern "C" {
 #define ERROR_ADD(t, format, ...) Errors_add(t, __FILE__, __LINE__, format, __VA_ARGS__);
 void Errors_add(FlError err, const char* filename, int line, const char* fmt, ...);
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 typedef struct FlInternalData {
     void* rust_state; // has to be first
     struct ImGuiContext* imgui_ctx;
+    CommandBuffer render_commands;
     FlButtonApi button_api;
     FlCursorApi cursor_api;
     FlFontApi font_api;
