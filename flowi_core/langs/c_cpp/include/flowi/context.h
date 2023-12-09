@@ -13,9 +13,6 @@
 extern "C" {
 #endif
 
-typedef struct FlContext {
-} FlContext;
-
 #include "context.inl"
 #ifdef __cplusplus
 }

@@ -15,9 +15,6 @@
 extern "C" {
 #endif
 
-typedef struct FlIo {
-} FlIo;
-
 // Load image from file/url. Supported formats are: JPG, PNG, WEBP
 static void fl_io_dummy();
 

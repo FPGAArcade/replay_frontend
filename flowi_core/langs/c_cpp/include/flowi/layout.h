@@ -14,9 +14,6 @@
 extern "C" {
 #endif
 
-typedef struct FlCursor {
-} FlCursor;
-
 // Separator, generally horizontal. Inside a menu bar or in horizontal layout mode, this becomes a vertical separator.
 static void fl_cursor_separator();
 

@@ -288,9 +288,6 @@ typedef enum FlMouseSource {
     FlMouseSource_Pen = 2,
 } FlMouseSource;
 
-typedef struct FlInput {
-} FlInput;
-
 // Queue a new key down/up event.
 // Key should be "translated" (as in, generally [Key::A] matches the key end-user would use to emit an 'A' character)
 static void fl_input_add_key_event(FlKey key, bool down);

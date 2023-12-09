@@ -15,9 +15,6 @@
 extern "C" {
 #endif
 
-typedef struct FlItem {
-} FlItem;
-
 // Is the last item hovered? (and usable, aka not blocked by a popup, etc.). See ImGuiHoveredFlags for more options.
 static bool fl_item_is_hovered(FlHoveredFlags flags);
 

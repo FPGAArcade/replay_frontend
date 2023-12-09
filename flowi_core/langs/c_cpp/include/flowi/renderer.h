@@ -16,9 +16,6 @@ extern "C" {
 
 typedef uint64_t FlTexture;
 
-typedef struct FlRenderer {
-} FlRenderer;
-
 // Get a texture from the active Renderer given a image handle. The renderer can return None if the image handle isnt't
 // valid or that that image hasn't been created as a texture yet
 static FlTexture fl_renderer_get_texture(FlImage image);

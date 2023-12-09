@@ -16,9 +16,6 @@
 extern "C" {
 #endif
 
-typedef struct FlUi {
-} FlUi;
-
 // Draw static text with the selected font
 static void fl_ui_text(const char* text);
 
