@@ -1,7 +1,7 @@
 [package]
 name = "flowi"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 bgfx-rs = "0.17"
@@ -10,9 +10,3 @@ glam = "0.24"
 raw-window-handle = "0.5"
 bitflags = "2.0.0-rc.1"
 flowi_core = { path = "../flowi_core", features = ["static"] }
-
-[workspace]
-members = [
-    "examples/rust/testbed",
-    # "examples/rust/plugin_example",
-]

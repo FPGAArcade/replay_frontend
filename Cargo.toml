@@ -1,7 +1,14 @@
-[package]
-name = "frontend"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+exclude = [
+    "flowi_core/tools/api_gen", 
+]
+members = [
+    "fileorama",
+    "flowi_core",
+    "flowi",
+    "main",
+]
 
-[dependencies]
-flowi = { path = "flowi" }
+
+

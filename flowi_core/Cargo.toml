@@ -3,8 +3,6 @@ name = "flowi_core"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 base64ct = { version = "1.6.0", features = ["alloc"] }
 raw-window-handle = "0.5"
@@ -19,11 +17,11 @@ thiserror = "1.0"
 zune-jpeg = "0.3"
 zune-png = "0.2"
 
-[profile.dev.package.zune-png]
-opt-level = 3
+#[profile.dev.package.zune-png]
+#opt-level = 3
 
-[profile.dev.package.zune-jpeg]
-opt-level = 3
+#[profile.dev.package.zune-jpeg]
+#opt-level = 3
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
@@ -31,9 +29,3 @@ cc = { version = "1.0", features = ["parallel"] }
 [features]
 default = ["static"]
 static = []
-
-[workspace]
-exclude = [
-    "tools/api_gen", 
-]
-

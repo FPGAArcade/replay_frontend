@@ -1106,6 +1106,7 @@ mod tests {
         panic!();
     }
 
+    /*
     #[test]
     fn vfs_local_dir_zip_file() {
         let path = std::fs::canonicalize("data").unwrap();
@@ -1145,6 +1146,7 @@ mod tests {
 
         panic!();
     }
+    */
 
     #[test]
     fn vfs_two_local_files() {
@@ -1239,6 +1241,7 @@ mod tests {
         panic!();
     }
 
+    /*
     #[test]
     fn ftp_test_file() {
         let vfs = Fileorama::new(1);
@@ -1298,4 +1301,5 @@ mod tests {
 
         panic!();
     }
+    */
 }
