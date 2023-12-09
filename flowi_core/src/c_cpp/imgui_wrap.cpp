@@ -103,7 +103,7 @@ extern "C" ImDrawData imgui_get_draw_data() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void fl_ui_image_impl(FlInternalData* ctx, FlImage image_id) {
+FL_PUBLIC_SYMBOL void fl_ui_image_impl(FlInternalData* ctx, FlImage image_id) {
     FL_UNUSED(ctx);
     FL_UNUSED(image_id);
 
@@ -1539,6 +1539,13 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     g_flowi_renderer_api = &state->renderer_api;
 
     style_init_priv();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void imgui_destroy(FlInternalData* state) {
+    FL_UNUSED(state);
+    ImGui::DestroyContext();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
