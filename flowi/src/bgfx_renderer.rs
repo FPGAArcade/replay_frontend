@@ -6,7 +6,6 @@ use flowi_core::render::{FlowiRenderer};
 use flowi_core::imgui::{DrawData, DrawCmd, FontAtlas, DrawVert, ImDrawIdx};
 use flowi_core::renderer::Texture as CoreTexture;
 use crate::image::Image;
-use glam;
 
 static VS_IMGUI_GLSL: &[u8] = include_bytes!("../data/shaders/vs_ocornut_imgui_glsl.bin");
 static FS_IMGUI_GLSL: &[u8] = include_bytes!("../data/shaders/fs_ocornut_imgui_glsl.bin");
@@ -78,7 +77,7 @@ pub fn get_platform_data(handle: &RawWindowHandle) -> PlatformData {
         _ => panic!("Unsupported Window Manager"),
     }
 
-    return pd;
+    pd
 }
 
 impl BgfxRenderer {
@@ -154,7 +153,7 @@ impl FlowiRenderer for BgfxRenderer {
             false, 1, 
             bgfx::TextureFormat::RGBA8,
             0, 
-            &Memory::copy(&font_atlas.data()));
+            &Memory::copy(font_atlas.data()));
 
         Self {
             shader_program,
@@ -217,7 +216,7 @@ impl FlowiRenderer for BgfxRenderer {
             let width = draw_data.display_size[0];
             let height = draw_data.display_size[1];
             let projection = glam::Mat4::orthographic_lh(x, x + width, y + height, y, 0.0f32, 1000.0f32);
-            bgfx::set_view_transform(self.view_id, &glam::Mat4::IDENTITY.as_ref(), &projection.as_ref());
+            bgfx::set_view_transform(self.view_id, glam::Mat4::IDENTITY.as_ref(), projection.as_ref());
             bgfx::set_view_rect(self.view_id, 0, 0, width as u16, height as u16);
         }
 
@@ -322,7 +321,7 @@ impl FlowiRenderer for BgfxRenderer {
                     }
                 }
             }
-            bgfx::encoder_end(&encoder);
+            bgfx::encoder_end(encoder);
         }
 
         /*

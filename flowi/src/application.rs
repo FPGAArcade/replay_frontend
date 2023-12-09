@@ -31,12 +31,14 @@ pub struct Application {
     pub(crate) settings: ApplicationSettings,
 }
 
+#[allow(clippy::transmute_ptr_to_ref)]
 unsafe extern "C" fn user_trampoline_ud<T>(wd: &WrappedMainData) {
     let f: &&(dyn Fn(&mut T) + 'static) = transmute(wd.user_func);
     let data = wd.user_data as *mut T;
     f(&mut *data);
 }
 
+#[allow(clippy::transmute_ptr_to_ref)]
 unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
     
@@ -44,7 +46,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         state.core.pre_update();
         state.window.update();
 
-        user_trampoline_ud::<T>(&mut state.user);
+        user_trampoline_ud::<T>(&state.user);
 
         state.core.post_update();
         state.core.state.renderer.render();
@@ -62,11 +64,12 @@ impl Application {
         Ok(Box::new(Self {
             window,
             core,
-            settings: settings.clone(),
+            settings: *settings,
             user: WrappedMainData { user_data: null_mut(), user_func: null_mut() }, 
         }))
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn run<'a, F, T>(&mut self, data: Box<T>, func: F) -> bool
     where
         F: Fn(&mut T) + 'a,
