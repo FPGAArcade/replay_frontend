@@ -12,7 +12,7 @@ typedef enum AllocType {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static FlString copy_cstr(StringAllocator* self, const char* str, int len, AllocType type) {
-    FlString ret_val = {};
+    FlString ret_val = { NULL, 0 };
 
     if (str == NULL) {
         return ret_val;
