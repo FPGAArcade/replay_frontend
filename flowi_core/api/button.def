@@ -1,8 +1,6 @@
 mod math_data
 mod image
 
-// vim: syntax=rust expandtab ts=4 sw=4
-
 #[attributes(bitflags)]
 enum ButtonFlags {
     /// Default flags
@@ -33,4 +31,6 @@ struct Button {
     /// TODO: Document
     [static] image_with_text(image: Image, label: String) -> bool,
 }
+
+// vim: syntax=rust expandtab ts=4 sw=4
 

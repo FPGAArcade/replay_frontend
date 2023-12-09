@@ -51,7 +51,7 @@ typedef struct FlInternalData {
     FlFontApi font_api;
     FlImageApi image_api;
     FlInputApi input_api;
-    FlIoApi io_api;
+    //FlIoApi io_api;
     FlItemApi item_api;
     FlMenuApi menu_api;
     FlStyleApi style_api;

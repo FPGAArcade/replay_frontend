@@ -1,10 +1,10 @@
 mod image
 mod shader
 
-struct Io {
+//struct Io {
     /// Load image from file/url. Supported formats are: JPG, PNG, WEBP
     //[static] load_image(filename: String) -> Image,
-    [static] dummy(),
+    //[static] dummy(),
     /// Load image async from file/url. Supported formats are: JPG, PNG, WEBP
     //[static] load_image_async(filename: String, loader_type: LoaderType) -> async Image?,
     /// Load image from file/url
@@ -17,7 +17,7 @@ struct Io {
     //[static] load_fragment_shader_comp(filename: String) -> Shader?,
     /// Load a vertex shader and pixel shader to be used as a shader program. This will also compile the shaders.
     //[static] load_shader_program_comp(vs_filename: String, ps_filename: String) -> ShaderProgram?,
-}
+//}
 
 // vim: syntax=rust expandtab ts=4 sw=4
 

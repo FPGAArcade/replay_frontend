@@ -15,9 +15,6 @@
 extern "C" {
 #endif
 
-// Load image from file/url. Supported formats are: JPG, PNG, WEBP
-static void fl_io_dummy();
-
 #include "io.inl"
 #ifdef __cplusplus
 }

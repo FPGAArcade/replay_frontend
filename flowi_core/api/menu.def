@@ -19,3 +19,6 @@ struct Menu {
     /// return true when activated + toggle selected
     [static] item_toggle(label: String, shortcut: String, selected: *bool, enabled: bool) -> bool,
 }
+
+// vim: syntax=rust expandtab ts=4 sw=4
+

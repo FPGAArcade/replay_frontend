@@ -225,13 +225,7 @@ FlStyleApi g_style_funcs = {
 
 FlUiApi g_ui_funcs = {
     NULL,
-    NULL, // TODO: Fix me
     image_show,
-    NULL,
-    NULL, 
-    NULL,
-    NULL,
-    NULL,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -589,7 +583,7 @@ FL_PUBLIC_SYMBOL void fl_text_label_impl(FlInternalData* ctx, FlString label, Fl
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL void fl_text_show_colored_impl(FlInternalData* ctx, FlColor color, FlString text) {
+FL_PUBLIC_SYMBOL void fl_text_show_color_impl(FlInternalData* ctx, FlColor color, FlString text) {
     char temp_buffer[2048];
 
     const char* temp_text =
@@ -630,7 +624,7 @@ struct FlTextApi g_text_funcs = {
     fl_text_calc_size_impl,
     fl_text_bullet_impl,
     fl_text_label_impl,
-    fl_text_show_colored_impl,
+    fl_text_show_color_impl,
     fl_text_show_impl,
     fl_text_show_disabled_impl,
 };
@@ -715,7 +709,7 @@ FL_PUBLIC_SYMBOL bool fl_menu_item_ex_impl(FlInternalData* ctx, FlString label, 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL bool fl_menu_item_toogle_impl(FlInternalData* ctx, FlString label, FlString shortcut, bool* selected, bool enabled) {
+FL_PUBLIC_SYMBOL bool fl_menu_item_toggle_impl(FlInternalData* ctx, FlString label, FlString shortcut, bool* selected, bool enabled) {
     char temp_buffer[2048];
     char temp_buffer_2[2048];
 
@@ -740,7 +734,7 @@ struct FlMenuApi g_menu_funcs = {
     fl_menu_end_impl,
     fl_menu_item_impl,
     fl_menu_item_ex_impl,
-    fl_menu_item_toogle_impl,
+    fl_menu_item_toggle_impl,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -821,7 +815,7 @@ FL_PUBLIC_SYMBOL void fl_button_bullet_impl(FlInternalData* ctx) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL bool fl_button_image_with_label_impl(FlInternalData* ctx, FlImage image, FlString label) {
+FL_PUBLIC_SYMBOL bool fl_button_image_with_text_impl(FlInternalData* ctx, FlImage image, FlString label) {
     image_show(ctx, image);
     ImGui::SameLine();
     ImGui::TextUnformatted(label.str, label.str + label.len);
@@ -839,7 +833,7 @@ FlButtonApi g_button_funcs = {
     fl_button_check_box_impl,
     fl_button_radio_impl,
     fl_button_bullet_impl,
-    fl_button_image_with_label_impl,
+    fl_button_image_with_text_impl,
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1272,11 +1266,13 @@ extern "C" FlStyleApi* fl_get_style_api(AppState* app_state, int version) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
 extern "C" FlPainterApi* fl_get_painter_api(AppState* app_state, int version) {
     FL_UNUSED(version);
     FL_UNUSED(app_state);
     return nullptr;
 }
+*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1532,7 +1528,7 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     g_flowi_input_api = &state->input_api;
     g_flowi_font_api = &state->font_api; 
     g_flowi_image_api = &state->image_api; 
-    g_flowi_io_api = &state->io_api;
+    //g_flowi_io_api = &state->io_api;
     g_flowi_item_api = &state->item_api;
     g_flowi_menu_api = &state->menu_api;
     //g_flowi_painter_api = nullptr;//&state->painter;
