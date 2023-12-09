@@ -4,13 +4,6 @@ use std::collections::HashSet;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
 
-// This is kinda ugly, but better than testing non-supported paths on a remote server
-#[cfg(target_os = "windows")]
-pub const FTP_CHECK: &str = "ftp:\\";
-
-#[cfg(not(target_os = "windows"))]
-pub const FTP_CHECK: &str = "ftp:/";
-
 #[cfg(not(test))]
 use log::{error, trace};
 

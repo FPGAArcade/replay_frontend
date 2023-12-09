@@ -199,6 +199,7 @@ pub enum NodeType {
     Other(usize),
 }
 
+/*
 #[derive(Debug, Copy, Clone)]
 enum DriverIndex {
     /// Single driver such as a file loader
@@ -206,13 +207,14 @@ enum DriverIndex {
     /// Dual driver such as local file loader and memory zip loader
     Dual(i32, i32),
 }
+*/
 
 #[derive(Default, Debug)]
 pub struct Node {
     node_type: NodeType,
     name: String,
     driver_index: Option<i32>,
-    io_driver_index: Option<i32>,
+    //io_driver_index: Option<i32>,
     parent: u32,
     nodes: Vec<u32>,
 }
@@ -528,7 +530,7 @@ impl<'a> Loader<'a> {
             let component_name = get_component_name(c, &mut self.had_prefix);
             if let Some(entry) = find_entry_in_node(node, &vfs.nodes, &component_name) {
                 if let Some(index) = vfs.nodes[entry].driver_index {
-                    let has_local_parent_driver = match vfs.node_drivers[index as usize] {
+                    has_local_parent_driver = match vfs.node_drivers[index as usize] {
                         NodeDriver::IoDriver(ref driver) => driver.is_remote(),
                         _ => false,
                     };

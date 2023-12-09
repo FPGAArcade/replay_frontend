@@ -7,6 +7,7 @@
 #include "layout.h"
 #include "menu.h"
 #include "painter.h"
+#include "renderer.h"
 #include "style.h"
 #include "text.h"
 #include "ui.h"
@@ -27,6 +28,7 @@ typedef struct FlApplication {
     struct FlItemApi* (*item_get_api)(struct FlInternalData* data, int api_version);
     struct FlMenuApi* (*menu_get_api)(struct FlInternalData* data, int api_version);
     struct FlPainterApi* (*painter_get_api)(struct FlInternalData* data, int api_version);
+    struct FlRendererApi* (*renderer_get_api)(struct FlInternalData* data, int api_version);
     struct FlStyleApi* (*style_get_api)(struct FlInternalData* data, int api_version);
     struct FlTextApi* (*text_get_api)(struct FlInternalData* data, int api_version);
     struct FlUiApi* (*ui_get_api)(struct FlInternalData* data, int api_version);
@@ -46,6 +48,7 @@ FL_INLINE bool fl_application_create(FlApplicationSettings* settings) {
     g_flowi_item_api = api->item_get_api(api->priv, 0);
     g_flowi_menu_api = api->menu_get_api(api->priv, 0);
     g_flowi_painter_api = api->painter_get_api(api->priv, 0);
+    g_flowi_renderer_api = api->renderer_get_api(api->priv, 0);
     g_flowi_style_api = api->style_get_api(api->priv, 0);
     g_flowi_text_api = api->text_get_api(api->priv, 0);
     g_flowi_ui_api = api->ui_get_api(api->priv, 0);

@@ -6,12 +6,7 @@ use core::{ffi::c_void, mem::transmute};
 use raw_window_handle::RawWindowHandle;
 use crate::bgfx_renderer::BgfxRenderer;
 use crate::glfw_window::GlfwWindow;
-
-pub(crate) trait Renderer {
-    fn new(settings: &ApplicationSettings, window: &RawWindowHandle) -> Self 
-        where Self: Sized;
-    fn render(&mut self);
-}
+use flowi_core::FlowiRenderer;
 
 pub(crate) trait Window {
     fn new(settings: &ApplicationSettings) -> Self 
@@ -30,10 +25,9 @@ struct WrappedMainData {
 
 #[repr(C)]
 pub struct Application {
-    pub(crate) renderer: Option<Box<dyn Renderer>>,
     pub(crate) window: Box<dyn Window>,
     pub(crate) core: Instance, 
-    pub(crate) user: WrappedMainData,
+    user: WrappedMainData,
     pub(crate) settings: ApplicationSettings,
 }
 
@@ -53,10 +47,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         user_trampoline_ud::<T>(&mut state.user);
 
         state.core.post_update();
-
-        if let Some(renderer) = &mut state.renderer {
-            renderer.render();
-        }
+        state.core.state.renderer.render();
 
         // TODO: This is a hack to not use 100% CPU
         std::thread::sleep(std::time::Duration::from_millis(1));
@@ -70,7 +61,6 @@ impl Application {
 
         Ok(Box::new(Self {
             window,
-            renderer: None,
             core,
             settings: settings.clone(),
             user: WrappedMainData { user_data: null_mut(), user_func: null_mut() }, 
@@ -81,8 +71,8 @@ impl Application {
     where
         F: Fn(&mut T) + 'a,
     {
-        let renderer = Box::new(BgfxRenderer::new(&self.settings, &self.window.raw_window_handle()));
-        self.renderer = Some(renderer);
+        let renderer = Box::new(BgfxRenderer::new(&self.settings, Some(&self.window.raw_window_handle())));
+        self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end
         let f: Box<Box<dyn Fn(&mut T) + 'a>> = Box::new(Box::new(func));

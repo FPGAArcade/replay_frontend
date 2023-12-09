@@ -16,6 +16,7 @@ pub mod math_data;
 pub mod menu;
 pub mod painter;
 pub mod render_commands;
+pub mod renderer;
 pub mod shader;
 pub mod style;
 pub mod text;

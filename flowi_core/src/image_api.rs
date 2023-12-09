@@ -1,9 +1,8 @@
 use crate::image::{ImageFormat, ImageInfo};
 use crate::manual::FlString;
 use crate::InternalState;
-use fileorama::{MemoryDriver, MemoryDriverType,  Error, FilesDirs, LoadStatus, Progress, Fileorama, RecvMsg};
+use fileorama::{MemoryDriver, MemoryDriverType,  Error, FilesDirs, LoadStatus, Progress, Fileorama};
 use std::collections::HashMap;
-use std::{thread, time};
 
 /*
 use zune_jpeg::{
@@ -19,16 +18,10 @@ use zune_png::{
     zune_core::colorspace::ColorSpace as PngColorSpace, PngDecoder,
 };
 
-struct Test {
-    int: u8,
-    string: String,
-    option: Option<Vec<i32>>,
-}
-
 #[derive(Default, Debug)]
 enum ImageType {
     PngData(Box<[u8]>),
-    JpegData(Box<[u8]>),
+    //JpegData(Box<[u8]>),
     #[default]
     None,
 }
@@ -90,6 +83,13 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, PngDecodeErrors> {
     *write_image_info = image_info;
 
     Ok(output_data)
+}
+
+fn load_png_from_memory(data: &[u8]) -> Result<Vec<u8>, Error> {
+    match decode_png(data) {
+        Ok(data) => Ok(data),
+        Err(e) => Err(Error::Generic(format!("Error loading png: {:?}", e))),
+    }
 }
 
 /*
@@ -184,14 +184,12 @@ impl MemoryDriver for ImageLoader {
     }
 }
 
-enum Image {
-    Async(fileorama::Handle),
-    Data(Vec<u8>),
-}
-
 #[repr(C)]
 pub(crate) struct ImageHandler {
-    images: HashMap<u64, Image>,
+    /// Images that are currently being loaded (i.e async)
+    inflight: Vec<(u64, fileorama::Handle)>,
+    /// Images that have been loaded
+    loaded: HashMap<u64, Vec<u8>>,
     id_counter: u64,
 }
 
@@ -200,34 +198,55 @@ impl ImageHandler {
         vfs.add_memory_driver(Box::new(ImageLoader::default()));
 
         Self {
-            images: HashMap::new(),
+            inflight: Vec::new(),
+            loaded: HashMap::new(),
             id_counter: 1,
         }
     }
-}
 
-fn load_sync(vfs: &Fileorama, url: &str) -> Result<Vec<u8>, Error> {
-    let handle = vfs.load_url(url);
-
-    for _ in 0..10_000 {
-        match handle.recv.try_recv() {
-            Ok(RecvMsg::ReadDone(data)) => return Ok(data.get().to_vec()),
-            Err(e) => return Err(Error::Generic(format!("{:?}", e))),
-            _ => (),
-        }
-
-        // sleep for 0.1 ms when waiting for loading to complete
-        thread::sleep(std::time::Duration::from_millis(1));
+    pub fn is_loaded(&self, id: u64) -> bool {
+        self.loaded.contains_key(&id)
     }
 
-    Err(Error::Generic(format!("Loading of {} didn't complete within timeout", url)))
+    /*
+    pub fn update(&mut self) {
+        for (id, handle) in self.inflight {
+            match handle.recv() {
+                RecvMsg::Progress(progress) => {
+                    println!("progress: {}", progress);
+                }
+
+                RecvMsg::Data(data) => {
+                    self.loaded.insert(id, data);
+                }
+
+                RecvMsg::Error(e) => {
+                    println!("error: {:?}", e);
+                }
+
+                RecvMsg::Done => {
+                    println!("done");
+                }
+            }
+        }
+    }
+    */
+}
+
+fn load_sync(url: &str) -> Result<Vec<u8>, fileorama::Error> {
+    let data = match std::fs::read(url) {
+        Ok(data) => data,
+        Err(e) => return Err(Error::Generic(format!("{:?}", e))),
+    };
+
+    load_png_from_memory(&data)
 }
 
 #[inline]
 fn create_from_file_sync(state: &mut InternalState, filename: &str) -> Result<u64, Error> {
-    let data = load_sync(&state.vfs, filename)?;
+    let data = load_sync(filename)?;
     let id = state.image_handler.id_counter;
-    state.image_handler.images.insert(id, Image::Data(data));
+    state.image_handler.loaded.insert(id, data);
     state.image_handler.id_counter += 1;
     Ok(id)
 }
@@ -236,7 +255,7 @@ fn create_from_file_sync(state: &mut InternalState, filename: &str) -> Result<u6
 fn create_from_file(state: &mut InternalState, filename: &str) -> Result<u64, Error> {
     let handle = state.vfs.load_url(filename);
     let id = state.image_handler.id_counter;
-    state.image_handler.images.insert(id, Image::Async(handle));
+    state.image_handler.inflight.push((id, handle));
     state.image_handler.id_counter += 1;
     Ok(id)
 }

@@ -17,11 +17,13 @@ extern "C" {
 typedef enum FlTextureFormat {
     // Single byte texture in linear format
     FlTextureFormat_R8Linear = 0,
-    // 3 byte R,G,B format (sRGB)
+    // 3 byte R,G,B format (sRGB) The backend needs to either convert this to linear format or use a GPU compatible
+    // format that does this in runtime
     FlTextureFormat_Rgb8Srgb = 1,
     // 3 byte R,G,B format (LINEAR)
     FlTextureFormat_Rgb8Linear = 2,
-    // 4 byte R,G,B,A format (sRGB)
+    // 4 byte R,G,B,A format (sRGB) The backend needs to either convert this to linear format or use a GPU compatible
+    // format that does this in runtime
     FlTextureFormat_Rgba8Srgb = 3,
     // 4 byte R,G,B,A format (LINEAR)
     FlTextureFormat_Rgba8Linear = 4,

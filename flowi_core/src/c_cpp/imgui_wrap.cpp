@@ -53,9 +53,9 @@ struct FontAtlas {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 extern "C" FontAtlas imgui_build_rgba32_texture() {
+    // TODO: Check if build succeeded
     ImGuiIO& io = ImGui::GetIO();
-    
-    bool b = io.Fonts->Build();
+    io.Fonts->Build();
 
     uint8_t* data;
     int32_t width;
@@ -1377,6 +1377,17 @@ FlInputApi g_input_funcs = {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+extern "C" FlTexture fl_renderer_get_texture_impl(struct FlInternalData* priv, FlImage image);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+FlRendererApi s_renderer_funcs = {
+    nullptr,
+    fl_renderer_get_texture_impl,
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) {
     FL_UNUSED(settings);
 
@@ -1498,6 +1509,7 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     state->text_api = g_text_funcs;
     state->ui_api = g_ui_funcs;
     state->window_api = g_window_funcs;
+    state->renderer_api = s_renderer_funcs;
 
     state->button_api.priv = state;
     state->cursor_api.priv = state;
@@ -1510,6 +1522,9 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     state->text_api.priv = state;
     state->ui_api.priv = state;
     state->window_api.priv = state;
+
+    // Rust API
+    state->renderer_api.priv = (FlInternalData*)state->rust_state;
     
     // TODO: Move
     g_flowi_button_api = &state->button_api;
@@ -1525,6 +1540,7 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     g_flowi_text_api = &state->text_api;
     g_flowi_ui_api = &state->ui_api;
     g_flowi_window_api = &state->window_api;
+    g_flowi_renderer_api = &state->renderer_api;
 
     style_init_priv();
 }

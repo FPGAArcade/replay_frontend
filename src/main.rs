@@ -4,7 +4,7 @@ use flowi::Application;
 use flowi::font::Font;
 
 struct App {
-    dummy: u32,
+    _dummy: u32,
     montserrat_font: Font,
 }
 
@@ -31,7 +31,7 @@ fn main() {
     let mut flowi_app = Application::new(&settings).unwrap();
 
     let app = Box::new(App {
-        dummy: 1337,
+        _dummy: 1337,
         montserrat_font: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 32).unwrap(), 
     });
 

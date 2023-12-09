@@ -2,8 +2,10 @@ use bgfx::*;
 use bgfx_rs::bgfx;
 use flowi_core::ApplicationSettings;
 use raw_window_handle::RawWindowHandle;
-use crate::application::Renderer;
+use flowi_core::render::{FlowiRenderer};
 use flowi_core::imgui::{DrawData, DrawCmd, FontAtlas, DrawVert, ImDrawIdx};
+use flowi_core::renderer::Texture as CoreTexture;
+use crate::image::Image;
 use glam;
 
 static VS_IMGUI_GLSL: &[u8] = include_bytes!("../data/shaders/vs_ocornut_imgui_glsl.bin");
@@ -109,15 +111,17 @@ impl BgfxRenderer {
     }
 }
 
-impl Renderer for BgfxRenderer {
-    fn new(settings: &ApplicationSettings, window: &RawWindowHandle) -> Self {
+impl FlowiRenderer for BgfxRenderer {
+    fn new(settings: &ApplicationSettings, window: Option<&RawWindowHandle>) -> Self {
         let mut init = Init::new();
+
+        let window_handle = window.expect("Window handle is required");
 
         init.type_r = get_render_type();
         init.resolution.width = settings.width;
         init.resolution.height = settings.height;
         init.resolution.reset = ResetFlags::VSYNC.bits();
-        init.platform_data = get_platform_data(window);
+        init.platform_data = get_platform_data(window_handle);
 
         if !bgfx::init(&init) {
             panic!("failed to init bgfx");
@@ -160,6 +164,22 @@ impl Renderer for BgfxRenderer {
             view_id: 0xFF,
             old_size: (0, 0),
         }
+    }
+
+    fn get_texture(&mut self, _image: Image) -> CoreTexture {
+        /*
+        let texture = bgfx::create_texture_2d(
+            image.width, 
+            image.height, 
+            false, 1, 
+            bgfx::TextureFormat::RGBA8,
+            0, 
+            &Memory::copy(&image.data));
+
+        texture
+        */
+
+        CoreTexture { handle: 0 }
     }
 
 

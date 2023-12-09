@@ -11,6 +11,7 @@
 #include <flowi/layout.h>
 #include <flowi/menu.h>
 #include <flowi/style.h>
+#include <flowi/renderer.h>
 #include <flowi/text.h>
 #include <flowi/window.h>
 //#include "../external/hashmap.h"
@@ -57,6 +58,7 @@ typedef struct FlInternalData {
     FlTextApi text_api;
     FlUiApi ui_api;
     FlWindowApi window_api;
+    FlRendererApi renderer_api;
     LinearAllocator frame_allocator;
     StringAllocator string_allocator;
 } FlInternalData;
