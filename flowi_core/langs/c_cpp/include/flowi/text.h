@@ -30,7 +30,7 @@ static void fl_text_show_color(FlColor color, const char* text);
 static void fl_text_show(const char* text);
 
 // Draw text disabled
-static void fl_text_text_disabled(const char* text);
+static void fl_text_disabled(const char* text);
 
 #include "text.inl"
 #ifdef __cplusplus

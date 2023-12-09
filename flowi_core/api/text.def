@@ -12,7 +12,7 @@ struct Text {
     /// Show basic text 
     [static] show(text: String),
     /// Draw text disabled 
-    [static] text_disabled(text: String),
+    [static] disabled(text: String),
 }
 
 

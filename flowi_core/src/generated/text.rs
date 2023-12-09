@@ -20,7 +20,7 @@ pub struct TextFfiApi {
     pub(crate) show_color:
         unsafe extern "C" fn(data: *const core::ffi::c_void, color: Color, text: FlString),
     pub(crate) show: unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString),
-    pub(crate) text_disabled: unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString),
+    pub(crate) disabled: unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString),
 }
 
 #[cfg(feature = "static")]
@@ -30,7 +30,7 @@ extern "C" {
     pub fn fl_text_label_impl(data: *const core::ffi::c_void, label: FlString, text: FlString);
     pub fn fl_text_show_color_impl(data: *const core::ffi::c_void, color: Color, text: FlString);
     pub fn fl_text_show_impl(data: *const core::ffi::c_void, text: FlString);
-    pub fn fl_text_text_disabled_impl(data: *const core::ffi::c_void, text: FlString);
+    pub fn fl_text_disabled_impl(data: *const core::ffi::c_void, text: FlString);
 }
 
 #[no_mangle]
@@ -100,13 +100,13 @@ impl Text {
     }
 
     /// Draw text disabled
-    pub fn text_disabled(text: &str) {
+    pub fn disabled(text: &str) {
         unsafe {
             let _api = &*g_flowi_text_api;
             #[cfg(feature = "static")]
-            fl_text_text_disabled_impl(_api.data, FlString::new(text));
+            fl_text_disabled_impl(_api.data, FlString::new(text));
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
-            (_api.text_disabled)(_api.data, FlString::new(text));
+            (_api.disabled)(_api.data, FlString::new(text));
         }
     }
 }

@@ -103,7 +103,7 @@ extern "C" ImDrawData imgui_get_draw_data() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void image_show(FlInternalData* ctx, FlImage image_id) {
+static void fl_ui_image_impl(FlInternalData* ctx, FlImage image_id) {
     FL_UNUSED(ctx);
     FL_UNUSED(image_id);
 
@@ -225,7 +225,7 @@ FlStyleApi g_style_funcs = {
 
 FlUiApi g_ui_funcs = {
     NULL,
-    image_show,
+    fl_ui_image_impl,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -594,7 +594,7 @@ FL_PUBLIC_SYMBOL void fl_text_show_color_impl(FlInternalData* ctx, FlColor color
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL void fl_text_show_disabled_impl(FlInternalData* ctx, FlString text) {
+FL_PUBLIC_SYMBOL void fl_text_disabled_impl(FlInternalData* ctx, FlString text) {
     FL_UNUSED(ctx);
 
     char temp_buffer[2048];
@@ -626,7 +626,7 @@ struct FlTextApi g_text_funcs = {
     fl_text_label_impl,
     fl_text_show_color_impl,
     fl_text_show_impl,
-    fl_text_show_disabled_impl,
+    fl_text_disabled_impl,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -816,7 +816,7 @@ FL_PUBLIC_SYMBOL void fl_button_bullet_impl(FlInternalData* ctx) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 FL_PUBLIC_SYMBOL bool fl_button_image_with_text_impl(FlInternalData* ctx, FlImage image, FlString label) {
-    image_show(ctx, image);
+    fl_ui_image_impl(ctx, image);
     ImGui::SameLine();
     ImGui::TextUnformatted(label.str, label.str + label.len);
     return false;

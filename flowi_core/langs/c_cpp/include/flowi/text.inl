@@ -5,7 +5,7 @@ typedef struct FlTextApi {
     void (*label)(struct FlInternalData* priv, FlString label, FlString text);
     void (*show_color)(struct FlInternalData* priv, FlColor color, FlString text);
     void (*show)(struct FlInternalData* priv, FlString text);
-    void (*text_disabled)(struct FlInternalData* priv, FlString text);
+    void (*disabled)(struct FlInternalData* priv, FlString text);
 } FlTextApi;
 
 extern FlTextApi* g_flowi_text_api;
@@ -16,7 +16,7 @@ void fl_text_bullet_impl(struct FlInternalData* priv, FlString text);
 void fl_text_label_impl(struct FlInternalData* priv, FlString label, FlString text);
 void fl_text_show_color_impl(struct FlInternalData* priv, FlColor color, FlString text);
 void fl_text_show_impl(struct FlInternalData* priv, FlString text);
-void fl_text_text_disabled_impl(struct FlInternalData* priv, FlString text);
+void fl_text_disabled_impl(struct FlInternalData* priv, FlString text);
 #endif
 
 // Calculate the size of a text string in pixels
@@ -71,11 +71,11 @@ FL_INLINE void fl_text_show(const char* text) {
 }
 
 // Draw text disabled
-FL_INLINE void fl_text_text_disabled(const char* text) {
+FL_INLINE void fl_text_disabled(const char* text) {
     FlString text_ = fl_cstr_to_flstring(text);
 #ifdef FLOWI_STATIC
-    fl_text_text_disabled_impl(g_flowi_text_api->priv, text_);
+    fl_text_disabled_impl(g_flowi_text_api->priv, text_);
 #else
-    (g_flowi_text_api->text_disabled)(g_flowi_text_api->priv, text_);
+    (g_flowi_text_api->disabled)(g_flowi_text_api->priv, text_);
 #endif
 }
