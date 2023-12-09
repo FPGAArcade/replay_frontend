@@ -434,14 +434,14 @@ FL_PUBLIC_SYMBOL FlVec2 fl_cursor_get_pos_impl(FlInternalData* ctx) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL float fl_cursor_get_x_impl(FlInternalData* ctx) {
+FL_PUBLIC_SYMBOL float fl_cursor_get_pos_x_impl(FlInternalData* ctx) {
     FL_UNUSED(ctx);
     return ImGui::GetCursorPosX();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL float fl_cursor_get_y_impl(FlInternalData* ctx) {
+FL_PUBLIC_SYMBOL float fl_cursor_get_pos_y_impl(FlInternalData* ctx) {
     FL_UNUSED(ctx);
     return ImGui::GetCursorPosY();
 }
@@ -455,14 +455,14 @@ FL_PUBLIC_SYMBOL void fl_cursor_set_pos_impl(FlInternalData* ctx, FlVec2 local_p
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL void fl_cursor_set_x_impl(FlInternalData* ctx, float x) {
+FL_PUBLIC_SYMBOL void fl_cursor_set_pos_x_impl(FlInternalData* ctx, float x) {
     FL_UNUSED(ctx);
     ImGui::SetCursorPosX(x);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL void fl_cursor_set_y_impl(FlInternalData* ctx, float y) {
+FL_PUBLIC_SYMBOL void fl_cursor_set_pos_y_impl(FlInternalData* ctx, float y) {
     FL_UNUSED(ctx);
     ImGui::SetCursorPosY(y);
 }
@@ -531,11 +531,11 @@ struct FlCursorApi g_cursor_funcs = {
     fl_cursor_begin_group_impl,
     fl_cursor_end_group_impl,
     fl_cursor_get_pos_impl,
-    fl_cursor_get_x_impl,
-    fl_cursor_get_y_impl,
+    fl_cursor_get_pos_x_impl,
+    fl_cursor_get_pos_y_impl,
     fl_cursor_set_pos_impl,
-    fl_cursor_set_x_impl,
-    fl_cursor_set_y_impl,
+    fl_cursor_set_pos_x_impl,
+    fl_cursor_set_pos_y_impl,
     fl_cursor_screen_pos_impl,
     fl_cursor_set_screen_pos_impl,
     fl_cursor_align_text_to_frame_padding_impl,
