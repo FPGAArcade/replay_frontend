@@ -58,8 +58,11 @@ static FlImage fl_image_create_from_file(const char* filename);
 // This call will block until the loading has finished. It's recommended to use the async version instead.
 static FlImage fl_image_create_from_file_block(const char* filename);
 
-// Get data amout the image
+// Get info about the image
 static FlImageInfo* fl_image_get_info(FlImage image);
+
+// Get data from the image.
+static FlData fl_image_get_data(FlImage image);
 
 #include "image.inl"
 #ifdef __cplusplus

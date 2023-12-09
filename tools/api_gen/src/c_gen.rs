@@ -330,7 +330,9 @@ impl Cgen {
         }
 
         if let Some(ret) = &func.return_val {
-            if ret.const_pointer {
+            if let Some(array) = &ret.array {
+                fa.return_value = "FlData".to_owned(); 
+            } else if ret.const_pointer {
                 fa.return_value = format!("{}*", Self::get_variable(ret, self_name));
             } else {
                 fa.return_value = Self::get_variable(ret, self_name);

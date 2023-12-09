@@ -211,7 +211,11 @@ impl RustGen {
         }
 
         if let Some(ret) = &func.return_val {
-            fa.ret_value = Self::get_ffi_type(ret, self_name, "", handle_struct);
+            if ret.array.is_some() {
+                fa.ret_value = "FlData".into();
+            } else {
+                fa.ret_value = Self::get_ffi_type(ret, self_name, "", handle_struct);
+            }
         }
     }
 
@@ -457,7 +461,9 @@ impl RustGen {
         if let Some(ret_val) = func.return_val.as_ref() {
             let ret = Self::get_primitive_type(ret_val);
 
-            if ret_val.optional {
+            if ret_val.array.is_some() {
+                fa.ret_value = format!("Option<&'a [{}]>", ret);
+            } else if ret_val.optional {
                 if ret_val.const_pointer {
                     fa.ret_value = format!("Result<&'a {}>", ret);
                 } else if ret_val.pointer {
@@ -527,7 +533,7 @@ impl RustGen {
         } else {
             let mut needs_lifetime = false;
             if let Some(ret_val) = func.return_val.as_ref() {
-                if ret_val.const_pointer || ret_val.pointer {
+                if ret_val.const_pointer || ret_val.pointer || ret_val.array.is_some() {
                     needs_lifetime = true;
                 }
             }
@@ -574,7 +580,9 @@ impl RustGen {
             )?;
             writeln!(f, "let ret_val = (_api.{})({});", func.name, args)?;
 
-            if ret_val.is_handle_type {
+            if ret_val.array.is_some() {
+                writeln!(f, "if ret_val.data == std::ptr::null() {{ None }} else {{ Some(std::slice::from_raw_parts(ret_val.data as *const {}, ret_val.size as _)) }}", ret_val.type_name)?;
+            } else if ret_val.is_handle_type {
                 if ret_val.optional {
                     writeln!(
                         f,
@@ -654,7 +662,7 @@ impl RustGen {
             writeln!(f, "#[allow(unused_imports)]")?;
             writeln!(
                 f,
-                "use crate::manual::{{Result, get_last_error, FlString, Color}};\n"
+                "use crate::manual::{{Result, get_last_error, FlString, Color, FlData}};\n"
             )?;
             writeln!(f, "#[allow(unused_imports)]")?;
             writeln!(f, "use bitflags::bitflags;\n")?;

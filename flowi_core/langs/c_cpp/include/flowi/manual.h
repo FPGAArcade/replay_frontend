@@ -12,6 +12,11 @@ typedef struct FlString {
     uint32_t len;
 } FlString;
 
+typedef struct FlData {
+    const void* ptr;
+    uint64_t len;
+} FlData;
+
 typedef struct FlColor {
     float r, g, b, a;
 } FlColor;

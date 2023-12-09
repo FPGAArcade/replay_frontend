@@ -1,5 +1,5 @@
 use crate::image::{ImageFormat, ImageInfo};
-use crate::manual::FlString;
+use crate::manual::{FlString, FlData};
 use crate::InternalState;
 use fileorama::{MemoryDriver, MemoryDriverType,  Error, FilesDirs, LoadStatus, Progress, Fileorama};
 use std::collections::HashMap;
@@ -285,8 +285,29 @@ pub fn fl_image_create_from_file_impl(data: *mut core::ffi::c_void, filename: Fl
 }
 
 #[no_mangle]
-pub fn fl_image_get_info_impl(_data: *const core::ffi::c_void, _image: u64) -> *const ImageInfo {
-    std::ptr::null()
+pub fn fl_image_get_info_impl(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo {
+    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
+
+    if let Some(image_data) = state.image_handler.loaded.get(&image) {
+        let image_info: &ImageInfo = unsafe { std::mem::transmute(&image_data[0]) };
+        return image_info;
+    } else {
+        std::ptr::null()
+    }
+}
+
+#[no_mangle]
+pub fn fl_image_get_data_impl(data: *const core::ffi::c_void, image: u64) -> FlData {
+    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
+    if let Some(image_data) = state.image_handler.loaded.get(&image) {
+        let data = &image_data[std::mem::size_of::<ImageInfo>()..];
+        return FlData {
+            data: data.as_ptr() as *const _,
+            size: data.len() as u64,
+        };
+    } else {
+        FlData::default()
+    }
 }
 
 mod tests {

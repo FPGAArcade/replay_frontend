@@ -18,9 +18,7 @@ const PRMITIVE_TYPES: &[&str] = &[
     "void", "i8", "u8", "i16", "u16", "i32", "u32", "i64", "u64", "bool", "f32", "f64",
 ];
 
-///
 /// Variable type
-///
 #[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum VariableType {
     None,
@@ -38,9 +36,7 @@ pub enum VariableType {
     Reference,
 }
 
-///
 /// Array Type
-///
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
 pub enum ArrayType {
     /// Array is unsized
@@ -50,9 +46,7 @@ pub enum ArrayType {
     SizedArray(String),
 }
 
-///
 /// Holds the data for a variable. It's name and it's type and additional flags
-///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Variable {
     /// Documentation

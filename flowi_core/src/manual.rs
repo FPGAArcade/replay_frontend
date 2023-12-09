@@ -6,6 +6,21 @@ pub struct FlString {
     length: u32,
 }
 
+#[repr(C)]
+pub struct FlData {
+    pub data: *const c_void,
+    pub size: u64,
+}
+
+impl Default for FlData {
+    fn default() -> Self {
+        Self {
+            data: std::ptr::null(),
+            size: 0,
+        }
+    }
+}
+
 impl FlString {
     pub fn new(s: &str) -> Self {
         FlString {

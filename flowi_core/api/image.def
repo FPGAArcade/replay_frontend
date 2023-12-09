@@ -43,8 +43,10 @@ struct Image {
     /// PNG 1/2/4/8/16-bit-per-channel
     /// This call will block until the loading has finished. It's recommended to use the async version instead.
     [static] create_from_file_block(filename: String) -> Image?,
-    /// Get data amout the image
+    /// Get info about the image
     [static] get_info(image: Image) -> *const ImageInfo?,
+    /// Get data from the image.
+    [static] get_data(image: Image) -> [u8]?,
 }
 
 // vim: syntax=rust expandtab ts=4 sw=4

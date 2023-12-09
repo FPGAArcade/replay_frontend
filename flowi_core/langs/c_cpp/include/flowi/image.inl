@@ -3,6 +3,7 @@ typedef struct FlImageApi {
     FlImage (*create_from_file)(struct FlInternalData* priv, FlString filename);
     FlImage (*create_from_file_block)(struct FlInternalData* priv, FlString filename);
     FlImageInfo* (*get_info)(struct FlInternalData* priv, FlImage image);
+    FlData (*get_data)(struct FlInternalData* priv, FlImage image);
 } FlImageApi;
 
 extern FlImageApi* g_flowi_image_api;
@@ -11,6 +12,7 @@ extern FlImageApi* g_flowi_image_api;
 FlImage fl_image_create_from_file_impl(struct FlInternalData* priv, FlString filename);
 FlImage fl_image_create_from_file_block_impl(struct FlInternalData* priv, FlString filename);
 FlImageInfo* fl_image_get_info_impl(struct FlInternalData* priv, FlImage image);
+FlData fl_image_get_data_impl(struct FlInternalData* priv, FlImage image);
 #endif
 
 // Load image from file. Supported formats are:
@@ -39,11 +41,20 @@ FL_INLINE FlImage fl_image_create_from_file_block(const char* filename) {
 #endif
 }
 
-// Get data amout the image
+// Get info about the image
 FL_INLINE FlImageInfo* fl_image_get_info(FlImage image) {
 #ifdef FLOWI_STATIC
     return fl_image_get_info_impl(g_flowi_image_api->priv, image);
 #else
     return (g_flowi_image_api->get_info)(g_flowi_image_api->priv, image);
+#endif
+}
+
+// Get data from the image.
+FL_INLINE FlData fl_image_get_data(FlImage image) {
+#ifdef FLOWI_STATIC
+    return fl_image_get_data_impl(g_flowi_image_api->priv, image);
+#else
+    return (g_flowi_image_api->get_data)(g_flowi_image_api->priv, image);
 #endif
 }
