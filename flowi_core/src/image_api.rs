@@ -288,3 +288,25 @@ pub fn fl_image_create_from_file_impl(data: *mut core::ffi::c_void, filename: Fl
 pub fn fl_image_get_info_impl(_data: *const core::ffi::c_void, _image: u64) -> *const ImageInfo {
     std::ptr::null()
 }
+
+mod tests {
+    /*
+    use crate::Image;
+    use crate::ApplicationSettings;
+
+    #[test]
+    fn png_fail_load() {
+        let instance = crate::Instance::new(&ApplicationSettings::default());
+        assert!(handle.is_err());
+    }
+
+    #[test]
+    fn png_load_ok() {
+        let settings = ApplicationSettings { some_data: 0 };
+        let state = crate::FlowiState::new(&settings, 1);
+        let handle = Image::create_from_file_block("/Users/emoon/code/projects/flowi/flowi_core/data/png/grayscale.png");
+        handle.unwrap();
+        //assert!(handle.is_ok());
+    }
+    */
+}

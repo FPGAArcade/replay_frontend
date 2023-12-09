@@ -25,7 +25,7 @@ use walkdir::WalkDir;
 
 /// Main
 fn main() {
-    let wd = WalkDir::new("../../api");
+    let wd = WalkDir::new("../../flowi_core/api");
     // temporary set to one thread during debugging
     //rayon::ThreadPoolBuilder::new()
     // .num_threads(1)
@@ -38,8 +38,8 @@ fn main() {
     tera.register_function("is_struct_not_empty", Cgen::is_struct_not_empty);
 
     // Dest directores for various langs
-    let c_dest = "../../langs/c_cpp/include/flowi";
-    let rust_dest = "../../src/generated";
+    let c_dest = "../../flowi_core/langs/c_cpp/include/flowi";
+    let rust_dest = "../../flowi_core/src/generated";
 
     // Collect all files that needs to be parsed
     let files = wd

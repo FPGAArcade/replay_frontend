@@ -1,14 +1,12 @@
 [workspace]
 resolver = "2"
-exclude = [
-    "flowi_core/tools/api_gen", 
-]
 members = [
     "fileorama",
     "flowi_core",
     "flowi",
     "main",
 ]
-
-
+exclude = [
+    "tools/api_gen", 
+]
 
