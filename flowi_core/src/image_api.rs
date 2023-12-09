@@ -195,7 +195,7 @@ pub(crate) struct ImageHandler {
 
 impl ImageHandler {
     pub fn new(vfs: &Fileorama) -> Self {
-        vfs.add_memory_driver(Box::new(ImageLoader::default()));
+        vfs.add_memory_driver(Box::<ImageLoader>::default());
 
         Self {
             inflight: Vec::new(),
