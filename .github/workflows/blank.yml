@@ -16,6 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - if: matrix.os == 'ubuntu-latest'
-        run: sudo apt install libwayland-cursor0 libxkbcommon-dev libwayland-dev
+        run: sudo apt install sudo apt-get install mesa-common-dev libx11-dev libxcursor-dev libxinerama-dev libxkbcommon-dev libxrandr-dev libxi-dev libgl1-mesa-dev
       - name: Build code
         run: cargo build
