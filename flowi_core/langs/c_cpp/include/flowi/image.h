@@ -26,6 +26,15 @@ typedef enum FlImageFormat {
     FlImageFormat_Alpha = 4,
 } FlImageFormat;
 
+typedef enum FlImageLoadStatus {
+    // The image is still loading
+    FlImageLoadStatus_Loading = 0,
+    // The image has finished loading
+    FlImageLoadStatus_Loaded = 1,
+    // The image failed to load
+    FlImageLoadStatus_Failed = 2,
+} FlImageLoadStatus;
+
 typedef enum FlSvgFlags {
     // Render the SVG image using RGBA format
     FlSvgFlags_Rgba = 0,
@@ -35,7 +44,7 @@ typedef enum FlSvgFlags {
 
 typedef struct FlImageInfo {
     // Format of the image. See the ImageFormat enum
-    uint32_t image_format;
+    uint32_t format;
     // width of the image
     uint32_t width;
     // height of the Image
@@ -57,6 +66,9 @@ static FlImage fl_image_create_from_file(const char* filename);
 // PNG 1/2/4/8/16-bit-per-channel
 // This call will block until the loading has finished. It's recommended to use the async version instead.
 static FlImage fl_image_create_from_file_block(const char* filename);
+
+// Get the status of the image. See the [ImageLoadStatus] enum
+static FlImageLoadStatus fl_image_get_status(FlImage image);
 
 // Get info about the image
 static FlImageInfo* fl_image_get_info(FlImage image);

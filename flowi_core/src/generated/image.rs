@@ -13,6 +13,8 @@ pub struct ImageFfiApi {
         unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString) -> u64,
     pub(crate) create_from_file_block:
         unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString) -> u64,
+    pub(crate) get_status:
+        unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus,
     pub(crate) get_info:
         unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo,
     pub(crate) get_data: unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64) -> FlData,
@@ -28,6 +30,7 @@ extern "C" {
         data: *const core::ffi::c_void,
         filename: FlString,
     ) -> u64;
+    pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus;
     pub fn fl_image_get_info_impl(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo;
     pub fn fl_image_get_data_impl(data: *const core::ffi::c_void, image: u64) -> FlData;
 }
@@ -52,6 +55,17 @@ pub enum ImageFormat {
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ImageLoadStatus {
+    /// The image is still loading
+    Loading = 0,
+    /// The image has finished loading
+    Loaded = 1,
+    /// The image failed to load
+    Failed = 2,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SvgFlags {
     /// Render the SVG image using RGBA format
     Rgba = 0,
@@ -63,7 +77,7 @@ pub enum SvgFlags {
 #[derive(Debug)]
 pub struct ImageInfo {
     /// Format of the image. See the ImageFormat enum
-    pub image_format: u32,
+    pub format: u32,
     /// width of the image
     pub width: u32,
     /// height of the Image
@@ -83,18 +97,14 @@ impl Image {
     /// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
     /// PNG 1/2/4/8/16-bit-per-channel
     /// Notice that this will return a async handle so the data may not be acceassable directly.
-    pub fn create_from_file(filename: &str) -> Result<Image> {
+    pub fn create_from_file(filename: &str) -> Image {
         unsafe {
             let _api = &*g_flowi_image_api;
             #[cfg(feature = "static")]
             let ret_val = fl_image_create_from_file_impl(_api.data, FlString::new(filename));
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             let ret_val = (_api.create_from_file)(_api.data, FlString::new(filename));
-            if ret_val == 0 {
-                Err(get_last_error())
-            } else {
-                Ok(Image { handle: ret_val })
-            }
+            Image { handle: ret_val }
         }
     }
 
@@ -102,18 +112,26 @@ impl Image {
     /// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
     /// PNG 1/2/4/8/16-bit-per-channel
     /// This call will block until the loading has finished. It's recommended to use the async version instead.
-    pub fn create_from_file_block(filename: &str) -> Result<Image> {
+    pub fn create_from_file_block(filename: &str) -> Image {
         unsafe {
             let _api = &*g_flowi_image_api;
             #[cfg(feature = "static")]
             let ret_val = fl_image_create_from_file_block_impl(_api.data, FlString::new(filename));
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             let ret_val = (_api.create_from_file_block)(_api.data, FlString::new(filename));
-            if ret_val == 0 {
-                Err(get_last_error())
-            } else {
-                Ok(Image { handle: ret_val })
-            }
+            Image { handle: ret_val }
+        }
+    }
+
+    /// Get the status of the image. See the [ImageLoadStatus] enum
+    pub fn get_status(image: Image) -> ImageLoadStatus {
+        unsafe {
+            let _api = &*g_flowi_image_api;
+            #[cfg(feature = "static")]
+            let ret_val = fl_image_get_status_impl(_api.data, image.handle);
+            #[cfg(any(feature = "dynamic", feature = "plugin"))]
+            let ret_val = (_api.get_status)(_api.data, image.handle);
+            ret_val
         }
     }
 

@@ -63,10 +63,10 @@ pub enum RecvMsg {
     ReadProgress(f32),
     /// Data after reading has finished.
     ReadDone(Data),
-    /// Data after the reading has been completed, but does also include metadata about the data.
-    ReadDoneMetadata(Data, Data),
+    // Data after the reading has been completed, but does also include metadata about the data.
+    //ReadDoneMetadata(Data, Data),
     /// Error that occured during reading
-    Error(SendError),
+    Error(String),
     /// When reading from a url a directory listing is returned
     Directory(FilesDirs),
     /// Nothing found at the given url
@@ -85,7 +85,7 @@ pub enum LoadStatus {
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("File Error")]
+    #[error("File or directory not found")]
     FileDirNotFound,
     #[error("File Error")]
     FileError(#[from] std::io::Error),
@@ -352,14 +352,12 @@ pub enum SendMsg {
 }
 
 fn handle_error(err: Error, msg: &crossbeam_channel::Sender<RecvMsg>) {
-    if let Error::FileError(err) = err {
-        let file_error = format!("{err:#?}");
-        if let Err(send_err) = msg.send(RecvMsg::Error(err.into())) {
-            error!(
-                "evfs: Unable to send file error {:#?} to main thread due to {:#?}",
-                file_error, send_err
-            );
-        }
+    let error_msg = format!("{:#?}", err);
+    if let Err(send_err) = msg.send(RecvMsg::Error(error_msg.to_owned())) {
+        error!(
+            "evfs: Unable to send file error {:#?} to main thread due to {:#?}",
+            error_msg, send_err
+        );
     }
 }
 
@@ -687,9 +685,7 @@ impl<'a> Loader<'a> {
 
             let load_msg = match vfs.node_drivers[driver] {
                 NodeDriver::IoDriver(ref mut io_driver) => {
-                    dbg!();
                     let msg = io_driver.load(&current_path, &mut progress)?;
-                    dbg!(&msg);
 
                     match msg {
                         LoadStatus::Data(in_data) => {
@@ -856,7 +852,7 @@ impl<'a> Loader<'a> {
                         );
                     }
                     LoadStatus::Data(in_data) => self.send_data(vfs, in_data)?,
-                    LoadStatus::NotFound => self.msg.send(RecvMsg::NotFound)?,
+                    LoadStatus::NotFound => return Err(Error::FileDirNotFound),
                 }
 
                 self.state = LoadState::Done;
@@ -866,10 +862,8 @@ impl<'a> Loader<'a> {
             node_index = vfs.nodes[node_index].parent as _;
         }
 
-        self.msg.send(RecvMsg::NotFound)?;
         self.state = LoadState::Done;
-
-        Ok(())
+        Err(Error::FileDirNotFound)
     }
 
     fn add_dir_to_vfs(

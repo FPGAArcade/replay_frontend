@@ -1,7 +1,7 @@
-use crate::image::{ImageFormat, ImageInfo};
+use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus};
 use crate::manual::{FlString, FlData};
 use crate::InternalState;
-use fileorama::{MemoryDriver, MemoryDriverType,  Error, FilesDirs, LoadStatus, Progress, Fileorama};
+use fileorama::{MemoryDriver, MemoryDriverType,  Error, FilesDirs, LoadStatus, Progress, Fileorama, RecvMsg};
 use std::collections::HashMap;
 
 /*
@@ -72,7 +72,7 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, PngDecodeErrors> {
     };
 
     let image_info = ImageInfo {
-        image_format: format as u32,
+        format: format as u32,
         width: dimensions.0 as u32,
         height: dimensions.1 as u32,
         frame_count: 1,
@@ -85,10 +85,10 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, PngDecodeErrors> {
     Ok(output_data)
 }
 
-fn load_png_from_memory(data: &[u8]) -> Result<Vec<u8>, Error> {
+fn load_png_from_memory(data: &[u8]) -> Result<Vec<u8>, String> {
     match decode_png(data) {
         Ok(data) => Ok(data),
-        Err(e) => Err(Error::Generic(format!("Error loading png: {:?}", e))),
+        Err(e) => Err(format!("Error loading png: {:?}", e)),
     }
 }
 
@@ -105,7 +105,6 @@ fn decode_jpeg(data: &[u8]) -> Result<LoadStatus, Error> {
 
 impl MemoryDriver for ImageLoader {
     fn name(&self) -> &'static str {
-        dbg!();
         "flowi_image_loader"
     }
 
@@ -123,7 +122,6 @@ impl MemoryDriver for ImageLoader {
 
     // Create a new instance given data. The Driver will take ownership of the data
     fn create_from_data(&self, data: Box<[u8]>) -> Option<MemoryDriverType> {
-        dbg!();
         // Check if png or jpeg loader can open the data
         /*
         let jpeg_decoder = JpegDecoder::new(&data);
@@ -149,6 +147,7 @@ impl MemoryDriver for ImageLoader {
     /// Returns a handle which updates the progress and returns the loaded data. This will try to
     fn load(&mut self, _path: &str, progress: &mut Progress) -> Result<LoadStatus, Error> {
         println!("loading url: {} for image loader", _path);
+        
         //progress.set_step(1);
 
         match self.image_type {
@@ -184,12 +183,18 @@ impl MemoryDriver for ImageLoader {
     }
 }
 
+#[derive(Debug)]
+enum LoadedData {
+    Data(Vec<u8>),
+    Error(String),
+}
+
 #[repr(C)]
 pub(crate) struct ImageHandler {
     /// Images that are currently being loaded (i.e async)
-    inflight: Vec<(u64, fileorama::Handle)>,
+    pub(crate) inflight: Vec<(u64, fileorama::Handle)>,
     /// Images that have been loaded
-    loaded: HashMap<u64, Vec<u8>>,
+    pub(crate) loaded: HashMap<u64, LoadedData>,
     id_counter: u64,
 }
 
@@ -208,56 +213,109 @@ impl ImageHandler {
         self.loaded.contains_key(&id)
     }
 
-    /*
     pub fn update(&mut self) {
-        for (id, handle) in self.inflight {
-            match handle.recv() {
-                RecvMsg::Progress(progress) => {
-                    println!("progress: {}", progress);
+        let len = self.inflight.len();
+
+        for i in 0..len {
+            let (id, handle) = &self.inflight[i];
+            match handle.recv.try_recv() {
+                Ok(RecvMsg::ReadProgress(_progress)) => { },
+
+                Ok(RecvMsg::ReadDone(data)) => {
+                    // TODO: handle ownership
+                    self.loaded.insert(*id, LoadedData::Data(data.get().to_vec()));
+                    self.inflight.remove(i);
                 }
 
-                RecvMsg::Data(data) => {
-                    self.loaded.insert(id, data);
+                Ok(RecvMsg::Error(e)) => {
+                    self.loaded.insert(*id, LoadedData::Error(e));
+                    self.inflight.remove(i);
                 }
 
-                RecvMsg::Error(e) => {
-                    println!("error: {:?}", e);
-                }
+                Ok(RecvMsg::NotFound) => { },
 
-                RecvMsg::Done => {
-                    println!("done");
-                }
+                _ => { },
+                Err(_) => { },
             }
         }
     }
-    */
 }
 
-fn load_sync(url: &str) -> Result<Vec<u8>, fileorama::Error> {
+fn load_sync(url: &str) -> Result<Vec<u8>, String> {
     let data = match std::fs::read(url) {
         Ok(data) => data,
-        Err(e) => return Err(Error::Generic(format!("{:?}", e))),
+        Err(e) => return Err(format!("{:?}", e)),
     };
 
     load_png_from_memory(&data)
 }
 
 #[inline]
-fn create_from_file_sync(state: &mut InternalState, filename: &str) -> Result<u64, Error> {
-    let data = load_sync(filename)?;
+fn create_from_file_sync(state: &mut InternalState, filename: &str) -> u64 {
     let id = state.image_handler.id_counter;
-    state.image_handler.loaded.insert(id, data);
+
+    match load_sync(filename) {
+        Ok(data) => state.image_handler.loaded.insert(id, LoadedData::Data(data)),
+        Err(e) => state.image_handler.loaded.insert(id, LoadedData::Error(e)),
+    };
+
     state.image_handler.id_counter += 1;
-    Ok(id)
+    id
 }
 
 #[inline]
-fn create_from_file(state: &mut InternalState, filename: &str) -> Result<u64, Error> {
+fn create_from_file(state: &mut InternalState, filename: &str) -> u64 {
     let handle = state.vfs.load_url(filename);
     let id = state.image_handler.id_counter;
     state.image_handler.inflight.push((id, handle));
     state.image_handler.id_counter += 1;
-    Ok(id)
+    id
+}
+
+#[inline]
+fn image_status(state: &InternalState, id: u64) -> ImageLoadStatus {
+    if let Some(image) = state.image_handler.loaded.get(&id) {
+        match image {
+            LoadedData::Data(_) => ImageLoadStatus::Loaded, 
+            LoadedData::Error(_) => ImageLoadStatus::Failed,
+        }
+    } else {
+        ImageLoadStatus::Loaded
+    }
+}
+
+#[inline]
+fn image_data(state: &InternalState, id: u64) -> FlData {
+    if let Some(image) = state.image_handler.loaded.get(&id) {
+        match image {
+            LoadedData::Data(data) => {
+                let header_size = std::mem::size_of::<ImageInfo>();
+                let data = &data[header_size..];
+                FlData {
+                    data: data.as_ptr() as *const core::ffi::c_void,
+                    size: data.len() as u64,
+                }
+            },
+            LoadedData::Error(_) => FlData::default(),
+        }
+    } else {
+        FlData::default()
+    }
+}
+
+#[inline]
+fn image_info(state: &InternalState, image_id: u64) -> *const ImageInfo {
+    if let Some(image_data) = state.image_handler.loaded.get(&image_id) {
+        match image_data {
+            LoadedData::Data(data) => {
+                let image_info: &ImageInfo = unsafe { std::mem::transmute(&data[0]) };
+                image_info
+            }
+            LoadedData::Error(_) => std::ptr::null(),
+        }
+    } else {
+        std::ptr::null()
+    }
 }
 
 struct WrapState<'a> {
@@ -269,9 +327,7 @@ struct WrapState<'a> {
 pub fn fl_image_create_from_file_block_impl(data: *mut core::ffi::c_void, filename: FlString) -> u64 {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
     let name = filename.as_str();
-    create_from_file_sync(state, name).unwrap_or_else(|e| {
-        panic!("{:?}", e);
-    })
+    create_from_file_sync(state, name)
 }
 
 // FFI functions
@@ -279,55 +335,146 @@ pub fn fl_image_create_from_file_block_impl(data: *mut core::ffi::c_void, filena
 pub fn fl_image_create_from_file_impl(data: *mut core::ffi::c_void, filename: FlString) -> u64 {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
     let name = filename.as_str();
-    create_from_file(state, name).unwrap_or_else(|e| {
-        panic!("{:?}", e);
-    })
+    create_from_file(state, name)
 }
 
 #[no_mangle]
 pub fn fl_image_get_info_impl(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-
-    if let Some(image_data) = state.image_handler.loaded.get(&image) {
-        let image_info: &ImageInfo = unsafe { std::mem::transmute(&image_data[0]) };
-        return image_info;
-    } else {
-        std::ptr::null()
-    }
+    image_info(state, image)
 }
 
 #[no_mangle]
 pub fn fl_image_get_data_impl(data: *const core::ffi::c_void, image: u64) -> FlData {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    if let Some(image_data) = state.image_handler.loaded.get(&image) {
-        let data = &image_data[std::mem::size_of::<ImageInfo>()..];
-        return FlData {
-            data: data.as_ptr() as *const _,
-            size: data.len() as u64,
-        };
-    } else {
-        FlData::default()
-    }
+    image_data(state, image)
 }
 
-mod tests {
-    /*
-    use crate::Image;
-    use crate::ApplicationSettings;
+#[no_mangle]
+pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus {
+    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
+    image_status(state, image)
+}
 
-    #[test]
-    fn png_fail_load() {
-        let instance = crate::Instance::new(&ApplicationSettings::default());
-        assert!(handle.is_err());
+#[cfg(test)]
+mod tests {
+    use crate::ApplicationSettings;
+    use super::*;
+
+    fn validate_red_image(state: &InternalState, handle: u64) {
+        assert_eq!(image_status(state, handle), ImageLoadStatus::Loaded);
+        let info = image_info(state, handle);
+        assert_ne!(info, std::ptr::null()); 
+        let info = unsafe { &*(info as *const ImageInfo) };
+        assert_eq!(info.format, ImageFormat::Rgb as u32);
+        assert_eq!(info.width, 200);
+        assert_eq!(info.height, 200);
+        let data = image_data(state, handle);
+        assert_ne!(data.data, std::ptr::null());
+        let data = unsafe { std::slice::from_raw_parts(data.data as *const u8, data.size as usize) };
+        assert_eq!(data[0], 255);
+        assert_eq!(data[1], 0);
+        assert_eq!(data[2], 0);
     }
 
     #[test]
-    fn png_load_ok() {
-        let settings = ApplicationSettings { some_data: 0 };
-        let state = crate::FlowiState::new(&settings, 1);
-        let handle = Image::create_from_file_block("/Users/emoon/code/projects/flowi/flowi_core/data/png/grayscale.png");
-        handle.unwrap();
-        //assert!(handle.is_ok());
+    fn png_sync_fail_load() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file_sync(&mut instance.state, "data/png/broken/xs1n0g01.png");
+        assert!(image_status(&instance.state, handle) == ImageLoadStatus::Failed);
+    }
+
+    #[test]
+    fn png_sync_load_ok() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file_sync(&mut instance.state, "data/png/rgb.png");
+        assert!(image_status(&instance.state, handle) == ImageLoadStatus::Loaded);
+    }
+
+    #[test]
+    fn png_sync_red_image_ok() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file_sync(&mut instance.state, "data/png/solid_red.png");
+        validate_red_image(&instance.state, handle);
+    }
+
+    #[test]
+    fn png_async_red_image_ok() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file(&mut instance.state, "data/png/solid_red.png");
+
+        // assume we haven't loaded it just yet
+        assert_eq!(instance.state.image_handler.is_loaded(handle), false);
+
+        for _ in 0..100 {
+            instance.state.image_handler.update();
+
+            if instance.state.image_handler.is_loaded(handle) {
+                validate_red_image(&instance.state, handle);
+                return;
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        // should never get here
+        assert!(false);
+    }
+
+    /*
+    #[test]
+    fn png_async_load_fail() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file(&mut instance.state, "data/png/non_such_file.png");
+
+        // assume we haven't loaded it just yet
+        assert_eq!(instance.state.image_handler.is_loaded(handle), false);
+
+        for _ in 0..100 {
+            instance.state.image_handler.update();
+
+            if instance.state.image_handler.is_loaded(handle) {
+                assert!(image_status(&instance.state, handle) == ImageLoadStatus::Failed);
+                return;
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        // should never get here
+        assert!(false);
+    }
+    */
+
+    /*
+    #[test]
+    fn png_async_load_fail_broken() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file(&mut instance.state, "data/png/broken/xs1n0g01.png");
+
+        // assume we haven't loaded it just yet
+        assert_eq!(instance.state.image_handler.is_loaded(handle), false);
+
+        for _ in 0..100 {
+            instance.state.image_handler.update();
+
+            if instance.state.image_handler.is_loaded(handle) {
+                dbg!(image_status(&instance.state, handle));
+                assert!(image_status(&instance.state, handle) == ImageLoadStatus::Failed);
+                return;
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        // should never get here
+        assert!(false);
     }
     */
 }
