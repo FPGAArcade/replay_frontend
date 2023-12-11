@@ -55,25 +55,19 @@ typedef struct FlImageInfo {
 
 typedef uint64_t FlImage;
 
-// Load image from file. Supported formats are:
+// Async Load image from url/file. Supported formats are:
 // JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
 // PNG 1/2/4/8/16-bit-per-channel
 // Notice that this will return a async handle so the data may not be acceassable directly.
 static FlImage fl_image_create_from_file(const char* filename);
 
-// Load image from file. Supported formats are:
-// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
-// PNG 1/2/4/8/16-bit-per-channel
-// This call will block until the loading has finished. It's recommended to use the async version instead.
-static FlImage fl_image_create_from_file_block(const char* filename);
-
 // Get the status of the image. See the [ImageLoadStatus] enum
 static FlImageLoadStatus fl_image_get_status(FlImage image);
 
-// Get info about the image
+// Get info about the image. Will be null if the image hasn't loaded yet or failed to load.
 static FlImageInfo* fl_image_get_info(FlImage image);
 
-// Get data from the image.
+// Get data from the image. Will be null if the image hasn't loaded yet or failed to load.
 static FlData fl_image_get_data(FlImage image);
 
 #include "image.inl"

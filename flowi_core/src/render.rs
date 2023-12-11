@@ -49,7 +49,7 @@ pub extern "C" fn fl_renderer_get_texture_impl(data: *mut core::ffi::c_void, ima
     }
 
     // Check if image has been loaded yet
-    if !state.image_handler.is_loaded(image.handle) {
+    if !state.io_handler.is_loaded(image.handle) {
         return Texture { handle: 0 };
     }
 

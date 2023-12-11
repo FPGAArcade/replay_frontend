@@ -11,8 +11,6 @@ pub struct ImageFfiApi {
     pub(crate) data: *const core::ffi::c_void,
     pub(crate) create_from_file:
         unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString) -> u64,
-    pub(crate) create_from_file_block:
-        unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString) -> u64,
     pub(crate) get_status:
         unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus,
     pub(crate) get_info:
@@ -23,10 +21,6 @@ pub struct ImageFfiApi {
 #[cfg(feature = "static")]
 extern "C" {
     pub fn fl_image_create_from_file_impl(
-        data: *const core::ffi::c_void,
-        filename: FlString,
-    ) -> u64;
-    pub fn fl_image_create_from_file_block_impl(
         data: *const core::ffi::c_void,
         filename: FlString,
     ) -> u64;
@@ -93,7 +87,7 @@ pub struct Image {
 }
 
 impl Image {
-    /// Load image from file. Supported formats are:
+    /// Async Load image from url/file. Supported formats are:
     /// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
     /// PNG 1/2/4/8/16-bit-per-channel
     /// Notice that this will return a async handle so the data may not be acceassable directly.
@@ -104,21 +98,6 @@ impl Image {
             let ret_val = fl_image_create_from_file_impl(_api.data, FlString::new(filename));
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             let ret_val = (_api.create_from_file)(_api.data, FlString::new(filename));
-            Image { handle: ret_val }
-        }
-    }
-
-    /// Load image from file. Supported formats are:
-    /// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
-    /// PNG 1/2/4/8/16-bit-per-channel
-    /// This call will block until the loading has finished. It's recommended to use the async version instead.
-    pub fn create_from_file_block(filename: &str) -> Image {
-        unsafe {
-            let _api = &*g_flowi_image_api;
-            #[cfg(feature = "static")]
-            let ret_val = fl_image_create_from_file_block_impl(_api.data, FlString::new(filename));
-            #[cfg(any(feature = "dynamic", feature = "plugin"))]
-            let ret_val = (_api.create_from_file_block)(_api.data, FlString::new(filename));
             Image { handle: ret_val }
         }
     }
@@ -135,7 +114,7 @@ impl Image {
         }
     }
 
-    /// Get info about the image
+    /// Get info about the image. Will be null if the image hasn't loaded yet or failed to load.
     pub fn get_info<'a>(image: Image) -> Result<&'a ImageInfo> {
         unsafe {
             let _api = &*g_flowi_image_api;
@@ -151,7 +130,7 @@ impl Image {
         }
     }
 
-    /// Get data from the image.
+    /// Get data from the image. Will be null if the image hasn't loaded yet or failed to load.
     pub fn get_data<'a>(image: Image) -> Option<&'a [u8]> {
         unsafe {
             let _api = &*g_flowi_image_api;

@@ -7,10 +7,11 @@ pub use generated::*;
 pub mod render;
 mod manual;
 mod tests;
+mod io_handler;
 
 use core::ffi::c_void;
 use fileorama::Fileorama;
-use image_api::ImageHandler;
+use io_handler::IoHandler;
 pub use crate::render::{FlowiRenderer, DummyRenderer};
 use crate::render::RendererState;
 
@@ -19,7 +20,7 @@ pub struct InternalState {
     pub renderer: Box<dyn FlowiRenderer>,
     pub(crate) renderer_state: RendererState,
     pub(crate) vfs: Fileorama,
-    pub(crate) image_handler: ImageHandler,
+    pub(crate) io_handler: IoHandler,
 }
 
 #[repr(C)]
@@ -40,14 +41,16 @@ extern "C" {
 impl Instance {
     pub fn new(settings: &ApplicationSettings) -> Self {
         let vfs = Fileorama::new(2);
-        let image_handler = ImageHandler::new(&vfs);
+        let io_handler = IoHandler::new(&vfs);
         let renderer = Box::new(DummyRenderer::new(settings, None));
+
+        crate::image_api::install_image_loader(&vfs);
 
         let state = Box::new(InternalState {
             renderer,
             renderer_state: RendererState::new(),
             vfs,
-            image_handler,
+            io_handler,
         });
 
         let ptr = Box::into_raw(state);
@@ -59,6 +62,10 @@ impl Instance {
 
     pub fn pre_update(&self) {
         unsafe { c_pre_update(self.c_data) }
+    }
+
+    pub fn update(&mut self) {
+        self.state.io_handler.update();
     }
 
     pub fn post_update(&self) {

@@ -1,201 +1,85 @@
-use base64ct::{Base64, Encoding};
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-use sha2::{Digest, Sha256};
+use fileorama::{LoadStatus, Progress, Fileorama, RecvMsg};
+use std::collections::HashMap;
 
-use std::{
-    fs::File,
-    io::Read,
-    path::{Path, PathBuf},
-    process::{Command, Output},
-    sync::mpsc::Receiver,
-};
-
-use crate::{
-    internal_error::InternalResult as Result, io::IoFfiApi, manual::FlString,
-    shaders::ShaderHandler, ShaderProgram,
-};
-
-pub struct IoHandler {
-    watcher: RecommendedWatcher,
-    _event_rx: Receiver<notify::Result<notify::Event>>,
-    pub shaders: ShaderHandler,
-    //shaders_comp: HashMap<String, Shader>,
-    temp_dir: PathBuf,
+#[derive(Debug)]
+pub(crate) enum LoadedData {
+    Data(Box<[u8]>),
+    Error(String),
 }
 
-#[cfg(target_os = "macos")]
-fn build_shader(filename: &str, output_path: &PathBuf, shader_type: &str) -> Result<Output> {
-    Ok(
-        Command::new("/Users/emoon/code/projects/flowi/bin/shaderc_macos")
-            .arg("-f")
-            .arg(filename)
-            .arg("-i")
-            .arg("/Users/emoon/code/other/bgfx/bgfx/src")
-            .arg("--type")
-            .arg(shader_type)
-            .arg("--platform")
-            .arg("osx")
-            .arg("-p")
-            .arg("metal")
-            .arg("-o")
-            .arg(output_path)
-            .output()
-            .unwrap(),
-    )
-}
+pub type IoHandle = u64;
 
-#[cfg(target_os = "linux")]
-fn build_shader(filename: &str, output_path: &PathBuf, shader_type: &str) -> Result<Output> {
-    Ok(
-        Command::new("/home/emoon/code/projects/flowi/bin/shaderc_linux")
-            .arg("-f")
-            .arg(filename)
-            .arg("-i")
-            .arg("/home/emoon/code/other/bgfx/bgfx/src")
-            .arg("--type")
-            .arg(shader_type)
-            .arg("--platform")
-            .arg("linux")
-            .arg("-p")
-            .arg("120")
-            .arg("-o")
-            .arg(output_path)
-            .output()
-            .unwrap(),
-    )
-}
-
-fn build_fragment_shader(filename: &str, output_path: &PathBuf) -> Result<Output> {
-    build_shader(filename, output_path, "fragment")
-}
-
-fn build_vertex_shader(filename: &str, output_path: &PathBuf) -> Result<Output> {
-    build_shader(filename, output_path, "vertex")
+pub(crate) struct IoHandler {
+    vfs: fileorama::Fileorama,
+    /// Images that are currently being loaded (i.e async)
+    pub(crate) inflight: Vec<(u64, fileorama::Handle)>,
+    /// Images that have been loaded
+    pub(crate) loaded: HashMap<u64, LoadedData>,
+    id_counter: u64,
 }
 
 impl IoHandler {
-    pub fn new() -> Self {
-        let (tx, _event_rx) = std::sync::mpsc::channel();
-        let watcher = RecommendedWatcher::new(tx, Config::default()).unwrap();
+    pub fn new(vfs: &Fileorama) -> Self {
         Self {
-            watcher,
-            _event_rx,
-            temp_dir: std::env::temp_dir(),
-            shaders: ShaderHandler::new(),
-            //shaders_comp: HashMap::new(),
+            vfs: vfs.clone(),
+            inflight: Vec::new(),
+            loaded: HashMap::new(),
+            id_counter: 1,
         }
     }
 
-    /*
+    pub fn is_loaded(&self, id: u64) -> bool {
+        self.loaded.contains_key(&id)
+    }
+
     pub fn update(&mut self) {
-        let event = self._event_rx.try_recv();
-        match event {
-            Ok(event) => {
-                println!("event: {:?}", event);
+        let mut i = 0;
+        while i < self.inflight.len() {
+            let (id, handle) = &self.inflight[i];
+            match handle.recv.try_recv() {
+                //RecvMsg::Progress(Progress { loaded, total }) => { },
+                Ok(RecvMsg::ReadDone(data)) => {
+                    self.loaded.insert(*id, LoadedData::Data(data));
+                    self.inflight.remove(i);
+                }
+                Ok(RecvMsg::Error(e)) => {
+                    dbg!(&e);
+                    self.loaded.insert(*id, LoadedData::Error(e));
+                    self.inflight.remove(i);
+                }
+
+                Ok(RecvMsg::NotFound) => { 
+                    self.loaded.insert(*id, LoadedData::Error("File not found".to_string()));
+                    self.inflight.remove(i);
+                }
+
+                _ => { }
             }
-            Err(_) => {}
+        
+            i += 1;
         }
     }
-    */
 
-    pub fn load_fragment_shader_comp(&mut self, filename: &str) -> Result<Vec<u8>> {
-        let mut file = File::open(filename)?;
-        let mut hasher = Sha256::new();
-        let _n = std::io::copy(&mut file, &mut hasher)?;
-        let hash = hasher.finalize();
-        let hash_str = Base64::encode_string(&hash);
-
-        let temp_path = self.temp_dir.join(hash_str);
-        // if the shader doesn't exist in the temp dir we need to generate it
-        if !temp_path.exists() {
-            let output = build_fragment_shader(filename, &temp_path).unwrap();
-
-            if !output.status.success() {
-                println!("{}", String::from_utf8_lossy(&output.stdout));
-                println!("{}", String::from_utf8_lossy(&output.stderr));
-                panic!();
-            }
-        }
-
-        self.watcher
-            .watch(Path::new(filename), RecursiveMode::Recursive)?;
-
-        let mut f = File::open(temp_path)?;
-        let mut buffer = Vec::new();
-        f.read_to_end(&mut buffer)?;
-
-        // zero terminate the buffer as this seems to be required sometimes
-        buffer.push(0);
-        Ok(buffer)
+    // Async loading 
+    pub fn load(&mut self, url: &str) -> IoHandle {
+        let id = self.id_counter;
+        self.id_counter += 1;
+        let handle = self.vfs.load_url(url);
+        self.inflight.push((id, handle));
+        id
     }
 
-    /// TODO: Unify with code above
-    pub fn load_vertex_shader_comp(&mut self, filename: &str) -> Result<Vec<u8>> {
-        let mut file = File::open(filename)?;
-        let mut hasher = Sha256::new();
-        let _n = std::io::copy(&mut file, &mut hasher)?;
-        let hash = hasher.finalize();
-        let hash_str = Base64::encode_string(&hash);
-
-        let temp_path = self.temp_dir.join(hash_str);
-        // if the shader doesn't exist in the temp dir we need to generate it
-        if !temp_path.exists() {
-            let output = build_vertex_shader(filename, &temp_path).unwrap();
-
-            println!("vertext shader at: {:?}", temp_path);
-
-            if !output.status.success() {
-                println!("{}", String::from_utf8_lossy(&output.stdout));
-                println!("{}", String::from_utf8_lossy(&output.stderr));
-                panic!();
-            }
-        }
-
-        self.watcher
-            .watch(Path::new(filename), RecursiveMode::Recursive)?;
-
-        let mut f = File::open(temp_path)?;
-        let mut buffer = Vec::new();
-        f.read_to_end(&mut buffer)?;
-
-        // zero terminate the buffer as this seems to be required sometimes
-        buffer.push(0);
-        Ok(buffer)
-    }
-
-    pub fn load_shader_program_comp(&mut self, vs: &str, fs: &str) -> Result<ShaderProgram> {
-        let vs_data = self.load_vertex_shader_comp(vs)?;
-        let fs_data = self.load_fragment_shader_comp(fs)?;
-        self.shaders.load_program(&vs_data, &fs_data)
-    }
-
-    pub fn get_ffi_api(&self) -> IoFfiApi {
-        IoFfiApi {
-            data: self as *const IoHandler as *const std::ffi::c_void,
-            load_shader_program_comp: fl_load_shader_program_comp,
-        }
+    /// Async load a url where the memory loader has to be a specific type. This is useful if you
+    /// want to load a certain file type (such as a image) you can specifiy that the specific
+    /// driver loading the data is an image driver. If the driver fails (with broken data for
+    /// example) an error will be returned instead.
+    pub fn load_with_driver(&mut self, url: &str, driver_name: &'static str) -> IoHandle {
+        let id = self.id_counter;
+        self.id_counter += 1;
+        let handle = self.vfs.load_url_with_driver(url, driver_name);
+        self.inflight.push((id, handle));
+        id
     }
 }
 
-#[no_mangle]
-pub extern "C" fn fl_load_shader_program_comp(
-    ctx: *const core::ffi::c_void,
-    vs_filename: FlString,
-    fs_filename: FlString,
-) -> u64 {
-    let io_handler = unsafe { &mut *(ctx as *mut IoHandler) };
-    // TODO: correct handling
-    let shader_handle = io_handler
-        .load_shader_program_comp(vs_filename.as_str(), fs_filename.as_str())
-        .unwrap();
-    shader_handle.handle
-}
 
-#[no_mangle]
-pub extern "C" fn fl_get_io_api(
-    app_state: *const core::ffi::c_void,
-    _version: u32,
-) -> *const IoFfiApi {
-    let app_state = unsafe { &*(app_state as *const crate::application::ApplicationState) };
-    &app_state.io_ffi_api
-}

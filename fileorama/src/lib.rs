@@ -13,8 +13,8 @@ mod ftp_fs;
 mod local_fs;
 mod zip_fs;
 
-#[cfg(test)]
-use std::println as trace;
+//#[cfg(test)]
+//use std::println as trace;
 
 // Used for keeping data a alive for a while. This is useful as some data may have been loaded and then it's
 // common that another system wants to read the same data. We keep it alive for this amount of entries at the same time
@@ -62,7 +62,7 @@ pub enum RecvMsg {
     /// indirection there are.
     ReadProgress(f32),
     /// Data after reading has finished.
-    ReadDone(Data),
+    ReadDone(Box<[u8]>),
     // Data after the reading has been completed, but does also include metadata about the data.
     //ReadDoneMetadata(Data, Data),
     /// Error that occured during reading
@@ -288,11 +288,27 @@ impl Fileorama {
         let (thread_send, main_recv) = unbounded::<RecvMsg>();
 
         self.main_send
-            .send(SendMsg::LoadUrl(path.into(), 0, thread_send))
+            .send(SendMsg::LoadUrl(path.into(), 0, "", thread_send))
             .unwrap();
 
         Handle { recv: main_recv }
     }
+
+    /// Loads the first file given a url. If an known archive is encounterd the first file will be extracted
+    /// (given if it has a file listing) and that will be returned until a file is encountered. If there are
+    /// no files an error will/archive will be returned instead and the user code has to handle it
+    /// This function also takes a driver name with the data has to be loaded from. If the the last
+    /// driver isn't the specified driver the function will return an error indicating that.
+    pub fn load_url_with_driver(&self, path: &str, driver_name: &'static str) -> Handle {
+        let (thread_send, main_recv) = unbounded::<RecvMsg>();
+
+        self.main_send
+            .send(SendMsg::LoadUrl(path.into(), 0, driver_name, thread_send))
+            .unwrap();
+
+        Handle { recv: main_recv }
+    }
+
 
     pub fn add_io_driver(&self, driver: IoDriverType) {
         self.main_send.send(SendMsg::AddIoDriver(driver)).unwrap();
@@ -307,6 +323,7 @@ impl Fileorama {
     pub fn new(thread_count: usize) -> Self {
         let (main_send, thread_recv) = unbounded::<SendMsg>();
 
+        // TODO: Configure the drivers we are allowed to using using features.
         let io_drivers: IoDrivers = Arc::new(RwLock::new(vec![
             Box::new(ftp_fs::FtpFs::new()),
             Box::new(local_fs::LocalFs::new()),
@@ -346,7 +363,7 @@ impl Default for Fileorama {
 }
 
 pub enum SendMsg {
-    LoadUrl(String, u32, crossbeam_channel::Sender<RecvMsg>),
+    LoadUrl(String, u32, &'static str, crossbeam_channel::Sender<RecvMsg>),
     AddIoDriver(IoDriverType),
     AddMemoryDriver(MemoryDriverType),
 }
@@ -625,7 +642,7 @@ impl<'a> Loader<'a> {
     }
 
     // Find a driver given input data at a node. If a driver is found we switch to state LoadFromDriver
-    fn find_driver_data(&mut self, vfs: &mut State, drivers: &MemoryDrivers) -> Result<(), Error> {
+    fn find_driver_data(&mut self, vfs: &mut State, driver_name: &'static str, drivers: &MemoryDrivers) -> Result<(), Error> {
         let node_data = self.data.as_ref().unwrap();
 
         trace!("Trying to find memory driver");
@@ -649,17 +666,20 @@ impl<'a> Loader<'a> {
             }
         }
 
-        trace!("No driver found, sending data as is {}", node_data.len());
-
-        // No driver found data. So we just send it back here
-        // TODO: Implement scanning here
-        let t = node_data.clone();
-        self.send_data(vfs, t)?;
-        Ok(())
+        if driver_name.is_empty() {
+            let t = node_data.clone();
+            self.send_data(vfs, t)?;
+            Ok(())
+        } else {
+            Err(Error::Generic(format!(
+                "Unable to load data for driver: {}",
+                driver_name
+            )))
+        }
     }
 
     // Walk a path backwards and try to load the url given a driver
-    fn load_from_driver(&mut self, vfs: &mut State) -> Result<(), Error> {
+    fn load_from_driver(&mut self, vfs: &mut State, driver_name: &'static str) -> Result<(), Error> {
         let components = &self.path_components[self.component_index..];
 
         let mut p: PathBuf = components.iter().collect();
@@ -683,7 +703,7 @@ impl<'a> Loader<'a> {
             let driver = self.driver_index as usize;
             let mut progress = Progress::new(0.0, 1.0, self.msg);
 
-            let load_msg = match vfs.node_drivers[driver] {
+            let (load_msg, name) = match vfs.node_drivers[driver] {
                 NodeDriver::IoDriver(ref mut io_driver) => {
                     let msg = io_driver.load(&current_path, &mut progress)?;
 
@@ -698,10 +718,10 @@ impl<'a> Loader<'a> {
                         _ => (),
                     }
 
-                    msg
+                    (msg, io_driver.name())
                 }
                 NodeDriver::MemoryDriver(ref mut mem_driver) => {
-                    mem_driver.load(&current_path, &mut progress)?
+                    (mem_driver.load(&current_path, &mut progress)?, mem_driver.name())
                 }
             };
 
@@ -719,18 +739,18 @@ impl<'a> Loader<'a> {
 
                 LoadStatus::Data(in_data) => {
                     trace!("Current path {:?}", current_path);
-                    // if level is 0 then we are done, otherwise we have to continue
-                    // TODO: If user has "scan" on data we need to continue here as well
-                    //if current_path.is_empty() {
-                    //    self.send_data(vfs, in_data)?;
-                    //} else {
+                    // If we found the driver we are looking for we can send the data back
+                    if driver_name == name {
+                        self.send_data(vfs, in_data)?;
+                        self.state = LoadState::Done;
+                    } else {
                         let res = add_path_to_vfs(vfs, self.node_index, &p);
                         self.node_index = res.0;
                         self.component_index += res.1;
                         // Add new nodes to the vfs
                         self.data = Some(in_data);
                         self.state = LoadState::FindDriverData;
-                    //}
+                    }
 
                     return Ok(());
                 }
@@ -763,12 +783,14 @@ impl<'a> Loader<'a> {
 
                 match msg {
                     LoadStatus::Data(in_data) => {
+                        dbg!();
                         trace!("Switching to find driver data");
                         self.data = Some(in_data);
                         self.state = LoadState::FindDriverData;
                     },
 
                     LoadStatus::Directory => {
+                        dbg!();
                         return self.add_dir_to_vfs(
                             vfs,
                             self.component_index,
@@ -779,7 +801,10 @@ impl<'a> Loader<'a> {
                         );
                     }
 
-                    LoadStatus::NotFound => return Err(Error::FileDirNotFound),
+                    LoadStatus::NotFound => {
+                        dbg!();
+                        return Err(Error::FileDirNotFound);
+                    }
                 }
             }
 
@@ -793,7 +818,7 @@ impl<'a> Loader<'a> {
     // the active node doesn't have one. This happens for example if we try to load from zip/file.bin
     // The current node would be "file.bin" but we need to load the data from the parent so the driver
     // will see the "file.bin" as input path
-    fn load_from_node(&mut self, vfs: &mut State) -> Result<(), Error> {
+    fn load_from_node(&mut self, vfs: &mut State, driver_name: &'static str) -> Result<(), Error> {
         let mut node_index = self.node_index;
 
         // if we have travered to the end of the path and we know that it's a directory we don't need to ask the driver
@@ -831,12 +856,12 @@ impl<'a> Loader<'a> {
 
                 // construct the path to load from the driver
                 let mut progress = Progress::new(0.0, 1.0, self.msg);
-                let load_msg = match vfs.node_drivers[driver_index as usize] {
+                let (load_msg, name) = match vfs.node_drivers[driver_index as usize] {
                     NodeDriver::IoDriver(ref mut driver) => {
-                        driver.load(&current_path, &mut progress)?
+                        (driver.load(&current_path, &mut progress)?, driver.name())
                     }
                     NodeDriver::MemoryDriver(ref mut driver) => {
-                        driver.load(&current_path, &mut progress)?
+                        (driver.load(&current_path, &mut progress)?, driver.name())
                     }
                 };
 
@@ -851,7 +876,16 @@ impl<'a> Loader<'a> {
                             self.node_index,
                         );
                     }
-                    LoadStatus::Data(in_data) => self.send_data(vfs, in_data)?,
+                    LoadStatus::Data(in_data) => { 
+                        if name == driver_name {
+                            self.send_data(vfs, in_data)?
+                        } else {
+                            return Err(Error::Generic(format!(
+                                "Driver name mismatch {} != {}",
+                                name, driver_name
+                            )));
+                        }
+                    }
                     LoadStatus::NotFound => return Err(Error::FileDirNotFound),
                 }
 
@@ -934,7 +968,7 @@ impl<'a> Loader<'a> {
             vfs.cached_data.remove(0);
         }
 
-        let ret_data = Data::new(&data);
+        let ret_data = data.clone();
 
         let cache_entry = CachedDataEntry {
             path: self.path_str.to_owned(),
@@ -972,6 +1006,7 @@ pub(crate) fn load(
     vfs: &mut State,
     path: &str,
     msg: &crossbeam_channel::Sender<RecvMsg>,
+    driver_name: &'static str,
     io_drivers: &IoDrivers,
     mem_drivers: &MemoryDrivers,
 ) -> Result<(), Error> {
@@ -981,7 +1016,7 @@ pub(crate) fn load(
     for e in &vfs.cached_data {
         if e.path == path {
             trace!("Sending data for path {} as cached", path);
-            msg.send(RecvMsg::ReadDone(Data::new(&e.data)))?;
+            msg.send(RecvMsg::ReadDone(e.data.clone()))?;
             return Ok(());
         }
     }
@@ -990,15 +1025,15 @@ pub(crate) fn load(
     //print_tree(vfs, 0, 0, 0);
 
     loop {
-        trace!("{:?}", loader.state);
+        println!("{:?}", loader.state);
 
         match loader.state {
             LoadState::FindNode => loader.find_node(vfs),
             LoadState::FindDriverUrl => loader.find_driver_url(vfs, io_drivers),
-            LoadState::FindDriverData => loader.find_driver_data(vfs, mem_drivers)?,
+            LoadState::FindDriverData => loader.find_driver_data(vfs, driver_name, mem_drivers)?,
             LoadState::LoadFromIoDriver => loader.load_from_io_driver(vfs)?,
-            LoadState::LoadFromDriver => loader.load_from_driver(vfs)?,
-            LoadState::LoadFromNode => loader.load_from_node(vfs)?,
+            LoadState::LoadFromDriver => loader.load_from_driver(vfs, driver_name)?,
+            LoadState::LoadFromNode => loader.load_from_node(vfs, driver_name)?,
             LoadState::Done => break,
             LoadState::UnsupportedPath => break,
         }
@@ -1015,8 +1050,8 @@ fn handle_msg(
     mem_drivers: &MemoryDrivers,
 ) {
     match msg {
-        SendMsg::LoadUrl(path, _node_index, msg) => {
-            if let Err(e) = load(vfs, path, msg, io_drivers, mem_drivers) {
+        SendMsg::LoadUrl(path, _node_index, driver_name, msg) => {
+            if let Err(e) = load(vfs, path, msg, driver_name, io_drivers, mem_drivers) {
                 handle_error(e, msg);
             }
         }
@@ -1193,7 +1228,7 @@ mod tests {
 
         for _ in 0..100 {
             if let Ok(RecvMsg::ReadDone(data)) = handle.recv.try_recv() {
-                data_size = data.get().len();
+                data_size = data.len();
                 break;
             }
             thread::sleep(std::time::Duration::from_millis(1));
@@ -1203,7 +1238,7 @@ mod tests {
 
         for _ in 0..100 {
             if let Ok(RecvMsg::ReadDone(data)) = handle.recv.try_recv() {
-                data_size_2 = data.get().len();
+                data_size_2 = data.len();
                 break;
             }
 
