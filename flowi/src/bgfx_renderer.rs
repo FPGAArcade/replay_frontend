@@ -2,10 +2,11 @@ use bgfx::*;
 use bgfx_rs::bgfx;
 use flowi_core::ApplicationSettings;
 use raw_window_handle::RawWindowHandle;
-use flowi_core::render::{FlowiRenderer};
+use flowi_core::render::FlowiRenderer;
 use flowi_core::imgui::{DrawData, DrawCmd, FontAtlas, DrawVert, ImDrawIdx};
 use flowi_core::renderer::Texture as CoreTexture;
-use crate::image::Image;
+use crate::image::{Image, ImageFormat, ImageLoadStatus};
+use std::collections::HashMap;
 
 static VS_IMGUI_GLSL: &[u8] = include_bytes!("../data/shaders/vs_ocornut_imgui_glsl.bin");
 static FS_IMGUI_GLSL: &[u8] = include_bytes!("../data/shaders/fs_ocornut_imgui_glsl.bin");
@@ -23,12 +24,18 @@ static VS_IMGUI_SPV: &[u8] = include_bytes!("../data/shaders/vs_ocornut_imgui_sp
 static FS_IMGUI_SPV: &[u8] = include_bytes!("../data/shaders/fs_ocornut_imgui_spv.bin");
 
 pub(crate) struct BgfxRenderer {
+    image_lookup: HashMap<u64, BgfxTexture>,
     shader_program: bgfx::Program,
     layout: BuiltVertexLayout,
     sampler_uniform : bgfx::Uniform,
     font_atlas : bgfx::Texture,
     old_size: (u32, u32),
     view_id: u16,
+}
+
+struct BgfxTexture {
+    format: bgfx::TextureFormat,
+    handle: bgfx::Texture,
 }
 
 #[cfg(target_os = "linux")]
@@ -156,6 +163,7 @@ impl FlowiRenderer for BgfxRenderer {
             &Memory::copy(font_atlas.data()));
 
         Self {
+            image_lookup: HashMap::new(),
             shader_program,
             font_atlas,
             sampler_uniform,
@@ -165,22 +173,48 @@ impl FlowiRenderer for BgfxRenderer {
         }
     }
 
-    fn get_texture(&mut self, _image: Image) -> CoreTexture {
-        /*
-        let texture = bgfx::create_texture_2d(
-            image.width, 
-            image.height, 
-            false, 1, 
-            bgfx::TextureFormat::RGBA8,
-            0, 
-            &Memory::copy(&image.data));
+    fn get_texture(&mut self, image: Image) -> CoreTexture {
+        if let Some(_texture) = self.image_lookup.get(&image.handle) {
+            return CoreTexture { handle: image.handle };
+        }
 
-        texture
-        */
+        if Image::get_status(image) != ImageLoadStatus::Loaded {
+            return CoreTexture { handle: 0 };
+        }
 
+        if let Ok(image_info) = Image::get_info(image) {
+            let format: ImageFormat = { unsafe { std::mem::transmute(image_info.format) } };
+            let texture_format = match format {
+                ImageFormat::Rgb => bgfx::TextureFormat::RGB8,
+                ImageFormat::Rgba => bgfx::TextureFormat::RGBA8,
+                ImageFormat::Bgra => bgfx::TextureFormat::BGRA8,
+                //ImageFormat::Bgr => bgfx::TextureFormat::BGR8,
+                ImageFormat::Alpha => bgfx::TextureFormat::R8U,
+                _ => panic!("Unsupported image format"),
+            };
+
+            // TODO Staggered update of textures to reduce stalls?
+            if let Some(texture_data) = Image::get_data(image) {
+                let texture = bgfx::create_texture_2d(
+                    image_info.width as _, 
+                    image_info.height as _, 
+                    false, 1, 
+                    texture_format,
+                    bgfx::TextureFlags::SRGB.bits(), 
+                    &Memory::copy(&texture_data));
+
+                self.image_lookup.insert(image.handle, 
+                    BgfxTexture { 
+                        format: texture_format, 
+                        handle: texture 
+                });
+
+                return CoreTexture { handle: image.handle };
+            }
+        } 
+            
         CoreTexture { handle: 0 }
     }
-
 
     fn render(&mut self) {
         let draw_data = DrawData::get_data();
@@ -261,6 +295,7 @@ impl FlowiRenderer for BgfxRenderer {
             for command in draw_list.commands() {
                 match command {
                     DrawCmd::Elements { count, cmd_params } => {
+                        //let program = &self.shader_program;
                         let state = 
                             StateWriteFlags::RGB.bits()
                             | StateWriteFlags::A.bits()
@@ -268,6 +303,24 @@ impl FlowiRenderer for BgfxRenderer {
                             | bgfx::state_blend_func(
                                 StateBlendFlags::SRC_ALPHA, 
                                 StateBlendFlags::INV_SRC_ALPHA);
+
+                        if cmd_params.texture_id != 0 {
+                            if let Some(texture) = self.image_lookup.get(&cmd_params.texture_id) {
+                                encoder.set_texture(
+                                    0,
+                                    &self.sampler_uniform,
+                                    &texture.handle,
+                                    u32::MAX,
+                                );
+                            }
+                        } else {
+                            encoder.set_texture(
+                                0,
+                                &self.sampler_uniform,
+                                &self.font_atlas,
+                                u32::MAX,
+                            );
+                        } 
 
                         let clip_rect = [
                             (cmd_params.clip_rect[0] - clip_pos[0]) * clip_scale[0],
@@ -289,12 +342,6 @@ impl FlowiRenderer for BgfxRenderer {
 
                             encoder.set_scissor(xx, yy, ww, hh);
                             encoder.set_state(state, 0);
-                            encoder.set_texture(
-                                0,
-                                &self.sampler_uniform,
-                                &self.font_atlas,
-                                u32::MAX,
-                            );
                             encoder.set_transient_vertex_buffer(
                                 0,
                                 &tvb,
@@ -323,23 +370,6 @@ impl FlowiRenderer for BgfxRenderer {
             }
             bgfx::encoder_end(encoder);
         }
-
-        /*
-        //bgfx::set_view_rect(0, 0, 0, size.0 as _, size.1 as _);
-        bgfx::touch(0);
-
-        bgfx::dbg_text_clear(DbgTextClearArgs::default());
-
-        bgfx::dbg_text(0, 1, 0x0f, "Color can be changed with ANSI \x1b[9;me\x1b[10;ms\x1b[11;mc\x1b[12;ma\x1b[13;mp\x1b[14;me\x1b[0m code too.");
-        bgfx::dbg_text(80, 1, 0x0f, "\x1b[;0m    \x1b[;1m    \x1b[; 2m    \x1b[; 3m    \x1b[; 4m    \x1b[; 5m    \x1b[; 6m    \x1b[; 7m    \x1b[0m");
-        bgfx::dbg_text(80, 2, 0x0f, "\x1b[;8m    \x1b[;9m    \x1b[;10m    \x1b[;11m    \x1b[;12m    \x1b[;13m    \x1b[;14m    \x1b[;15m    \x1b[0m");
-        bgfx::dbg_text(
-            0,
-            4,
-            0x3f,
-            "Description: Initialization and debug text with bgfx-rs Rust API.",
-        );
-        */
         
         bgfx::frame(false);
     }

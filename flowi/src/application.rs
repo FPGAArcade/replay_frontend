@@ -45,6 +45,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     while !state.window.should_close() {
         state.core.pre_update();
         state.window.update();
+        state.core.update();
 
         user_trampoline_ud::<T>(&state.user);
 

@@ -5,6 +5,7 @@
 #include <flowi/application_settings.h>
 #include <flowi/text.h>
 #include <flowi/menu.h>
+#include <flowi/renderer.h>
 #include <flowi/button.h>
 #include <flowi/item.h>
 #include <flowi/painter.h>
@@ -107,30 +108,17 @@ FL_PUBLIC_SYMBOL void fl_ui_image_impl(FlInternalData* ctx, FlImage image_id) {
     FL_UNUSED(ctx);
     FL_UNUSED(image_id);
 
-    //FlTextureHandle handle = fl_renderer_texture_handle(image_id);
-    //ImageData* data = fl_image_get_data(image_id); 
+    FlTexture render_handle = fl_renderer_get_texture(image_id);
 
+    //printf("fl_ui_image_impl: %llx\n", render_handle);
 
-    /*
-    ImagePrivate* image_data = (ImagePrivate*)Handles_get_data(&ctx->global->image_handles, image);
-
-    if (!image_data) {
-        ERROR_ADD(FlError_Image, "Invalid handle %s", "todo name");
+    if (render_handle == 0) {
         return;
     }
 
-    // TODO: Better way to do this?
-    PrimitiveImage* prim = (PrimitiveImage*)CommandBuffer_alloc_cmd(
-            &ctx->layers[0].primitive_commands, 
-            Primitive_DrawImage, 
-            sizeof(PrimitiveImage));
-    prim->image = image_data;
-    prim->size.x = image_data->info.width;
-    prim->size.y = image_data->info.height;
+    FlImageInfo* image_data = fl_image_get_info(image_id);
 
-    ImGui::Image((ImTextureID)image, ImVec2(image_data->info.width, image_data->info.height),
-                 ImVec2(image_data->u0, image_data->v0), ImVec2(image_data->u1, image_data->v1));
-    */
+    ImGui::Image((ImTextureID)render_handle, ImVec2(image_data->width, image_data->height));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1522,7 +1510,7 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     state->window_api.priv = state;
 
     // Rust API
-    state->renderer_api.priv = (FlInternalData*)state->rust_state;
+    state->renderer_api.priv = state;
     
     // TODO: Move
     g_flowi_button_api = &state->button_api;

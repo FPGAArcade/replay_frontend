@@ -2,10 +2,13 @@ use flowi::window::{WindowFlags, Window};
 use flowi::button::Button;
 use flowi::Application;
 use flowi::font::Font;
+use flowi::ui::Ui;
+use flowi::image::Image;
 
 struct App {
     _dummy: u32,
     montserrat_font: Font,
+    test_image: Image,
 }
 
 fn main_loop(app: &mut App) {
@@ -16,6 +19,8 @@ fn main_loop(app: &mut App) {
     if Button::regular("Hello, world!") {
         println!("Clicked!");
     }
+
+    Ui::image(app.test_image);
     
     Font::pop();
 
@@ -33,6 +38,7 @@ fn main() {
     let app = Box::new(App {
         _dummy: 1337,
         montserrat_font: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 32).unwrap(), 
+        test_image: Image::create_from_file("data/test_data/planet.png"),
     });
 
     if !flowi_app.run(app, main_loop) {
