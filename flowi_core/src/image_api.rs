@@ -116,7 +116,7 @@ impl MemoryDriver for ImageLoader {
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(&self, data: Box<[u8]>) -> Option<MemoryDriverType> {
+    fn create_from_data(&self, data: Box<[u8]>, driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
         // Check if png or jpeg loader can open the data
         /*
         let jpeg_decoder = JpegDecoder::new(&data);
