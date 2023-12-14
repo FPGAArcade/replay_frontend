@@ -14,14 +14,8 @@ log = "0.4"
 notify = "5.1.0"
 sha2 = "0.10.6"
 thiserror = "1.0"
-zune-jpeg = "0.3"
-zune-png = "0.2"
-
-#[profile.dev.package.zune-png]
-#opt-level = 3
-
-#[profile.dev.package.zune-jpeg]
-#opt-level = 3
+zune-jpeg = "0.4"
+zune-png = "0.4"
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }

@@ -1,27 +1,38 @@
 use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus};
 use crate::manual::{FlString, FlData};
 use crate::InternalState;
-use crate::io_handler::{IoHandle, LoadedData};
-use fileorama::{MemoryDriver, MemoryDriverType,  Error, FilesDirs, LoadStatus, Progress, Fileorama, RecvMsg};
+use crate::io_handler::LoadedData;
+use thiserror::Error as ThisError;
+use fileorama::{MemoryDriver, MemoryDriverType, Error, FilesDirs, LoadStatus, Progress, Fileorama};
 
-/*
 use zune_jpeg::{
     JpegDecoder,
     zune_core::options::DecoderOptions as JpegDecoderOptions,
     zune_core::colorspace::ColorSpace as JpegColorSpace,
     errors::DecodeErrors as JpegDecodeErrors
 };
-*/
 
 use zune_png::{
-    error::PngDecodeErrors, zune_core::bit_depth::BitDepth as PngBitDepth,
-    zune_core::colorspace::ColorSpace as PngColorSpace, PngDecoder,
+    PngDecoder,
+    zune_core::bit_depth::BitDepth as PngBitDepth,
+    zune_core::colorspace::ColorSpace as PngColorSpace, 
+    error::PngDecodeErrors, 
 };
+
+#[derive(ThisError, Debug)]
+pub enum ImageErrors {
+    #[error("PngError")]
+    ParseError(#[from] PngDecodeErrors),
+    #[error("JpegError")]
+    JpegError(#[from] JpegDecodeErrors),
+    #[error("Generic")]
+    Generic(String),
+}
 
 #[derive(Default, Debug)]
 enum ImageType {
     PngData(Box<[u8]>),
-    //JpegData(Box<[u8]>),
+    JpegData(Box<[u8]>),
     #[default]
     None,
 }
@@ -31,7 +42,7 @@ struct ImageLoader {
     image_type: ImageType,
 }
 
-fn decode_png(data: &[u8]) -> Result<Vec<u8>, PngDecodeErrors> {
+fn decode_png(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     let mut decoder = PngDecoder::new(data);
     decoder.decode_headers()?;
 
@@ -43,7 +54,7 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, PngDecodeErrors> {
 
     // Only supporting 8-bit PNGs for now
     if depth != PngBitDepth::Eight {
-        return Err(PngDecodeErrors::Generic(format!(
+        return Err(ImageErrors::Generic(format!(
             "Unsupported depth: {:?}",
             depth
         )));
@@ -64,7 +75,7 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, PngDecodeErrors> {
         PngColorSpace::Luma => ImageFormat::Alpha,
         PngColorSpace::LumaA => ImageFormat::Alpha,
         _ => {
-            return Err(PngDecodeErrors::Generic(format!(
+            return Err(ImageErrors::Generic(format!(
                 "Unknown colorspace: {:?}",
                 color_space
             )))
@@ -85,16 +96,37 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, PngDecodeErrors> {
     Ok(output_data)
 }
 
-/*
-fn decode_jpeg(data: &[u8]) -> Result<LoadStatus, Error> {
+fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     let opts = JpegDecoderOptions::new_fast()
-        .set_color_space(JpegColorSpace::RGB);
+        .jpeg_set_out_colorspace(JpegColorSpace::RGB);
+
     let mut decoder = JpegDecoder::new(data);
     decoder.set_options(opts);
     decoder.decode_headers()?;
-    let image_data = decoder.decode()?;
+
+    let dimensions = decoder.dimensions().unwrap();
+    let buffer_size = decoder.output_buffer_size().unwrap();
+
+    let image_info_offset = std::mem::size_of::<ImageInfo>();
+
+    let output_size = buffer_size + image_info_offset;
+    let mut output_data = vec![0u8; output_size]; // TODO: uninit
+
+    decoder.decode_into(&mut output_data[image_info_offset..])?;
+
+    let image_info = ImageInfo {
+        format: ImageFormat::Rgb as u32,
+        width: dimensions.0 as u32,
+        height: dimensions.1 as u32,
+        frame_count: 1,
+    };
+
+    // Write header at the start of the data
+    let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
+    *write_image_info = image_info;
+
+    Ok(output_data)
 }
-*/
 
 static IMAGE_LOADER_NAME: &'static str = "flowi_image_loader";
 
@@ -112,23 +144,28 @@ impl MemoryDriver for ImageLoader {
     fn can_create_from_data(&self, data: &[u8]) -> bool {
         let mut png_decoder = PngDecoder::new(data);
         let headers = png_decoder.decode_headers();
+        if headers.is_ok() {
+            return true;
+        }
+
+        let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
+        let headers = jpeg_decoder.decode_headers();
         headers.is_ok()
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(&self, data: Box<[u8]>, driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
+    fn create_from_data(&self, data: Box<[u8]>, _driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
         // Check if png or jpeg loader can open the data
-        /*
-        let jpeg_decoder = JpegDecoder::new(&data);
-        let mut headers = jpeg_decoder.decode_headers();
+        
+        let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
+        let headers = jpeg_decoder.decode_headers();
         if headers.is_ok() {
             return Some(Box::new(ImageLoader {
                 image_type: ImageType::JpegData(data),
             }));
         }
-        */
 
-        let mut png_decoder = PngDecoder::new(&data);
+        let mut png_decoder = PngDecoder::new(data.as_ref());
         let headers = png_decoder.decode_headers();
         if headers.is_ok() {
             return Some(Box::new(ImageLoader {
@@ -145,27 +182,22 @@ impl MemoryDriver for ImageLoader {
         
         //progress.set_step(1);
 
-        match self.image_type {
-            ImageType::PngData(ref data) => match decode_png(data) {
-                Ok(data) => {
-                    progress.step()?;
-                    Ok(LoadStatus::Data(data.into_boxed_slice()))
-                }
+        let decoded_data = match self.image_type {
+            ImageType::PngData(ref data) => decode_png(data),
+            ImageType::JpegData(ref data) => decode_jpeg(data),
+            ImageType::None => return Err(Error::Generic("Unknown image type".to_owned())),
+        };
 
-                Err(e) => {
-                    progress.step()?;
-                    Err(Error::Generic(format!("Error loading png: {:?}", e)))
-                }
-            },
-
-            /*
-            ImageType::JpegData(ref data) => {
-                let png_decoder = PngDecoder::new(&data);
-                png_decoder.decode_headers()?;
-
+        match decoded_data {
+            Ok(data) => {
+                progress.step()?;
+                Ok(LoadStatus::Data(data.into_boxed_slice()))
             }
-            */
-            _ => Ok(LoadStatus::NotFound),
+
+            Err(e) => {
+                progress.step()?;
+                Err(Error::Generic(format!("Error loading image: {:?}", e)))
+            }
         }
     }
 
@@ -310,6 +342,28 @@ mod tests {
         validate_red_image(&instance.state, handle);
     }
 
+    #[test]
+    fn jpg_green_image_ok() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file(&mut instance.state, "data/jpeg/green.jpg");
+
+        wait_for_image_to_load(&mut instance, handle);
+
+        assert_eq!(image_status(&instance.state, handle), ImageLoadStatus::Loaded);
+        let info = image_info(&instance.state, handle);
+        assert_ne!(info, std::ptr::null()); 
+        let info = unsafe { &*(info as *const ImageInfo) };
+        assert_eq!(info.format, ImageFormat::Rgb as u32);
+        assert_eq!(info.width, 64);
+        assert_eq!(info.height, 64);
+        let data = image_data(&instance.state, handle);
+        assert_ne!(data.data, std::ptr::null());
+        let data = unsafe { std::slice::from_raw_parts(data.data as *const u8, data.size as usize) };
+        assert_eq!(data[0], 0);
+        assert_eq!(data[1], 255);
+        assert_eq!(data[2], 1);
+    }
     /*
     TODO: Fix this broken test
     #[test]
