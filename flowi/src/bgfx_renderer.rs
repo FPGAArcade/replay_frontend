@@ -188,7 +188,6 @@ impl FlowiRenderer for BgfxRenderer {
                 ImageFormat::Rgb => bgfx::TextureFormat::RGB8,
                 ImageFormat::Rgba => bgfx::TextureFormat::RGBA8,
                 ImageFormat::Bgra => bgfx::TextureFormat::BGRA8,
-                //ImageFormat::Bgr => bgfx::TextureFormat::BGR8,
                 ImageFormat::Alpha => bgfx::TextureFormat::R8U,
                 _ => panic!("Unsupported image format"),
             };

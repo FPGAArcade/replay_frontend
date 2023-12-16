@@ -31,6 +31,8 @@ struct ImageInfo {
     height: u32,
     /// Number of frames. This is 1 for static images and > 1 for animated images 
     frame_count: u32,
+    /// How long each frame should be displayed for in milliseconds 
+    frame_delay: u32,
 }
 
 enum SvgFlags {

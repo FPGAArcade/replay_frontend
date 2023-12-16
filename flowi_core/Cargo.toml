@@ -16,6 +16,8 @@ sha2 = "0.10.6"
 thiserror = "1.0"
 zune-jpeg = "0.4"
 zune-png = "0.4"
+gif = "0.12"
+gif-dispose = "4.0"
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }

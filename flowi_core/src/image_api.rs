@@ -21,10 +21,14 @@ use zune_png::{
 
 #[derive(ThisError, Debug)]
 pub enum ImageErrors {
-    #[error("PngError")]
+    #[error("Png Error")]
     ParseError(#[from] PngDecodeErrors),
-    #[error("JpegError")]
+    #[error("Jpeg Error")]
     JpegError(#[from] JpegDecodeErrors),
+    #[error("Gif Error")]
+    GifError(#[from] gif::DecodingError),
+    #[error("Gif Disposal Error")]
+    GifDisposeError(#[from] gif_dispose::Error),
     #[error("Generic")]
     Generic(String),
 }
@@ -33,6 +37,7 @@ pub enum ImageErrors {
 enum ImageType {
     PngData(Box<[u8]>),
     JpegData(Box<[u8]>),
+    GifData(Box<[u8]>),
     #[default]
     None,
 }
@@ -82,10 +87,12 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
         }
     };
 
+    // TODO: handle multiple frames
     let image_info = ImageInfo {
         format: format as u32,
         width: dimensions.0 as u32,
         height: dimensions.1 as u32,
+        frame_delay: 0,
         frame_count: 1,
     };
 
@@ -119,11 +126,60 @@ fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
         width: dimensions.0 as u32,
         height: dimensions.1 as u32,
         frame_count: 1,
+        frame_delay: 0,
     };
 
     // Write header at the start of the data
     let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
     *write_image_info = image_info;
+
+    Ok(output_data)
+}
+
+fn decode_gif(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
+    let mut gif_opts = gif::DecodeOptions::new();
+    gif_opts.set_color_output(gif::ColorOutput::Indexed);
+
+    let mut decoder = gif_opts.read_info(data)?;
+    let mut screen = gif_dispose::Screen::new_decoder(&decoder);
+
+    let image_info_offset = std::mem::size_of::<ImageInfo>();
+    let width = screen.pixels.width();
+    let height = screen.pixels.height();
+
+    let mut frames = Vec::new();
+    let mut buffer_size = 0;
+    let mut frame_delay_ms = u32::MAX;
+
+    while let Some(frame) = decoder.read_next_frame()? {
+        screen.blit_frame(&frame)?;
+        // we only handle a uniform delay for now
+        frame_delay_ms = frame_delay_ms.min(frame.delay as u32 * 10); 
+        let f = screen.pixels.buf().to_vec();
+        buffer_size += f.len() * 4;
+        frames.push(f);
+    }
+
+    let output_size = buffer_size + image_info_offset;
+    let mut output_data = vec![0u8; output_size]; // TODO: uninit
+
+    let image_info = ImageInfo {
+        format: ImageFormat::Rgba as u32,
+        width: width as u32,
+        height: height as u32,
+        frame_count: frames.len() as u32,
+        frame_delay: frame_delay_ms,
+    };
+
+    // Write header at the start of the data
+    let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
+    *write_image_info = image_info;
+
+    for (i, frame) in frames.iter().enumerate() {
+        let offset = image_info_offset + (i * frame.len());
+        let frame: &[u8] = bytemuck::cast_slice(frame);
+        output_data[offset..offset + frame.len()].copy_from_slice(frame);
+    }
 
     Ok(output_data)
 }
@@ -150,7 +206,13 @@ impl MemoryDriver for ImageLoader {
 
         let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
         let headers = jpeg_decoder.decode_headers();
-        headers.is_ok()
+        if headers.is_ok() {
+            return true;
+        }
+
+        let mut decoder = gif::DecodeOptions::new();
+        decoder.set_color_output(gif::ColorOutput::Indexed);
+        decoder.read_info(data.as_ref()).is_ok()
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
@@ -173,6 +235,17 @@ impl MemoryDriver for ImageLoader {
             }));
         }
 
+        let mut decoder = gif::DecodeOptions::new();
+        decoder.set_color_output(gif::ColorOutput::Indexed);
+        match decoder.read_info(data.as_ref()) {
+            Ok(_) => {
+                return Some(Box::new(ImageLoader {
+                    image_type: ImageType::GifData(data),
+                }));
+            }
+            Err(_) => {}
+        }
+
         None
     }
 
@@ -185,6 +258,7 @@ impl MemoryDriver for ImageLoader {
         let decoded_data = match self.image_type {
             ImageType::PngData(ref data) => decode_png(data),
             ImageType::JpegData(ref data) => decode_jpeg(data),
+            ImageType::GifData(ref data) => decode_gif(data),
             ImageType::None => return Err(Error::Generic("Unknown image type".to_owned())),
         };
 
@@ -318,7 +392,7 @@ mod tests {
     }
 
     fn wait_for_image_to_load(state: &mut crate::Instance, handle: u64) {
-        for _ in 0..100 {
+        for _ in 0..200 {
             state.update();
 
             if state.state.io_handler.is_loaded(handle) {
@@ -364,6 +438,25 @@ mod tests {
         assert_eq!(data[1], 255);
         assert_eq!(data[2], 1);
     }
+
+    #[test]
+    fn gif_animation_ok() {
+        let settings = ApplicationSettings { width: 0, height: 0 };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file(&mut instance.state, "data/gif/test.gif");
+
+        wait_for_image_to_load(&mut instance, handle);
+
+        assert_eq!(image_status(&instance.state, handle), ImageLoadStatus::Loaded);
+        let info = image_info(&instance.state, handle);
+        assert_ne!(info, std::ptr::null()); 
+        let info = unsafe { &*(info as *const ImageInfo) };
+        assert_eq!(info.format, ImageFormat::Rgba as u32);
+        assert_eq!(info.width, 142);
+        assert_eq!(info.height, 142);
+        assert_eq!(info.frame_count, 12);
+    }
+
     /*
     TODO: Fix this broken test
     #[test]

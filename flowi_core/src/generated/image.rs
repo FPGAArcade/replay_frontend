@@ -78,6 +78,8 @@ pub struct ImageInfo {
     pub height: u32,
     /// Number of frames. This is 1 for static images and > 1 for animated images
     pub frame_count: u32,
+    /// How long each frame should be displayed for in milliseconds
+    pub frame_delay: u32,
 }
 
 #[repr(C)]

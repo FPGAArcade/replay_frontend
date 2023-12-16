@@ -51,6 +51,8 @@ typedef struct FlImageInfo {
     uint32_t height;
     // Number of frames. This is 1 for static images and > 1 for animated images
     uint32_t frame_count;
+    // How long each frame should be displayed for in milliseconds
+    uint32_t frame_delay;
 } FlImageInfo;
 
 typedef uint64_t FlImage;
