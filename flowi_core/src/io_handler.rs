@@ -1,4 +1,4 @@
-use fileorama::{LoadStatus, Progress, Fileorama, RecvMsg};
+use fileorama::{Fileorama, RecvMsg};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -28,7 +28,8 @@ impl IoHandler {
         }
     }
 
-    pub fn is_loaded(&self, id: u64) -> bool {
+    #[allow(dead_code)]
+    pub(crate) fn is_loaded(&self, id: u64) -> bool {
         self.loaded.contains_key(&id)
     }
 
@@ -62,7 +63,8 @@ impl IoHandler {
     }
 
     // Async loading 
-    pub fn load(&mut self, url: &str) -> IoHandle {
+    #[allow(dead_code)]
+    pub(crate) fn load(&mut self, url: &str) -> IoHandle {
         let id = self.id_counter;
         self.id_counter += 1;
         let handle = self.vfs.load_url(url);

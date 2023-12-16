@@ -24,13 +24,13 @@ impl FlowiRenderer for DummyRenderer {
 }
 
 pub(crate) struct RendererState {
-    pub(crate) image_texture_map: HashMap<u64, u64>, 
+    pub(crate) _image_texture_map: HashMap<u64, u64>, 
 }  
 
 impl RendererState {
     pub fn new() -> Self {
         Self {
-            image_texture_map: HashMap::new(),
+            _image_texture_map: HashMap::new(),
         }
     }
 }

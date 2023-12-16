@@ -34,7 +34,7 @@ pub(crate) struct BgfxRenderer {
 }
 
 struct BgfxTexture {
-    format: bgfx::TextureFormat,
+    _format: bgfx::TextureFormat,
     handle: bgfx::Texture,
 }
 
@@ -204,7 +204,7 @@ impl FlowiRenderer for BgfxRenderer {
 
                 self.image_lookup.insert(image.handle, 
                     BgfxTexture { 
-                        format: texture_format, 
+                        _format: texture_format, 
                         handle: texture 
                 });
 
