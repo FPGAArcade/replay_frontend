@@ -145,9 +145,9 @@ pub trait MemoryDriver: std::fmt::Debug + Send + Sync {
     // Create a new instance given data. The Driver will take ownership of the data
     fn create_instance(&self) -> MemoryDriverType;
     // Check if we can create a driver given some memory
-    fn can_create_from_data(&self, data: &[u8]) -> bool;
+    fn can_create_from_data(&self, data: &[u8], file_ext_hint: &str) -> bool;
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(&self, data: Box<[u8]>, driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType>;
+    fn create_from_data(&self, data: Box<[u8]>, file_ext_hint: &str, driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType>;
     /// Returns a handle which updates the progress and returns the loaded data. This will try to
     fn load(&mut self, local_path: &str, progress: &mut Progress) -> Result<LoadStatus, Error>;
     // get a file/directory listing for the driver. Default is that the loader doesn't
@@ -677,6 +677,14 @@ impl<'a> Loader<'a> {
     fn find_driver_data(&mut self, vfs: &mut State, driver_name: &'static str, driver_data: &Option<Box<[u8]>>, 
         drivers: &MemoryDrivers) -> Result<(), Error> {
         let node_data = self.data.as_ref().unwrap();
+        let path: &Path = self.path_components.last().unwrap().as_ref();
+        let file_ext_hint = if let Some(ext) = path.extension() {
+            ext.to_str().unwrap()
+        } else {
+            ""
+        };
+
+        dbg!(&file_ext_hint);
 
         trace!("Trying to find memory driver");
 
@@ -685,14 +693,14 @@ impl<'a> Loader<'a> {
                 continue;
             }
 
-            if !d.can_create_from_data(node_data) {
+            if !d.can_create_from_data(node_data, &file_ext_hint) {
                 continue;
             }
 
             // TODO: Fix this clone
             // Found a driver for this data. Updated the node index with the new driver
             // and switch state to load that from the new driver
-            if let Some(new_driver) = d.create_from_data(node_data.clone(), driver_data) {
+            if let Some(new_driver) = d.create_from_data(node_data.clone(), &file_ext_hint, driver_data) {
                 self.driver_index = vfs.node_drivers.len() as _;
 
                 vfs.node_drivers.push(NodeDriver::MemoryDriver(new_driver));
@@ -1125,12 +1133,12 @@ mod tests {
             Box::new(MemoryDriverCustomData { data: Vec::new()})
         }
         // Check if we can create a driver given some memory
-        fn can_create_from_data(&self, _data: &[u8]) -> bool {
+        fn can_create_from_data(&self, _data: &[u8], _file_ext_hint: &str) -> bool {
             true
         }
 
         // Create a new instance given data. The Driver will take ownership of the data
-        fn create_from_data(&self, _data: Box<[u8]>, driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
+        fn create_from_data(&self, _data: Box<[u8]>, _file_ext_hint: &str, driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
             assert!(driver_data.is_some());
             let driver_data = driver_data.as_ref().unwrap();
             assert_eq!(driver_data.len(), 4);

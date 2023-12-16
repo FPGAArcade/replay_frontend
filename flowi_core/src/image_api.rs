@@ -197,7 +197,34 @@ impl MemoryDriver for ImageLoader {
     }
 
     // Get some data in and returns true if driver can be mounted from it
-    fn can_create_from_data(&self, data: &[u8]) -> bool {
+    fn can_create_from_data(&self, data: &[u8], file_ext_hint: &str) -> bool {
+        // we use the file_ext_hint to try to speed up the process
+        match file_ext_hint {
+            "png" => {
+                let mut png_decoder = PngDecoder::new(data);
+                let headers = png_decoder.decode_headers();
+                if headers.is_ok() {
+                    return true;
+                }
+            }
+            "jpg" | "jpeg" => {
+                let mut jpeg_decoder = JpegDecoder::new(data);
+                let headers = jpeg_decoder.decode_headers();
+                if headers.is_ok() {
+                    return true;
+                }
+            }
+            "gif" => {
+                let mut decoder = gif::DecodeOptions::new();
+                decoder.set_color_output(gif::ColorOutput::Indexed);
+                if decoder.read_info(data).is_ok() {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+
+        // fallback to trying all decoders
         let mut png_decoder = PngDecoder::new(data);
         let headers = png_decoder.decode_headers();
         if headers.is_ok() {
@@ -216,9 +243,40 @@ impl MemoryDriver for ImageLoader {
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(&self, data: Box<[u8]>, _driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
+    fn create_from_data(&self, data: Box<[u8]>, file_ext_hint: &str, _driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
+        // we use the file_ext_hint to try to speed up the process
+        match file_ext_hint {
+            "png" => {
+                let mut png_decoder = PngDecoder::new(data.as_ref());
+                let headers = png_decoder.decode_headers();
+                if headers.is_ok() {
+                    return Some(Box::new(ImageLoader {
+                        image_type: ImageType::PngData(data),
+                    }));
+                }
+            }
+            "jpg" | "jpeg" => {
+                let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
+                let headers = jpeg_decoder.decode_headers();
+                if headers.is_ok() {
+                    return Some(Box::new(ImageLoader {
+                        image_type: ImageType::JpegData(data),
+                    }));
+                }
+            }
+            "gif" => {
+                let mut decoder = gif::DecodeOptions::new();
+                decoder.set_color_output(gif::ColorOutput::Indexed);
+                if decoder.read_info(data.as_ref()).is_ok() {
+                    return Some(Box::new(ImageLoader {
+                        image_type: ImageType::GifData(data),
+                    }));
+                }
+            }
+            _ => {}
+        }
+
         // Check if png or jpeg loader can open the data
-        
         let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
         let headers = jpeg_decoder.decode_headers();
         if headers.is_ok() {

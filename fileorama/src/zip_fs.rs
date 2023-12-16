@@ -100,13 +100,13 @@ impl MemoryDriver for ZipFs {
     }
 
     // Get some data in and returns true if driver can be mounted from it
-    fn can_create_from_data(&self, data: &[u8]) -> bool {
+    fn can_create_from_data(&self, data: &[u8], _file_ext_hint: &str) -> bool {
         let c = std::io::Cursor::new(data);
         ZipArchive::new(c).is_ok()
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(&self, data: Box<[u8]>, _driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
+    fn create_from_data(&self, data: Box<[u8]>, _file_ext_hint: &str, _driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
         let a = match ZipArchive::new(std::io::Cursor::new(data)) {
             Ok(a) => a,
             Err(e) => {
