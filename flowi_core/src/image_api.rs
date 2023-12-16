@@ -350,10 +350,7 @@ pub(crate) fn install_image_loader(vfs: &Fileorama) {
 
 #[inline]
 fn create_from_file(state: &mut InternalState, filename: &str) -> u64 {
-    let handle = state
-        .io_handler
-        .load_with_driver(filename, IMAGE_LOADER_NAME);
-    handle as u64
+    state.io_handler.load_with_driver(filename, IMAGE_LOADER_NAME)
 }
 
 #[inline]
@@ -412,6 +409,14 @@ pub fn fl_image_create_from_file_impl(data: *mut core::ffi::c_void, filename: Fl
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
     let name = filename.as_str();
     create_from_file(state, name)
+}
+
+#[no_mangle]
+pub fn fl_image_create_svg_from_file_impl(data: *mut core::ffi::c_void, filename: FlString, size: f32) -> u64 {
+    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
+    let name = filename.as_str();
+    let data = [size]; 
+    state.io_handler.load_with_driver_data(name, IMAGE_LOADER_NAME, &data)
 }
 
 #[no_mangle]

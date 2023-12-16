@@ -11,6 +11,8 @@ pub struct ImageFfiApi {
     pub(crate) data: *const core::ffi::c_void,
     pub(crate) create_from_file:
         unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString) -> u64,
+    pub(crate) create_svg_from_file:
+        unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString, size: f32) -> u64,
     pub(crate) get_status:
         unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus,
     pub(crate) get_info:
@@ -23,6 +25,11 @@ extern "C" {
     pub fn fl_image_create_from_file_impl(
         data: *const core::ffi::c_void,
         filename: FlString,
+    ) -> u64;
+    pub fn fl_image_create_svg_from_file_impl(
+        data: *const core::ffi::c_void,
+        filename: FlString,
+        size: f32,
     ) -> u64;
     pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus;
     pub fn fl_image_get_info_impl(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo;
@@ -89,9 +96,7 @@ pub struct Image {
 }
 
 impl Image {
-    /// Async Load image from url/file. Supported formats are:
-    /// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
-    /// PNG 1/2/4/8/16-bit-per-channel
+    /// Async Load image from url/file. Supported formats are: JPG, PNG, and GIF
     /// Notice that this will return a async handle so the data may not be acceassable directly.
     pub fn create_from_file(filename: &str) -> Image {
         unsafe {
@@ -100,6 +105,19 @@ impl Image {
             let ret_val = fl_image_create_from_file_impl(_api.data, FlString::new(filename));
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             let ret_val = (_api.create_from_file)(_api.data, FlString::new(filename));
+            Image { handle: ret_val }
+        }
+    }
+
+    /// Async load and render SVG from url/file. size is the size of the image in pixels.
+    pub fn create_svg_from_file(filename: &str, size: f32) -> Image {
+        unsafe {
+            let _api = &*g_flowi_image_api;
+            #[cfg(feature = "static")]
+            let ret_val =
+                fl_image_create_svg_from_file_impl(_api.data, FlString::new(filename), size);
+            #[cfg(any(feature = "dynamic", feature = "plugin"))]
+            let ret_val = (_api.create_svg_from_file)(_api.data, FlString::new(filename), size);
             Image { handle: ret_val }
         }
     }

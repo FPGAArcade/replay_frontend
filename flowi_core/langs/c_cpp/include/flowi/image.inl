@@ -1,6 +1,7 @@
 typedef struct FlImageApi {
     struct FlInternalData* priv;
     FlImage (*create_from_file)(struct FlInternalData* priv, FlString filename);
+    FlImage (*create_svg_from_file)(struct FlInternalData* priv, FlString filename, float size);
     FlImageLoadStatus (*get_status)(struct FlInternalData* priv, FlImage image);
     FlImageInfo* (*get_info)(struct FlInternalData* priv, FlImage image);
     FlData (*get_data)(struct FlInternalData* priv, FlImage image);
@@ -10,14 +11,13 @@ extern FlImageApi* g_flowi_image_api;
 
 #ifdef FLOWI_STATIC
 FlImage fl_image_create_from_file_impl(struct FlInternalData* priv, FlString filename);
+FlImage fl_image_create_svg_from_file_impl(struct FlInternalData* priv, FlString filename, float size);
 FlImageLoadStatus fl_image_get_status_impl(struct FlInternalData* priv, FlImage image);
 FlImageInfo* fl_image_get_info_impl(struct FlInternalData* priv, FlImage image);
 FlData fl_image_get_data_impl(struct FlInternalData* priv, FlImage image);
 #endif
 
-// Async Load image from url/file. Supported formats are:
-// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
-// PNG 1/2/4/8/16-bit-per-channel
+// Async Load image from url/file. Supported formats are: JPG, PNG, and GIF
 // Notice that this will return a async handle so the data may not be acceassable directly.
 FL_INLINE FlImage fl_image_create_from_file(const char* filename) {
     FlString filename_ = fl_cstr_to_flstring(filename);
@@ -25,6 +25,16 @@ FL_INLINE FlImage fl_image_create_from_file(const char* filename) {
     return fl_image_create_from_file_impl(g_flowi_image_api->priv, filename_);
 #else
     return (g_flowi_image_api->create_from_file)(g_flowi_image_api->priv, filename_);
+#endif
+}
+
+// Async load and render SVG from url/file. size is the size of the image in pixels.
+FL_INLINE FlImage fl_image_create_svg_from_file(const char* filename, float size) {
+    FlString filename_ = fl_cstr_to_flstring(filename);
+#ifdef FLOWI_STATIC
+    return fl_image_create_svg_from_file_impl(g_flowi_image_api->priv, filename_, size);
+#else
+    return (g_flowi_image_api->create_svg_from_file)(g_flowi_image_api->priv, filename_, size);
 #endif
 }
 

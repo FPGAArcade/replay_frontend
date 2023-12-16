@@ -84,4 +84,15 @@ impl IoHandler {
         self.inflight.push((id, handle));
         id
     }
+
+    /// want to load a certain file type (such as a image) you can specifiy that the specific
+    /// driver loading the data is an image driver. If the driver fails (with broken data for
+    /// example) an error will be returned instead.
+    pub fn load_with_driver_data<T: Sized + bytemuck::Pod>(&mut self, url: &str, driver_name: &'static str, data: &[T]) -> IoHandle {
+        let id = self.id_counter;
+        self.id_counter += 1;
+        let handle = self.vfs.load_url_with_driver_data(url, driver_name, data);
+        self.inflight.push((id, handle));
+        id
+    }
 }

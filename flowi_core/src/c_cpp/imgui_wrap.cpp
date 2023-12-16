@@ -1265,6 +1265,7 @@ extern "C" FlPainterApi* fl_get_painter_api(AppState* app_state, int version) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 FL_PUBLIC_SYMBOL FlImage fl_image_create_from_file_impl(struct FlInternalData* priv, FlString filename);
+FL_PUBLIC_SYMBOL FlImage fl_image_create_svg_from_file_impl(struct FlInternalData* priv, FlString filename, float size);
 FL_PUBLIC_SYMBOL FlImageLoadStatus fl_image_get_status_impl(struct FlInternalData* priv, FlImage image);
 FL_PUBLIC_SYMBOL FlData fl_image_get_data_impl(struct FlInternalData* priv, FlImage image);
 FL_PUBLIC_SYMBOL FlImageInfo* fl_image_get_info_impl(struct FlInternalData* priv, FlImage image);
@@ -1272,6 +1273,7 @@ FL_PUBLIC_SYMBOL FlImageInfo* fl_image_get_info_impl(struct FlInternalData* priv
 FlImageApi g_image_funcs = {
     nullptr,
     fl_image_create_from_file_impl,
+    fl_image_create_svg_from_file_impl,
     fl_image_get_status_impl,
     fl_image_get_info_impl,
     fl_image_get_data_impl

@@ -18,6 +18,7 @@ zune-jpeg = "0.4"
 zune-png = "0.4"
 gif = "0.12"
 gif-dispose = "4.0"
+resvg = { version = "0.36.0", features = [] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }

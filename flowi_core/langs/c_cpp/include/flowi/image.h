@@ -57,11 +57,12 @@ typedef struct FlImageInfo {
 
 typedef uint64_t FlImage;
 
-// Async Load image from url/file. Supported formats are:
-// JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
-// PNG 1/2/4/8/16-bit-per-channel
+// Async Load image from url/file. Supported formats are: JPG, PNG, and GIF
 // Notice that this will return a async handle so the data may not be acceassable directly.
 static FlImage fl_image_create_from_file(const char* filename);
+
+// Async load and render SVG from url/file. size is the size of the image in pixels.
+static FlImage fl_image_create_svg_from_file(const char* filename, float size);
 
 // Get the status of the image. See the [ImageLoadStatus] enum
 static FlImageLoadStatus fl_image_get_status(FlImage image);
