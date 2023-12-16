@@ -1,9 +1,9 @@
-use flowi::window::{WindowFlags, Window};
 use flowi::button::Button;
-use flowi::Application;
 use flowi::font::Font;
-use flowi::ui::Ui;
 use flowi::image::Image;
+use flowi::ui::Ui;
+use flowi::window::{Window, WindowFlags};
+use flowi::Application;
 
 struct App {
     _dummy: u32,
@@ -13,7 +13,7 @@ struct App {
 
 fn main_loop(app: &mut App) {
     Window::begin("Testing foobar", WindowFlags::NONE);
-    
+
     Font::push(app.montserrat_font);
 
     if Button::regular("Hello, world!") {
@@ -21,14 +21,14 @@ fn main_loop(app: &mut App) {
     }
 
     Ui::image(app.test_image);
-    
+
     Font::pop();
 
     Window::end();
 }
 
 fn main() {
-    let settings = flowi::ApplicationSettings { 
+    let settings = flowi::ApplicationSettings {
         width: 1280,
         height: 720,
     };
@@ -37,7 +37,7 @@ fn main() {
 
     let app = Box::new(App {
         _dummy: 1337,
-        montserrat_font: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 32).unwrap(), 
+        montserrat_font: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 32).unwrap(),
         test_image: Image::create_from_file("data/test_data/planet.png"),
     });
 
@@ -45,4 +45,3 @@ fn main() {
         println!("Failed to create main application");
     }
 }
-

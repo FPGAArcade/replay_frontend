@@ -61,7 +61,7 @@ impl IoDriver for LocalFs {
 
         let metadata = match std::fs::metadata(&path) {
             Ok(m) => m,
-            Err(_) => { 
+            Err(_) => {
                 return Err(Error::FileDirNotFound);
             }
         };

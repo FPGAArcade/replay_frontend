@@ -1,10 +1,11 @@
-use std::collections::HashMap;
+use crate::{generated::image::Image, generated::renderer::Texture, ApplicationSettings};
 use raw_window_handle::RawWindowHandle;
-use crate::{generated::image::Image, ApplicationSettings, generated::renderer::Texture};
+use std::collections::HashMap;
 
 pub trait FlowiRenderer {
-    fn new(settings: &ApplicationSettings, window: Option<&RawWindowHandle>) -> Self 
-        where Self: Sized;
+    fn new(settings: &ApplicationSettings, window: Option<&RawWindowHandle>) -> Self
+    where
+        Self: Sized;
     fn render(&mut self);
     fn get_texture(&mut self, image: Image) -> Texture;
 }
@@ -16,7 +17,7 @@ impl FlowiRenderer for DummyRenderer {
         Self {}
     }
 
-    fn render(&mut self) { }
+    fn render(&mut self) {}
 
     fn get_texture(&mut self, _image: Image) -> Texture {
         Texture { handle: 0 }
@@ -24,8 +25,8 @@ impl FlowiRenderer for DummyRenderer {
 }
 
 pub(crate) struct RendererState {
-    pub(crate) _image_texture_map: HashMap<u64, u64>, 
-}  
+    pub(crate) _image_texture_map: HashMap<u64, u64>,
+}
 
 impl RendererState {
     pub fn new() -> Self {
@@ -40,7 +41,10 @@ struct WrapState<'a> {
 }
 
 #[no_mangle]
-pub extern "C" fn fl_renderer_get_texture_impl(data: *mut core::ffi::c_void, image: Image) -> Texture {
+pub extern "C" fn fl_renderer_get_texture_impl(
+    data: *mut core::ffi::c_void,
+    image: Image,
+) -> Texture {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
 
     // TODO: How to handle reload
@@ -59,5 +63,3 @@ pub extern "C" fn fl_renderer_get_texture_impl(data: *mut core::ffi::c_void, ima
 
     state.renderer.get_texture(image)
 }
-
-

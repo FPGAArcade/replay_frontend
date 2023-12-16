@@ -1,16 +1,17 @@
-use flowi_core::Instance;
-use flowi_core::ApplicationSettings;
-use core::ptr::null_mut;
-use flowi_core::Result;
-use core::{ffi::c_void, mem::transmute};
-use raw_window_handle::RawWindowHandle;
 use crate::bgfx_renderer::BgfxRenderer;
 use crate::glfw_window::GlfwWindow;
+use core::ptr::null_mut;
+use core::{ffi::c_void, mem::transmute};
+use flowi_core::ApplicationSettings;
 use flowi_core::FlowiRenderer;
+use flowi_core::Instance;
+use flowi_core::Result;
+use raw_window_handle::RawWindowHandle;
 
 pub(crate) trait Window {
-    fn new(settings: &ApplicationSettings) -> Self 
-        where Self: Sized;
+    fn new(settings: &ApplicationSettings) -> Self
+    where
+        Self: Sized;
     fn update(&mut self);
     fn should_close(&mut self) -> bool;
     fn is_focused(&self) -> bool;
@@ -26,7 +27,7 @@ struct WrappedMainData {
 #[repr(C)]
 pub struct Application {
     pub(crate) window: Box<dyn Window>,
-    pub(crate) core: Instance, 
+    pub(crate) core: Instance,
     user: WrappedMainData,
     pub(crate) settings: ApplicationSettings,
 }
@@ -41,7 +42,7 @@ unsafe extern "C" fn user_trampoline_ud<T>(wd: &WrappedMainData) {
 #[allow(clippy::transmute_ptr_to_ref)]
 unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
-    
+
     while !state.window.should_close() {
         state.core.pre_update();
         state.window.update();
@@ -59,14 +60,17 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 
 impl Application {
     pub fn new(settings: &ApplicationSettings) -> Result<Box<Self>> {
-        let core = Instance::new(settings); 
+        let core = Instance::new(settings);
         let window = Box::new(GlfwWindow::new(settings));
 
         Ok(Box::new(Self {
             window,
             core,
             settings: *settings,
-            user: WrappedMainData { user_data: null_mut(), user_func: null_mut() }, 
+            user: WrappedMainData {
+                user_data: null_mut(),
+                user_func: null_mut(),
+            },
         }))
     }
 
@@ -75,7 +79,10 @@ impl Application {
     where
         F: Fn(&mut T) + 'a,
     {
-        let renderer = Box::new(BgfxRenderer::new(&self.settings, Some(&self.window.raw_window_handle())));
+        let renderer = Box::new(BgfxRenderer::new(
+            &self.settings,
+            Some(&self.window.raw_window_handle()),
+        ));
         self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end
@@ -101,4 +108,3 @@ impl Application {
         true
     }
 }
-

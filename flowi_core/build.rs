@@ -149,7 +149,9 @@ fn build_cc(target_os: &str) {
         ],
     );
 
-    add_sources(&mut build, "src/c_cpp", 
+    add_sources(
+        &mut build,
+        "src/c_cpp",
         &[
             "command_buffer.c",
             "flowi.cpp",

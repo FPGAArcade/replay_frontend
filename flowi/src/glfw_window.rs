@@ -1,6 +1,9 @@
-use glfw::Action;
-use flowi_core::{input::{Key, Input}, ApplicationSettings};
 use crate::application::Window;
+use flowi_core::{
+    input::{Input, Key},
+    ApplicationSettings,
+};
+use glfw::Action;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 fn translate_glfw_to_flowi_key(key: glfw::Key) -> Option<Key> {
@@ -123,7 +126,7 @@ impl GlfwWindow {
                 glfw::WindowEvent::Key(key, _, action, _) => {
                     if let Some(key) = translate_glfw_to_flowi_key(key) {
                         // TODO: Hack to close window with esc
-                        if key == Key::Escape && action == Action::Press { 
+                        if key == Key::Escape && action == Action::Press {
                             self.should_close = true;
                         }
                         Input::add_key_event(key, action == Action::Press);
@@ -149,7 +152,6 @@ impl GlfwWindow {
                     self.input.file_drop(paths);
                 }
                 */
-
                 _ => {}
             }
         }
@@ -160,35 +162,104 @@ impl GlfwWindow {
         let digital_buttons = [
             (Key::GamepadBack, glfw::GamepadButton::ButtonBack, 6),
             (Key::GamepadStart, glfw::GamepadButton::ButtonStart, 7),
-            (Key::GamepadFaceLeft, glfw::GamepadButton::ButtonX, 2),  // Xbox X, PS Square
-            (Key::GamepadFaceRight, glfw::GamepadButton::ButtonB, 1),  // Xbox B, PS Circle,
-            (Key::GamepadFaceUp, glfw::GamepadButton::ButtonY, 3),    // Xbox Y, PS Triangle
-            (Key::GamepadFaceDown, glfw::GamepadButton::ButtonA, 0),  // Xbox A, PS Cross
-
-            (Key::GamepadDpadLeft, glfw::GamepadButton::ButtonDpadLeft, 14),
-            (Key::GamepadDpadRight, glfw::GamepadButton::ButtonDpadRight, 12),
+            (Key::GamepadFaceLeft, glfw::GamepadButton::ButtonX, 2), // Xbox X, PS Square
+            (Key::GamepadFaceRight, glfw::GamepadButton::ButtonB, 1), // Xbox B, PS Circle,
+            (Key::GamepadFaceUp, glfw::GamepadButton::ButtonY, 3),   // Xbox Y, PS Triangle
+            (Key::GamepadFaceDown, glfw::GamepadButton::ButtonA, 0), // Xbox A, PS Cross
+            (
+                Key::GamepadDpadLeft,
+                glfw::GamepadButton::ButtonDpadLeft,
+                14,
+            ),
+            (
+                Key::GamepadDpadRight,
+                glfw::GamepadButton::ButtonDpadRight,
+                12,
+            ),
             (Key::GamepadDpadUp, glfw::GamepadButton::ButtonDpadUp, 11),
-            (Key::GamepadDpadDown, glfw::GamepadButton::ButtonDpadDown, 13),
-
+            (
+                Key::GamepadDpadDown,
+                glfw::GamepadButton::ButtonDpadDown,
+                13,
+            ),
             (Key::GamepadL1, glfw::GamepadButton::ButtonLeftBumper, 4),
             (Key::GamepadR1, glfw::GamepadButton::ButtonRightBumper, 5),
             (Key::GamepadL3, glfw::GamepadButton::ButtonLeftThumb, 8),
             (Key::GamepadR3, glfw::GamepadButton::ButtonRightThumb, 9),
-
             //(Key::Guide, glfw::GamepadButton::Guide, 8),
         ];
 
         let analog_buttons = [
-            (Key::GamepadL2, glfw::GamepadAxis::AxisLeftTrigger, 4, -0.75, 1.0),
-            (Key::GamepadR2, glfw::GamepadAxis::AxisRightTrigger, 5, -0.75, 1.0),
-            (Key::GamepadLStickLeft, glfw::GamepadAxis::AxisLeftX, 0, -0.25, -1.0),
-            (Key::GamepadLStickRight, glfw::GamepadAxis::AxisLeftX, 0, 0.25, 1.0),
-            (Key::GamepadLStickUp, glfw::GamepadAxis::AxisLeftY, 1, -0.25, -1.0),
-            (Key::GamepadLStickDown, glfw::GamepadAxis::AxisLeftY, 1, 0.25, 1.0),
-            (Key::GamepadRStickLeft, glfw::GamepadAxis::AxisRightX, 2, -0.25, -1.0),
-            (Key::GamepadRStickRight, glfw::GamepadAxis::AxisRightX, 2, 0.25, 1.0),
-            (Key::GamepadRStickUp, glfw::GamepadAxis::AxisRightY, 3, -0.25, -1.0),
-            (Key::GamepadRStickDown, glfw::GamepadAxis::AxisRightY, 3, 0.25, 1.0),
+            (
+                Key::GamepadL2,
+                glfw::GamepadAxis::AxisLeftTrigger,
+                4,
+                -0.75,
+                1.0,
+            ),
+            (
+                Key::GamepadR2,
+                glfw::GamepadAxis::AxisRightTrigger,
+                5,
+                -0.75,
+                1.0,
+            ),
+            (
+                Key::GamepadLStickLeft,
+                glfw::GamepadAxis::AxisLeftX,
+                0,
+                -0.25,
+                -1.0,
+            ),
+            (
+                Key::GamepadLStickRight,
+                glfw::GamepadAxis::AxisLeftX,
+                0,
+                0.25,
+                1.0,
+            ),
+            (
+                Key::GamepadLStickUp,
+                glfw::GamepadAxis::AxisLeftY,
+                1,
+                -0.25,
+                -1.0,
+            ),
+            (
+                Key::GamepadLStickDown,
+                glfw::GamepadAxis::AxisLeftY,
+                1,
+                0.25,
+                1.0,
+            ),
+            (
+                Key::GamepadRStickLeft,
+                glfw::GamepadAxis::AxisRightX,
+                2,
+                -0.25,
+                -1.0,
+            ),
+            (
+                Key::GamepadRStickRight,
+                glfw::GamepadAxis::AxisRightX,
+                2,
+                0.25,
+                1.0,
+            ),
+            (
+                Key::GamepadRStickUp,
+                glfw::GamepadAxis::AxisRightY,
+                3,
+                -0.25,
+                -1.0,
+            ),
+            (
+                Key::GamepadRStickDown,
+                glfw::GamepadAxis::AxisRightY,
+                3,
+                0.25,
+                1.0,
+            ),
         ];
 
         let joystick = self.glfw.get_joystick(glfw::JoystickId::Joystick1);
@@ -201,7 +272,7 @@ impl GlfwWindow {
             for (key, axis, _index, min, max) in analog_buttons.iter() {
                 let value = state.get_axis(*axis);
                 let v = value - *min / *max - *min;
-                Input::add_key_analog_event(*key, v > 0.0, v.clamp(0.0, 1.0)); 
+                Input::add_key_analog_event(*key, v > 0.0, v.clamp(0.0, 1.0));
             }
         }
     }
@@ -226,7 +297,7 @@ impl GlfwWindow {
         // Make sure we have focus
         if !self.window.is_focused() {
             return;
-        } 
+        }
 
         let (x, y) = self.window.get_cursor_pos();
         Input::add_mouse_pos_event(x as _, y as _);
@@ -259,17 +330,22 @@ impl Window for GlfwWindow {
 
     fn update(&mut self) {
         let current_time = f64::max(self.time + 0.00001, self.glfw.get_time());
-        let delta_time = if self.time > 0.0 { current_time - self.time } else { 1.0 / 60.0 };
+        let delta_time = if self.time > 0.0 {
+            current_time - self.time
+        } else {
+            1.0 / 60.0
+        };
 
         let display_size = self.window.get_framebuffer_size();
         let window_size = self.window.get_size();
 
         Input::update_screen_size_time(
-            display_size.0 as _, 
-            display_size.1 as _, 
+            display_size.0 as _,
+            display_size.1 as _,
             window_size.0 as _,
             window_size.1 as _,
-            delta_time as _);
+            delta_time as _,
+        );
 
         self.time = current_time;
 
@@ -291,5 +367,3 @@ impl Window for GlfwWindow {
         self.should_close
     }
 }
-
-

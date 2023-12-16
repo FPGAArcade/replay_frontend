@@ -1,11 +1,11 @@
+use crate::image::{Image, ImageFormat, ImageLoadStatus};
 use bgfx::*;
 use bgfx_rs::bgfx;
+use flowi_core::imgui::{DrawCmd, DrawData, DrawVert, FontAtlas, ImDrawIdx};
+use flowi_core::render::FlowiRenderer;
+use flowi_core::renderer::Texture as CoreTexture;
 use flowi_core::ApplicationSettings;
 use raw_window_handle::RawWindowHandle;
-use flowi_core::render::FlowiRenderer;
-use flowi_core::imgui::{DrawData, DrawCmd, FontAtlas, DrawVert, ImDrawIdx};
-use flowi_core::renderer::Texture as CoreTexture;
-use crate::image::{Image, ImageFormat, ImageLoadStatus};
 use std::collections::HashMap;
 
 static VS_IMGUI_GLSL: &[u8] = include_bytes!("../data/shaders/vs_ocornut_imgui_glsl.bin");
@@ -27,8 +27,8 @@ pub(crate) struct BgfxRenderer {
     image_lookup: HashMap<u64, BgfxTexture>,
     shader_program: bgfx::Program,
     layout: BuiltVertexLayout,
-    sampler_uniform : bgfx::Uniform,
-    font_atlas : bgfx::Texture,
+    sampler_uniform: bgfx::Uniform,
+    font_atlas: bgfx::Texture,
     old_size: (u32, u32),
     view_id: u16,
 }
@@ -88,13 +88,13 @@ pub fn get_platform_data(handle: &RawWindowHandle) -> PlatformData {
 }
 
 impl BgfxRenderer {
-    fn get_imgui_shader() -> (&'static [u8], &'static [u8]) { 
+    fn get_imgui_shader() -> (&'static [u8], &'static [u8]) {
         match bgfx::get_renderer_type() {
-            RendererType::Direct3D11 => (VS_IMGUI_DX11, FS_IMGUI_DX11), 
-            RendererType::OpenGL => (VS_IMGUI_GLSL, FS_IMGUI_GLSL), 
-            RendererType::OpenGLES => (VS_IMGUI_ESSL, FS_IMGUI_ESSL), 
-            RendererType::Metal => (VS_IMGUI_MTL, FS_IMGUI_MTL), 
-            RendererType::Vulkan => (VS_IMGUI_SPV, FS_IMGUI_SPV), 
+            RendererType::Direct3D11 => (VS_IMGUI_DX11, FS_IMGUI_DX11),
+            RendererType::OpenGL => (VS_IMGUI_GLSL, FS_IMGUI_GLSL),
+            RendererType::OpenGLES => (VS_IMGUI_ESSL, FS_IMGUI_ESSL),
+            RendererType::Metal => (VS_IMGUI_MTL, FS_IMGUI_MTL),
+            RendererType::Vulkan => (VS_IMGUI_SPV, FS_IMGUI_SPV),
             e => panic!("Unsupported render type {:#?}", e),
         }
     }
@@ -109,11 +109,15 @@ impl BgfxRenderer {
         bgfx::create_program(&vs_shader, &ps_shader, false)
     }
 
-    fn reset(width: u32, height: u32) { 
-        bgfx::reset(width, height, ResetArgs {
-            flags: ResetFlags::SRGB_BACKBUFFER.bits(),
-            ..Default::default()
-        });
+    fn reset(width: u32, height: u32) {
+        bgfx::reset(
+            width,
+            height,
+            ResetArgs {
+                flags: ResetFlags::SRGB_BACKBUFFER.bits(),
+                ..Default::default()
+            },
+        );
     }
 }
 
@@ -144,23 +148,49 @@ impl FlowiRenderer for BgfxRenderer {
         );
 
         let layout = bgfx::VertexLayoutBuilder::begin(bgfx::RendererType::Noop)
-            .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float, AddArgs { normalized: true, as_int: false, })
-            .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float, AddArgs { normalized: true, as_int: false, })
-            .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, AddArgs { normalized: true, as_int: true, })
+            .add(
+                bgfx::Attrib::Position,
+                2,
+                bgfx::AttribType::Float,
+                AddArgs {
+                    normalized: true,
+                    as_int: false,
+                },
+            )
+            .add(
+                bgfx::Attrib::TexCoord0,
+                2,
+                bgfx::AttribType::Float,
+                AddArgs {
+                    normalized: true,
+                    as_int: false,
+                },
+            )
+            .add(
+                bgfx::Attrib::Color0,
+                4,
+                bgfx::AttribType::Uint8,
+                AddArgs {
+                    normalized: true,
+                    as_int: true,
+                },
+            )
             .end();
-            
+
         let shader_program = Self::compile_program(Self::get_imgui_shader());
 
         let sampler_uniform = bgfx::Uniform::create("s_tex", bgfx::UniformType::Sampler, 1);
         let font_atlas = FontAtlas::build_rgba32_texture();
 
         let font_atlas = bgfx::create_texture_2d(
-            font_atlas.width, 
-            font_atlas.height, 
-            false, 1, 
+            font_atlas.width,
+            font_atlas.height,
+            false,
+            1,
             bgfx::TextureFormat::RGBA8,
-            0, 
-            &Memory::copy(font_atlas.data()));
+            0,
+            &Memory::copy(font_atlas.data()),
+        );
 
         Self {
             image_lookup: HashMap::new(),
@@ -175,7 +205,9 @@ impl FlowiRenderer for BgfxRenderer {
 
     fn get_texture(&mut self, image: Image) -> CoreTexture {
         if let Some(_texture) = self.image_lookup.get(&image.handle) {
-            return CoreTexture { handle: image.handle };
+            return CoreTexture {
+                handle: image.handle,
+            };
         }
 
         if Image::get_status(image) != ImageLoadStatus::Loaded {
@@ -195,23 +227,29 @@ impl FlowiRenderer for BgfxRenderer {
             // TODO Staggered update of textures to reduce stalls?
             if let Some(texture_data) = Image::get_data(image) {
                 let texture = bgfx::create_texture_2d(
-                    image_info.width as _, 
-                    image_info.height as _, 
-                    false, 1, 
+                    image_info.width as _,
+                    image_info.height as _,
+                    false,
+                    1,
                     texture_format,
-                    bgfx::TextureFlags::SRGB.bits(), 
-                    &Memory::copy(&texture_data));
+                    bgfx::TextureFlags::SRGB.bits(),
+                    &Memory::copy(&texture_data),
+                );
 
-                self.image_lookup.insert(image.handle, 
-                    BgfxTexture { 
-                        _format: texture_format, 
-                        handle: texture 
-                });
+                self.image_lookup.insert(
+                    image.handle,
+                    BgfxTexture {
+                        _format: texture_format,
+                        handle: texture,
+                    },
+                );
 
-                return CoreTexture { handle: image.handle };
+                return CoreTexture {
+                    handle: image.handle,
+                };
             }
-        } 
-            
+        }
+
         CoreTexture { handle: 0 }
     }
 
@@ -226,7 +264,10 @@ impl FlowiRenderer for BgfxRenderer {
             return;
         }
 
-        let size = (draw_data.display_size[0] as _, draw_data.display_size[1] as _);
+        let size = (
+            draw_data.display_size[0] as _,
+            draw_data.display_size[1] as _,
+        );
 
         if self.old_size != size {
             Self::reset(size.0 as _, size.1 as _);
@@ -248,12 +289,17 @@ impl FlowiRenderer for BgfxRenderer {
             let y = draw_data.display_pos[1];
             let width = draw_data.display_size[0];
             let height = draw_data.display_size[1];
-            let projection = glam::Mat4::orthographic_lh(x, x + width, y + height, y, 0.0f32, 1000.0f32);
-            bgfx::set_view_transform(self.view_id, glam::Mat4::IDENTITY.as_ref(), projection.as_ref());
+            let projection =
+                glam::Mat4::orthographic_lh(x, x + width, y + height, y, 0.0f32, 1000.0f32);
+            bgfx::set_view_transform(
+                self.view_id,
+                glam::Mat4::IDENTITY.as_ref(),
+                projection.as_ref(),
+            );
             bgfx::set_view_rect(self.view_id, 0, 0, width as u16, height as u16);
         }
 
-        let clip_pos = draw_data.display_pos;       // (0,0) unless using multi-viewports
+        let clip_pos = draw_data.display_pos; // (0,0) unless using multi-viewports
         let clip_scale = draw_data.framebuffer_scale; // (1,1) unless using retina display which are often (2,2)
 
         for draw_list in draw_data.draw_lists() {
@@ -295,13 +341,13 @@ impl FlowiRenderer for BgfxRenderer {
                 match command {
                     DrawCmd::Elements { count, cmd_params } => {
                         //let program = &self.shader_program;
-                        let state = 
-                            StateWriteFlags::RGB.bits()
+                        let state = StateWriteFlags::RGB.bits()
                             | StateWriteFlags::A.bits()
                             | StateFlags::MSAA.bits()
                             | bgfx::state_blend_func(
-                                StateBlendFlags::SRC_ALPHA, 
-                                StateBlendFlags::INV_SRC_ALPHA);
+                                StateBlendFlags::SRC_ALPHA,
+                                StateBlendFlags::INV_SRC_ALPHA,
+                            );
 
                         if cmd_params.texture_id != 0 {
                             if let Some(texture) = self.image_lookup.get(&cmd_params.texture_id) {
@@ -319,7 +365,7 @@ impl FlowiRenderer for BgfxRenderer {
                                 &self.font_atlas,
                                 u32::MAX,
                             );
-                        } 
+                        }
 
                         let clip_rect = [
                             (cmd_params.clip_rect[0] - clip_pos[0]) * clip_scale[0],
@@ -359,9 +405,12 @@ impl FlowiRenderer for BgfxRenderer {
                             );
                         }
                     }
-                    DrawCmd::RawCallback { callback: _, raw_cmd: _ } => {
+                    DrawCmd::RawCallback {
+                        callback: _,
+                        raw_cmd: _,
+                    } => {
                         //callback(draw_list.raw(), raw_cmd);
-                    },
+                    }
                     DrawCmd::ResetRenderState => {
                         Self::reset(fb_width as _, fb_height as _);
                     }
@@ -369,8 +418,7 @@ impl FlowiRenderer for BgfxRenderer {
             }
             bgfx::encoder_end(encoder);
         }
-        
+
         bgfx::frame(false);
     }
 }
-

@@ -1,22 +1,20 @@
 use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus};
-use crate::manual::{FlString, FlData};
-use crate::InternalState;
 use crate::io_handler::LoadedData;
+use crate::manual::{FlData, FlString};
+use crate::InternalState;
+use fileorama::{
+    Error, Fileorama, FilesDirs, LoadStatus, MemoryDriver, MemoryDriverType, Progress,
+};
 use thiserror::Error as ThisError;
-use fileorama::{MemoryDriver, MemoryDriverType, Error, FilesDirs, LoadStatus, Progress, Fileorama};
 
 use zune_jpeg::{
-    JpegDecoder,
-    zune_core::options::DecoderOptions as JpegDecoderOptions,
-    zune_core::colorspace::ColorSpace as JpegColorSpace,
-    errors::DecodeErrors as JpegDecodeErrors
+    errors::DecodeErrors as JpegDecodeErrors, zune_core::colorspace::ColorSpace as JpegColorSpace,
+    zune_core::options::DecoderOptions as JpegDecoderOptions, JpegDecoder,
 };
 
 use zune_png::{
-    PngDecoder,
-    zune_core::bit_depth::BitDepth as PngBitDepth,
-    zune_core::colorspace::ColorSpace as PngColorSpace, 
-    error::PngDecodeErrors, 
+    error::PngDecodeErrors, zune_core::bit_depth::BitDepth as PngBitDepth,
+    zune_core::colorspace::ColorSpace as PngColorSpace, PngDecoder,
 };
 
 #[derive(ThisError, Debug)]
@@ -104,8 +102,7 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
 }
 
 fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
-    let opts = JpegDecoderOptions::new_fast()
-        .jpeg_set_out_colorspace(JpegColorSpace::RGB);
+    let opts = JpegDecoderOptions::new_fast().jpeg_set_out_colorspace(JpegColorSpace::RGB);
 
     let mut decoder = JpegDecoder::new(data);
     decoder.set_options(opts);
@@ -154,7 +151,7 @@ fn decode_gif(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     while let Some(frame) = decoder.read_next_frame()? {
         screen.blit_frame(&frame)?;
         // we only handle a uniform delay for now
-        frame_delay_ms = frame_delay_ms.min(frame.delay as u32 * 10); 
+        frame_delay_ms = frame_delay_ms.min(frame.delay as u32 * 10);
         let f = screen.pixels.buf().to_vec();
         buffer_size += f.len() * 4;
         frames.push(f);
@@ -243,7 +240,12 @@ impl MemoryDriver for ImageLoader {
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(&self, data: Box<[u8]>, file_ext_hint: &str, _driver_data: &Option<Box<[u8]>>) -> Option<MemoryDriverType> {
+    fn create_from_data(
+        &self,
+        data: Box<[u8]>,
+        file_ext_hint: &str,
+        _driver_data: &Option<Box<[u8]>>,
+    ) -> Option<MemoryDriverType> {
         // we use the file_ext_hint to try to speed up the process
         match file_ext_hint {
             "png" => {
@@ -310,7 +312,7 @@ impl MemoryDriver for ImageLoader {
     /// Returns a handle which updates the progress and returns the loaded data. This will try to
     fn load(&mut self, _path: &str, progress: &mut Progress) -> Result<LoadStatus, Error> {
         println!("loading url: {} for image loader", _path);
-        
+
         //progress.set_step(1);
 
         let decoded_data = match self.image_type {
@@ -344,11 +346,13 @@ impl MemoryDriver for ImageLoader {
 
 pub(crate) fn install_image_loader(vfs: &Fileorama) {
     vfs.add_memory_driver(Box::new(ImageLoader::default()));
-} 
+}
 
 #[inline]
 fn create_from_file(state: &mut InternalState, filename: &str) -> u64 {
-    let handle = state.io_handler.load_with_driver(filename, IMAGE_LOADER_NAME);
+    let handle = state
+        .io_handler
+        .load_with_driver(filename, IMAGE_LOADER_NAME);
     handle as u64
 }
 
@@ -356,7 +360,7 @@ fn create_from_file(state: &mut InternalState, filename: &str) -> u64 {
 fn image_status(state: &InternalState, id: u64) -> ImageLoadStatus {
     if let Some(image) = state.io_handler.loaded.get(&id) {
         match image {
-            LoadedData::Data(_) => ImageLoadStatus::Loaded, 
+            LoadedData::Data(_) => ImageLoadStatus::Loaded,
             LoadedData::Error(_) => ImageLoadStatus::Failed,
         }
     } else {
@@ -375,7 +379,7 @@ fn image_data(state: &InternalState, id: u64) -> FlData {
                     data: data.as_ptr() as *const core::ffi::c_void,
                     size: data.len() as u64,
                 }
-            },
+            }
             LoadedData::Error(_) => FlData::default(),
         }
     } else {
@@ -430,20 +434,21 @@ pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> I
 
 #[cfg(test)]
 mod tests {
-    use crate::ApplicationSettings;
     use super::*;
+    use crate::ApplicationSettings;
 
     fn validate_red_image(state: &InternalState, handle: u64) {
         assert_eq!(image_status(state, handle), ImageLoadStatus::Loaded);
         let info = image_info(state, handle);
-        assert_ne!(info, std::ptr::null()); 
+        assert_ne!(info, std::ptr::null());
         let info = unsafe { &*(info as *const ImageInfo) };
         assert_eq!(info.format, ImageFormat::Rgb as u32);
         assert_eq!(info.width, 200);
         assert_eq!(info.height, 200);
         let data = image_data(state, handle);
         assert_ne!(data.data, std::ptr::null());
-        let data = unsafe { std::slice::from_raw_parts(data.data as *const u8, data.size as usize) };
+        let data =
+            unsafe { std::slice::from_raw_parts(data.data as *const u8, data.size as usize) };
         assert_eq!(data[0], 255);
         assert_eq!(data[1], 0);
         assert_eq!(data[2], 0);
@@ -466,7 +471,10 @@ mod tests {
 
     #[test]
     fn png_red_image_ok() {
-        let settings = ApplicationSettings { width: 0, height: 0 };
+        let settings = ApplicationSettings {
+            width: 0,
+            height: 0,
+        };
         let mut instance = crate::Instance::new(&settings);
         let handle = create_from_file(&mut instance.state, "data/png/solid_red.png");
 
@@ -476,22 +484,29 @@ mod tests {
 
     #[test]
     fn jpg_green_image_ok() {
-        let settings = ApplicationSettings { width: 0, height: 0 };
+        let settings = ApplicationSettings {
+            width: 0,
+            height: 0,
+        };
         let mut instance = crate::Instance::new(&settings);
         let handle = create_from_file(&mut instance.state, "data/jpeg/green.jpg");
 
         wait_for_image_to_load(&mut instance, handle);
 
-        assert_eq!(image_status(&instance.state, handle), ImageLoadStatus::Loaded);
+        assert_eq!(
+            image_status(&instance.state, handle),
+            ImageLoadStatus::Loaded
+        );
         let info = image_info(&instance.state, handle);
-        assert_ne!(info, std::ptr::null()); 
+        assert_ne!(info, std::ptr::null());
         let info = unsafe { &*(info as *const ImageInfo) };
         assert_eq!(info.format, ImageFormat::Rgb as u32);
         assert_eq!(info.width, 64);
         assert_eq!(info.height, 64);
         let data = image_data(&instance.state, handle);
         assert_ne!(data.data, std::ptr::null());
-        let data = unsafe { std::slice::from_raw_parts(data.data as *const u8, data.size as usize) };
+        let data =
+            unsafe { std::slice::from_raw_parts(data.data as *const u8, data.size as usize) };
         assert_eq!(data[0], 0);
         assert_eq!(data[1], 255);
         assert_eq!(data[2], 1);
@@ -499,15 +514,21 @@ mod tests {
 
     #[test]
     fn gif_animation_ok() {
-        let settings = ApplicationSettings { width: 0, height: 0 };
+        let settings = ApplicationSettings {
+            width: 0,
+            height: 0,
+        };
         let mut instance = crate::Instance::new(&settings);
         let handle = create_from_file(&mut instance.state, "data/gif/test.gif");
 
         wait_for_image_to_load(&mut instance, handle);
 
-        assert_eq!(image_status(&instance.state, handle), ImageLoadStatus::Loaded);
+        assert_eq!(
+            image_status(&instance.state, handle),
+            ImageLoadStatus::Loaded
+        );
         let info = image_info(&instance.state, handle);
-        assert_ne!(info, std::ptr::null()); 
+        assert_ne!(info, std::ptr::null());
         let info = unsafe { &*(info as *const ImageInfo) };
         assert_eq!(info.format, ImageFormat::Rgba as u32);
         assert_eq!(info.width, 142);
@@ -530,7 +551,10 @@ mod tests {
 
     #[test]
     fn png_load_broken_fail() {
-        let settings = ApplicationSettings { width: 0, height: 0 };
+        let settings = ApplicationSettings {
+            width: 0,
+            height: 0,
+        };
         let mut instance = crate::Instance::new(&settings);
         let handle = create_from_file(&mut instance.state, "data/png/broken/xs1n0g01.png");
 

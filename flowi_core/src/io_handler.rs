@@ -49,20 +49,21 @@ impl IoHandler {
                     self.inflight.remove(i);
                 }
 
-                Ok(RecvMsg::NotFound) => { 
+                Ok(RecvMsg::NotFound) => {
                     dbg!("NotFound");
-                    self.loaded.insert(*id, LoadedData::Error("File not found".to_string()));
+                    self.loaded
+                        .insert(*id, LoadedData::Error("File not found".to_string()));
                     self.inflight.remove(i);
                 }
 
-                _ => { }
+                _ => {}
             }
-        
+
             i += 1;
         }
     }
 
-    // Async loading 
+    // Async loading
     #[allow(dead_code)]
     pub(crate) fn load(&mut self, url: &str) -> IoHandle {
         let id = self.id_counter;
@@ -84,5 +85,3 @@ impl IoHandler {
         id
     }
 }
-
-

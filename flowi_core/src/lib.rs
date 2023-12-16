@@ -1,19 +1,18 @@
-
 pub mod generated;
 pub mod image_api;
 pub mod imgui;
-pub use manual::Result;
 pub use generated::*;
-pub mod render;
-mod manual;
-mod tests;
+pub use manual::Result;
 mod io_handler;
+mod manual;
+pub mod render;
+mod tests;
 
+use crate::render::RendererState;
+pub use crate::render::{DummyRenderer, FlowiRenderer};
 use core::ffi::c_void;
 use fileorama::Fileorama;
 use io_handler::IoHandler;
-pub use crate::render::{FlowiRenderer, DummyRenderer};
-use crate::render::RendererState;
 
 #[repr(C)]
 pub struct InternalState {
@@ -30,10 +29,7 @@ pub struct Instance {
 }
 
 extern "C" {
-    fn c_create(
-        settings: *const ApplicationSettings,
-        rust_state: *const c_void,
-    ) -> *const c_void;
+    fn c_create(settings: *const ApplicationSettings, rust_state: *const c_void) -> *const c_void;
     fn c_pre_update(data: *const c_void);
     fn c_post_update(data: *const c_void);
 }
@@ -74,6 +70,3 @@ impl Instance {
 }
 
 pub use crate::application_settings::ApplicationSettings;
-
-
-
