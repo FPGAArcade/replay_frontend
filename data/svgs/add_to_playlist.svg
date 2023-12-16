@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="10px" viewBox="0 0 16 10" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Shape</title>
+    <defs>
+        <path d="M14.0769231,10 L5,10 L5,11 L14.0769231,11 L14.0769231,10 L14.0769231,10 Z M14.0769231,7 L5,7 L5,8 L14.0769231,8 L14.0769231,7 L14.0769231,7 Z M17.001812,10 L16.000585,10 L16.000585,13 L12.9966214,13 L12.9966214,13.9958885 L16.000585,13.9958885 L16.000585,17.0029614 L17.001812,17.0029614 L17.001812,13.9958885 L20.027453,13.9958885 L20.027453,13 L17.001812,13 L17.001812,10 Z M5,14 L11,14 L11,13 L5,13 L5,14 L5,14 Z" id="path-1"></path>
+    </defs>
+    <g id="Symbols" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="ico/playback/addToPlaylist" transform="translate(-5.000000, -7.000000)">
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Shape" fill="#5D6C76" xlink:href="#path-1"></use>
+        </g>
+    </g>
+</svg>

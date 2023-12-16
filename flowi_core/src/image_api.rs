@@ -2,8 +2,14 @@ use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus};
 use crate::io_handler::LoadedData;
 use crate::manual::{FlData, FlString};
 use crate::InternalState;
+use resvg::{
+    usvg,
+    usvg::TreeParsing,
+    tiny_skia,
+};
+
 use fileorama::{
-    Error, Fileorama, FilesDirs, LoadStatus, MemoryDriver, MemoryDriverType, Progress,
+    Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress,
 };
 use thiserror::Error as ThisError;
 
@@ -36,6 +42,9 @@ enum ImageType {
     PngData(Box<[u8]>),
     JpegData(Box<[u8]>),
     GifData(Box<[u8]>),
+    // Doesn't work because of data not being thread-safe :( 
+    //SvgData((resvg::Tree, f32)),
+    SvgData((Box<[u8]>, f32)),
     #[default]
     None,
 }
@@ -181,6 +190,41 @@ fn decode_gif(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     Ok(output_data)
 }
 
+fn render_svg(data: &[u8], scale: f32) -> Result<Vec<u8>, ImageErrors> {
+    let opt = usvg::Options::default();
+    let tree = usvg::Tree::from_data(data.as_ref(), &opt).unwrap();
+    let rtree = resvg::Tree::from_usvg(&tree);
+
+    let pixmap_size = rtree.size.to_int_size();
+    let width = (pixmap_size.width() as f32 * scale) as _;
+    let height = (pixmap_size.height() as f32 * scale) as _;
+
+    let mut pixmap = tiny_skia::Pixmap::new(width, height).unwrap();
+    rtree.render(tiny_skia::Transform::default(), &mut pixmap.as_mut());
+
+    let svg_data = pixmap.as_ref().data();
+    let image_info_offset = std::mem::size_of::<ImageInfo>();
+
+    let image_info = ImageInfo {
+        format: ImageFormat::Rgba as u32,
+        width: width as u32,
+        height: height as u32,
+        frame_count: 1,
+        frame_delay: 0,
+    };
+
+    let output_size = svg_data.len() + image_info_offset;
+    let mut output_data = vec![0u8; output_size]; // TODO: uninit
+
+    // Write header at the start of the data
+    let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
+    *write_image_info = image_info;
+
+    output_data[image_info_offset..].copy_from_slice(svg_data);
+
+    Ok(output_data)
+}
+
 static IMAGE_LOADER_NAME: &'static str = "flowi_image_loader";
 
 impl MemoryDriver for ImageLoader {
@@ -218,6 +262,14 @@ impl MemoryDriver for ImageLoader {
                     return true;
                 }
             }
+            "svg" => {
+                let opt = usvg::Options::default();
+                let svg = usvg::Tree::from_data(data.as_ref(), &opt);
+                if svg.is_ok() {
+                    return true;
+                }
+            }
+
             _ => {}
         }
 
@@ -244,7 +296,7 @@ impl MemoryDriver for ImageLoader {
         &self,
         data: Box<[u8]>,
         file_ext_hint: &str,
-        _driver_data: &Option<Box<[u8]>>,
+        driver_data: &Option<Box<[u8]>>,
     ) -> Option<MemoryDriverType> {
         // we use the file_ext_hint to try to speed up the process
         match file_ext_hint {
@@ -272,6 +324,21 @@ impl MemoryDriver for ImageLoader {
                 if decoder.read_info(data.as_ref()).is_ok() {
                     return Some(Box::new(ImageLoader {
                         image_type: ImageType::GifData(data),
+                    }));
+                }
+            }
+            "svg" => {
+                let opt = usvg::Options::default();
+                let svg = usvg::Tree::from_data(data.as_ref(), &opt);
+                let size = if let Some(input_data) = driver_data {
+                    let d: &[f32] = bytemuck::cast_slice(input_data.as_ref());
+                    d[0]
+                } else {
+                    1.0
+                };
+                if svg.is_ok() {
+                    return Some(Box::new(ImageLoader {
+                        image_type: ImageType::SvgData((data, size))
                     }));
                 }
             }
@@ -319,6 +386,7 @@ impl MemoryDriver for ImageLoader {
             ImageType::PngData(ref data) => decode_png(data),
             ImageType::JpegData(ref data) => decode_jpeg(data),
             ImageType::GifData(ref data) => decode_gif(data),
+            ImageType::SvgData((ref data, size)) => render_svg(data, size),
             ImageType::None => return Err(Error::Generic("Unknown image type".to_owned())),
         };
 
@@ -333,14 +401,6 @@ impl MemoryDriver for ImageLoader {
                 Err(Error::Generic(format!("Error loading image: {:?}", e)))
             }
         }
-    }
-
-    fn get_directory_list(
-        &mut self,
-        _path: &str,
-        _progress: &mut Progress,
-    ) -> Result<FilesDirs, Error> {
-        Ok(FilesDirs::default())
     }
 }
 
@@ -540,6 +600,33 @@ mod tests {
         assert_eq!(info.height, 142);
         assert_eq!(info.frame_count, 12);
     }
+
+    #[test]
+    fn svg_load_ok() {
+        let settings = ApplicationSettings {
+            width: 0,
+            height: 0,
+        };
+        let mut instance = crate::Instance::new(&settings);
+        let handle = create_from_file(&mut instance.state, "data/home.svg");
+
+        wait_for_image_to_load(&mut instance, handle);
+
+        assert_eq!(
+            image_status(&instance.state, handle),
+            ImageLoadStatus::Loaded
+        );
+        let info = image_info(&instance.state, handle);
+        assert_ne!(info, std::ptr::null());
+        let info = unsafe { &*(info as *const ImageInfo) };
+
+        assert_eq!(info.format, ImageFormat::Rgba as u32);
+        assert_eq!(info.width, 22);
+        assert_eq!(info.height, 16);
+        assert_eq!(info.frame_count, 1);
+    }
+
+
 
     /*
     TODO: Fix this broken test

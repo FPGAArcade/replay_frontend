@@ -16,3 +16,7 @@ opt-level = 3
 [profile.dev.package.zune-jpeg]
 opt-level = 3
 
+[profile.dev.package.resvg]
+opt-level = 3
+
+

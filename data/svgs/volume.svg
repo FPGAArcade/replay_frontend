@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="12px" height="13px" viewBox="0 0 12 13" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Combined Shape</title>
+    <defs>
+        <path d="M13.9995741,5.49798576 C16.3487523,6.47744275 18,8.79588659 18,11.5 C18,14.2041134 16.3487523,16.5225573 13.9995741,17.5020142 L13.9993781,16.4006083 C15.7805541,15.4903662 17,13.6375915 17,11.5 C17,9.36240849 15.7805541,7.50963382 13.9993781,6.59939174 Z M12.0081099,7 L12.0081099,16 L8.54545455,13 L6,13 L6,10 L8.54545455,10 L12.0081099,7 Z M13.9999549,9.49978306 C14.6072039,9.95588414 15,10.6820708 15,11.5 C15,12.3179292 14.6072039,13.0441159 13.9999549,13.5002169 Z" id="path-1"></path>
+    </defs>
+    <g id="Symbols" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="ico/playback/volumeSmall" transform="translate(-6.000000, -5.000000)">
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Combined-Shape" fill="#5D6C76" xlink:href="#path-1"></use>
+        </g>
+    </g>
+</svg>
