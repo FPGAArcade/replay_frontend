@@ -45,3 +45,6 @@ struct Cursor {
     /// ~ FontSize + style.FramePadding.y * 2 + style.ItemSpacing.y (distance in pixels between 2 consecutive lines of framed widgets)
     [static] get_frame_height_with_spacing() -> f32,
 }
+
+// vim: syntax=rust expandtab ts=4 sw=4
+

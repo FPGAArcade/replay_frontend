@@ -17,7 +17,11 @@ struct Ui {
     //[static] push_button_with_icon(text: String, image: Image, text_pos: Vec2, image_scale: f32) -> bool, 
     // Push button widget that returns true if user has pressed it 
     //[static] push_button(text: String) -> bool, 
+
+    // Calculate the size of the text with the selected font
+    [static] calc_text_size(text: String) -> Vec2,
 }
+
 
 // vim: syntax=rust expandtab ts=4 sw=4
 

@@ -1,6 +1,7 @@
 typedef struct FlWindowApi {
     struct FlInternalData* priv;
     void (*set_pos)(struct FlInternalData* priv, FlVec2 pos);
+    void (*set_size)(struct FlInternalData* priv, FlVec2 pos);
     bool (*begin)(struct FlInternalData* priv, FlString name, FlWindowFlags flags);
     void (*end)(struct FlInternalData* priv);
     bool (*begin_child)(struct FlInternalData* priv, FlString id, FlVec2 size, bool border, FlWindowFlags flags);
@@ -18,6 +19,7 @@ extern FlWindowApi* g_flowi_window_api;
 
 #ifdef FLOWI_STATIC
 void fl_window_set_pos_impl(struct FlInternalData* priv, FlVec2 pos);
+void fl_window_set_size_impl(struct FlInternalData* priv, FlVec2 pos);
 bool fl_window_begin_impl(struct FlInternalData* priv, FlString name, FlWindowFlags flags);
 void fl_window_end_impl(struct FlInternalData* priv);
 bool fl_window_begin_child_impl(struct FlInternalData* priv, FlString id, FlVec2 size, bool border,
@@ -38,6 +40,15 @@ FL_INLINE void fl_window_set_pos(FlVec2 pos) {
     fl_window_set_pos_impl(g_flowi_window_api->priv, pos);
 #else
     (g_flowi_window_api->set_pos)(g_flowi_window_api->priv, pos);
+#endif
+}
+
+// Sets the position of the next window, call before begin()
+FL_INLINE void fl_window_set_size(FlVec2 pos) {
+#ifdef FLOWI_STATIC
+    fl_window_set_size_impl(g_flowi_window_api->priv, pos);
+#else
+    (g_flowi_window_api->set_size)(g_flowi_window_api->priv, pos);
 #endif
 }
 

@@ -134,6 +134,9 @@ typedef enum FlHoveredFlags {
 // Sets the position of the next window, call before begin()
 static void fl_window_set_pos(FlVec2 pos);
 
+// Sets the position of the next window, call before begin()
+static void fl_window_set_size(FlVec2 pos);
+
 // Always call a matching end() for each begin() call, regardless of its return value!
 static bool fl_window_begin(const char* name, FlWindowFlags flags);
 

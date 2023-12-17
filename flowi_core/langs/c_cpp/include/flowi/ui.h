@@ -19,6 +19,8 @@ extern "C" {
 // Draw image. Images can be created with [Image::create_from_file] and [Image::create_from_memory]
 static void fl_ui_image(FlImage image);
 
+static FlVec2 fl_ui_calc_text_size(const char* text);
+
 #include "ui.inl"
 #ifdef __cplusplus
 }

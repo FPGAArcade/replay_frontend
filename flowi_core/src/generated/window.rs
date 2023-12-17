@@ -13,6 +13,7 @@ use crate::math_data::*;
 pub struct WindowFfiApi {
     pub(crate) data: *const core::ffi::c_void,
     pub(crate) set_pos: unsafe extern "C" fn(data: *const core::ffi::c_void, pos: Vec2),
+    pub(crate) set_size: unsafe extern "C" fn(data: *const core::ffi::c_void, pos: Vec2),
     pub(crate) begin: unsafe extern "C" fn(
         data: *const core::ffi::c_void,
         name: FlString,
@@ -41,6 +42,7 @@ pub struct WindowFfiApi {
 #[cfg(feature = "static")]
 extern "C" {
     pub fn fl_window_set_pos_impl(data: *const core::ffi::c_void, pos: Vec2);
+    pub fn fl_window_set_size_impl(data: *const core::ffi::c_void, pos: Vec2);
     pub fn fl_window_begin_impl(
         data: *const core::ffi::c_void,
         name: FlString,
@@ -187,6 +189,17 @@ impl Window {
             fl_window_set_pos_impl(_api.data, pos);
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             (_api.set_pos)(_api.data, pos);
+        }
+    }
+
+    /// Sets the position of the next window, call before begin()
+    pub fn set_size(pos: Vec2) {
+        unsafe {
+            let _api = &*g_flowi_window_api;
+            #[cfg(feature = "static")]
+            fl_window_set_size_impl(_api.data, pos);
+            #[cfg(any(feature = "dynamic", feature = "plugin"))]
+            (_api.set_size)(_api.data, pos);
         }
     }
 
