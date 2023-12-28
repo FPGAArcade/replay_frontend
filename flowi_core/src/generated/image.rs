@@ -16,7 +16,7 @@ pub struct ImageFfiApi {
     pub(crate) load_with_options: unsafe extern "C" fn(
         data: *const core::ffi::c_void,
         url: FlString,
-        options: ImageOptions,
+        options: *const ImageOptions,
     ) -> u64,
     pub(crate) get_status:
         unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus,
@@ -31,7 +31,7 @@ extern "C" {
     pub fn fl_image_load_with_options_impl(
         data: *const core::ffi::c_void,
         url: FlString,
-        options: ImageOptions,
+        options: *const ImageOptions,
     ) -> u64;
     pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus;
     pub fn fl_image_get_info_impl(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo;
@@ -68,7 +68,7 @@ pub enum ImageLoadStatus {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct ImageInfo {
     /// Format of the image. See the ImageFormat enum
     pub format: u32,
@@ -81,9 +81,6 @@ pub struct ImageInfo {
     /// How long each frame should be displayed for in milliseconds
     pub frame_delay: u32,
 }
-
-unsafe impl bytemuck::Pod for ImageInfo {}
-unsafe impl bytemuck::Zeroable for ImageInfo {}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
@@ -119,13 +116,14 @@ impl Image {
 
     /// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
     /// Notice that this will return a async handle so the data may not be acceassable directly.
-    pub fn load_with_options(url: &str, options: ImageOptions) -> Image {
+    pub fn load_with_options(url: &str, options: &ImageOptions) -> Image {
         unsafe {
             let _api = &*g_flowi_image_api;
             #[cfg(feature = "static")]
-            let ret_val = fl_image_load_with_options_impl(_api.data, FlString::new(url), options);
+            let ret_val =
+                fl_image_load_with_options_impl(_api.data, FlString::new(url), options as _);
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
-            let ret_val = (_api.load_with_options)(_api.data, FlString::new(url), options);
+            let ret_val = (_api.load_with_options)(_api.data, FlString::new(url), options as _);
             Image { handle: ret_val }
         }
     }

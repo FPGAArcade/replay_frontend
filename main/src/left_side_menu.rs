@@ -132,8 +132,10 @@ impl LeftSideMenu {
 
             // We only set the height of the image, the width will be calculated automatically to keep the aspect ratio
             options.size = Vec2::new(0.0, menu_item.text_size.y);
+        
+            dbg!(&options);
 
-            menu_item.icon = Image::load_with_options(menu_item.icon_path, options);
+            menu_item.icon = Image::load_with_options(menu_item.icon_path, &options);
         }
 
         self.state = State::WatingForAssets;

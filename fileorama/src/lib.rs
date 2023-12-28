@@ -341,6 +341,8 @@ impl Fileorama {
         let data: &[u8] = bytemuck::cast_slice(data);
         let data = data.to_vec().into_boxed_slice();
 
+        dbg!(&data);
+
         let load_info = LoadInfo {
             path: path.into(),
             driver_name,
@@ -588,7 +590,7 @@ impl<'a> Loader<'a> {
         let mut has_local_parent_driver = false;
         let mut found_driver = false;
 
-        trace!("Searching for node: {:?}", components);
+        //trace!("Searching for node: {:?}", components);
 
         // Search for node in the vfs
         for c in components.iter() {
@@ -604,30 +606,23 @@ impl<'a> Loader<'a> {
                     found_driver = true;
                 }
 
-                trace!("found node {}", component_name);
+                //trace!("found node {}", component_name);
                 self.node_index = entry;
                 self.component_index += 1;
                 // If we don't have any driver yet and we didn't find a path we must search for a driver
             } else if self.component_index == 0 {
-                trace!(
-                    "Switching FindNode -> FindDriverUrl: {:?}",
-                    &components[self.component_index..]
-                );
+                //trace!( "Switching FindNode -> FindDriverUrl: {:?}", &components[self.component_index..]);
                 self.state = LoadState::FindDriverUrl;
                 return;
             } else {
                 // if the node has a local parent driver we try to open from the full path
                 if has_local_parent_driver || !found_driver {
-                    trace!("Switching FindNode -> FindDriverUrl: (root)");
+                    //trace!("Switching FindNode -> FindDriverUrl: (root)");
                     self.component_index = 0;
                     self.node_index = 0;
                     self.state = LoadState::FindDriverUrl;
                 } else {
-                    trace!(
-                        "Switching FindNode -> LoadFromNode: {} : {}",
-                        component_name,
-                        self.component_index
-                    );
+                    //trace!("Switching FindNode -> LoadFromNode: {} : {}", component_name, self.component_index);
                     self.state = LoadState::LoadFromNode;
                 }
                 return;
@@ -636,12 +631,12 @@ impl<'a> Loader<'a> {
 
         // if we didn't find any driver for the node we try to start from the begining instead
         if !found_driver {
-            trace!("Switching FindNode -> FindDriverUrl: (root)");
+            //trace!("Switching FindNode -> FindDriverUrl: (root)");
             self.component_index = 0;
             self.node_index = 0;
             self.state = LoadState::FindDriverUrl;
         } else {
-            trace!("Loading from node, index {}", self.component_index);
+            //trace!("Loading from node, index {}", self.component_index);
             // If we searched the whole tree and found the at last entry we try to load from it
             self.state = LoadState::LoadFromNode;
         }
@@ -665,12 +660,14 @@ impl<'a> Loader<'a> {
                     self.driver_index = vfs.node_drivers.len() as _;
                     vfs.node_drivers.push(NodeDriver::IoDriver(new_driver));
 
+                    /*
                     trace!(
                         "Creating new driver: {} at {} - comp index {}",
                         driver_name,
                         current_path,
                         self.component_index
                     );
+                    */
 
                     let res = add_path_to_vfs(vfs, self.node_index, &p);
                     self.node_index = res.0;
@@ -708,9 +705,7 @@ impl<'a> Loader<'a> {
             ""
         };
 
-        dbg!(&file_ext_hint);
-
-        trace!("Trying to find memory driver");
+        //trace!("Trying to find memory driver");
 
         for d in &*drivers.read().unwrap() {
             if !driver_name.is_empty() && d.name() != driver_name {
@@ -765,12 +760,14 @@ impl<'a> Loader<'a> {
             NodeDriver::MemoryDriver(ref driver) => driver.name(),
         };
 
+        /*
         trace!(
             "Loading from driver {} : {} - type {}",
             &current_path,
             self.driver_index,
             _driver_name,
         );
+        */
 
         // walk backwards from the current path and try to load the data
         loop {
@@ -784,7 +781,7 @@ impl<'a> Loader<'a> {
 
                     match msg {
                         LoadStatus::Data(in_data) => {
-                            trace!("Switching to find driver data");
+                            //trace!("Switching to find driver data");
                             self.data = Some(in_data);
                             self.state = LoadState::FindDriverData;
                             return Ok(());
@@ -814,7 +811,7 @@ impl<'a> Loader<'a> {
                 }
 
                 LoadStatus::Data(in_data) => {
-                    trace!("Current path {:?}", current_path);
+                    //trace!("Current path {:?}", current_path);
                     // If we found the driver we are looking for we can send the data back
                     if driver_name == name {
                         self.send_data(vfs, in_data)?;
@@ -853,14 +850,13 @@ impl<'a> Loader<'a> {
         let driver_index = self.driver_index as usize;
         match vfs.node_drivers[driver_index] {
             NodeDriver::IoDriver(ref mut driver) => {
-                trace!("Loading from driver type {}", driver.name());
+                //trace!("Loading from driver type {}", driver.name());
                 let mut progress = Progress::new(0.0, 1.0, self.msg);
                 let msg = driver.load("", &mut progress)?;
 
                 match msg {
                     LoadStatus::Data(in_data) => {
-                        dbg!();
-                        trace!("Switching to find driver data");
+                        //trace!("Switching to find driver data");
                         self.data = Some(in_data);
                         self.state = LoadState::FindDriverData;
                     }
@@ -902,21 +898,22 @@ impl<'a> Loader<'a> {
         if self.component_index == self.path_components.len()
             && vfs.nodes[node_index].node_type == NodeType::Directory
         {
+            /*
             trace!(
                 "Sending cached directory for node {}",
                 vfs.nodes[node_index].name
             );
+            */
             self.send_directory_for_node(vfs, node_index)?;
             self.state = LoadState::Done;
             return Ok(());
         }
-
-        trace!("comp index {}", self.component_index);
+        //trace!("comp index {}", self.component_index);
 
         for i in (0..=self.component_index).rev() {
             let driver_index = vfs.nodes[node_index].driver_index;
 
-            trace!("iter {}", i);
+            //trace!("iter {}", i);
 
             // Search for a node that has a proper driver
             if let Some(driver_index) = driver_index {
@@ -988,12 +985,14 @@ impl<'a> Loader<'a> {
         let mut node_index = index;
         let components = &self.path_components[comp_index..];
 
+        /*
         trace!(
             "Found directory {} - {} - {:?}",
             vfs.nodes[index].name,
             current_path,
             components
         );
+        */
 
         if vfs.nodes[node_index].node_type != NodeType::Directory {
             // If the node type is unknown it means that we haven't fetched the dirs for
@@ -1090,17 +1089,17 @@ pub(crate) fn load(
     // first we look in the cache if we have data there and then send that back
     for e in &vfs.cached_data {
         if e.path == info.path {
-            trace!("Sending data for path {} as cached", info.path);
+            //trace!("Sending data for path {} as cached", info.path);
             info.msg.send(RecvMsg::ReadDone(e.data.clone()))?;
             return Ok(());
         }
     }
 
-    trace!("start processing {}", info.path);
+    //trace!("start processing {}", info.path);
     //print_tree(vfs, 0, 0, 0);
 
     loop {
-        println!("{:?}", loader.state);
+        //println!("{:?}", loader.state);
 
         match loader.state {
             LoadState::FindNode => loader.find_node(vfs),

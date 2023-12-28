@@ -192,28 +192,34 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     let pixmap_size = rtree.size.to_int_size();
     let mut width = pixmap_size.width() as u32;
     let mut height = pixmap_size.height() as u32;
+    let mut scale_x = 1.0;
+    let mut scale_y = 1.0;
 
-    /*
+    dbg!(width, height);
+
     if let Some(options) = image_options {
-        dbg!(options.size.x, options.size.y);
-
         if options.size.x > 0.0 && options.size.y == 0.0 {
             let width_ratio = options.size.x / width as f32;
             width = options.size.x as u32;
             height = (height as f32 * width_ratio) as u32;
+            scale_x = width_ratio;
+            scale_y = width_ratio;
         } else if options.size.x == 0.0 && options.size.y > 0.0 {
             let height_ratio = options.size.y / height as f32;
             height = options.size.y as u32;
             width = (width as f32 * height_ratio) as u32;
+            scale_x = height_ratio;
+            scale_y = height_ratio;
         } else if options.size.x > 0.0 && options.size.y > 0.0 {
             width = options.size.x as u32;
             height = options.size.y as u32;
         }
     }
-    */
+
+    dbg!(width, height);
 
     let mut pixmap = tiny_skia::Pixmap::new(width, height).unwrap();
-    rtree.render(tiny_skia::Transform::default(), &mut pixmap.as_mut());
+    rtree.render(tiny_skia::Transform::from_scale(scale_x, scale_y), &mut pixmap.as_mut());
 
     let svg_data = pixmap.as_ref().data();
     let image_info_offset = std::mem::size_of::<ImageInfo>();
@@ -234,6 +240,12 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     *write_image_info = image_info;
 
     output_data[image_info_offset..].copy_from_slice(svg_data);
+
+    /*
+    for i in 0..svg_data.len() / 4 {
+        output_data[image_info_offset + ((i * 4) + 3)] = 0xff;
+    }
+    */
 
     Ok(output_data)
 }
@@ -392,8 +404,7 @@ impl MemoryDriver for ImageLoader {
 
     /// Returns a handle which updates the progress and returns the loaded data. This will try to
     fn load(&mut self, _path: &str, progress: &mut Progress) -> Result<LoadStatus, Error> {
-        println!("loading url: {} for image loader", _path);
-
+        //println!("loading url: {} for image loader", _path);
         //progress.set_step(1);
 
         let decoded_data = match self.image_type {
@@ -430,8 +441,11 @@ fn load(state: &mut InternalState, filename: &str) -> u64 {
 }
 
 #[inline]
-fn load_with_options(state: &mut InternalState, filename: &str, options: ImageOptions) -> u64 {
-    let data = [options];
+fn load_with_options(state: &mut InternalState, filename: &str, options: &ImageOptions) -> u64 {
+    let data = [*options];
+
+    dbg!(&data);
+
     state
         .io_handler
         .load_with_driver_data(filename, IMAGE_LOADER_NAME, &data)
@@ -499,8 +513,9 @@ pub fn fl_image_load_impl(data: *mut core::ffi::c_void, url: FlString) -> u64 {
 pub fn fl_image_load_with_options_impl(
     data: *const core::ffi::c_void,
     url: FlString,
-    options: ImageOptions,
+    options: &ImageOptions,
 ) -> u64 {
+    dbg!(&options);
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
     let name = url.as_str();
     load_with_options(state, name, options)

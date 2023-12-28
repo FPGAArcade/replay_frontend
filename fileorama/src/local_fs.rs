@@ -57,7 +57,7 @@ impl IoDriver for LocalFs {
             self.root.join(path)
         };
 
-        println!("trying loading from {:?}", path);
+        trace!("trying loading from {:?}", path);
 
         let metadata = match std::fs::metadata(&path) {
             Ok(m) => m,
@@ -67,7 +67,7 @@ impl IoDriver for LocalFs {
         };
 
         if metadata.is_dir() {
-            println!("load_url: {:?} is a directory", path);
+            trace!("load_url: {:?} is a directory", path);
             return Ok(LoadStatus::Directory);
         }
 

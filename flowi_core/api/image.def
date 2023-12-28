@@ -49,7 +49,7 @@ struct Image {
     [static] load(url: String) -> Image,
     /// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
     /// Notice that this will return a async handle so the data may not be acceassable directly.
-    [static] load_with_options(url: String, options: ImageOptions) -> Image,
+    [static] load_with_options(url: String, options: *const ImageOptions) -> Image,
     /// Get the status of the image. See the [ImageLoadStatus] enum 
     [static] get_status(image: Image) -> ImageLoadStatus,
     /// Get info about the image. Will be null if the image hasn't loaded yet or failed to load.
