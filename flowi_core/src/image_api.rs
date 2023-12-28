@@ -2,15 +2,9 @@ use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus, ImageOptions};
 use crate::io_handler::LoadedData;
 use crate::manual::{FlData, FlString};
 use crate::InternalState;
-use resvg::{
-    usvg,
-    usvg::TreeParsing,
-    tiny_skia,
-};
+use resvg::{tiny_skia, usvg, usvg::TreeParsing};
 
-use fileorama::{
-    Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress,
-};
+use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
 use thiserror::Error as ThisError;
 
 use zune_jpeg::{
@@ -42,7 +36,7 @@ enum ImageType {
     PngData(Box<[u8]>, Option<ImageOptions>),
     JpegData(Box<[u8]>, Option<ImageOptions>),
     GifData(Box<[u8]>, Option<ImageOptions>),
-    // Doesn't work because of data not being thread-safe :( 
+    // Doesn't work because of data not being thread-safe :(
     //SvgData((resvg::Tree, f32)),
     SvgData((Box<[u8]>, Option<ImageOptions>)),
     #[default]
@@ -358,7 +352,7 @@ impl MemoryDriver for ImageLoader {
                 let svg = usvg::Tree::from_data(data.as_ref(), &opt);
                 if svg.is_ok() {
                     return Some(Box::new(ImageLoader {
-                        image_type: ImageType::SvgData((data, options))
+                        image_type: ImageType::SvgData((data, options)),
                     }));
                 }
             }
@@ -430,15 +424,18 @@ pub(crate) fn install_image_loader(vfs: &Fileorama) {
 
 #[inline]
 fn load(state: &mut InternalState, filename: &str) -> u64 {
-    state.io_handler.load_with_driver(filename, IMAGE_LOADER_NAME)
+    state
+        .io_handler
+        .load_with_driver(filename, IMAGE_LOADER_NAME)
 }
 
 #[inline]
 fn load_with_options(state: &mut InternalState, filename: &str, options: ImageOptions) -> u64 {
     let data = [options];
-    state.io_handler.load_with_driver_data(filename, IMAGE_LOADER_NAME, &data)
+    state
+        .io_handler
+        .load_with_driver_data(filename, IMAGE_LOADER_NAME, &data)
 }
-
 
 #[inline]
 fn image_status(state: &InternalState, id: u64) -> ImageLoadStatus {
@@ -655,8 +652,6 @@ mod tests {
         assert_eq!(info.height, 16);
         assert_eq!(info.frame_count, 1);
     }
-
-
 
     /*
     TODO: Fix this broken test

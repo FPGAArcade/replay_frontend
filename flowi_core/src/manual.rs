@@ -1,5 +1,5 @@
-use core::ffi::c_void;
 use crate::math_data::Vec2;
+use core::ffi::c_void;
 
 #[repr(C)]
 pub struct FlString {

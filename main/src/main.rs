@@ -1,8 +1,4 @@
-use flowi::button::Button;
 use flowi::font::Font;
-use flowi::image::Image;
-use flowi::ui::Ui;
-use flowi::window::{Window, WindowFlags};
 use flowi::Application;
 
 mod left_side_menu;
@@ -26,32 +22,9 @@ pub(crate) struct App {
 fn main_loop(app: &mut App) {
     Font::push(app.montserrat_font);
 
-    /*
-    // Kinda a hack, but will do for now
-    if !app.first_frame {
-        app.first_frame = true;
-        app.left_side_menu.update_size(app.width, app.height, 1.0, 1.0);
-    }
-    */
-
     app.left_side_menu.update(app.width, app.height);
 
     Font::pop();
-
-    /*
-    Window::begin("Testing foobar", WindowFlags::NONE);
-
-
-    if Button::regular("Hello, world!") {
-        println!("Clicked!");
-    }
-
-    Ui::image(app.test_image);
-
-    Font::pop();
-
-    Window::end();
-    */
 }
 
 fn main() {
