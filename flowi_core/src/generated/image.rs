@@ -6,13 +6,18 @@ use crate::manual::{get_last_error, Color, FlData, FlString, Result};
 #[allow(unused_imports)]
 use bitflags::bitflags;
 
+#[allow(unused_imports)]
+use crate::math_data::*;
+
 #[repr(C)]
 pub struct ImageFfiApi {
     pub(crate) data: *const core::ffi::c_void,
-    pub(crate) create_from_file:
-        unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString) -> u64,
-    pub(crate) create_svg_from_file:
-        unsafe extern "C" fn(data: *const core::ffi::c_void, filename: FlString, size: f32) -> u64,
+    pub(crate) load: unsafe extern "C" fn(data: *const core::ffi::c_void, url: FlString) -> u64,
+    pub(crate) load_with_options: unsafe extern "C" fn(
+        data: *const core::ffi::c_void,
+        url: FlString,
+        options: ImageOptions,
+    ) -> u64,
     pub(crate) get_status:
         unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus,
     pub(crate) get_info:
@@ -22,14 +27,11 @@ pub struct ImageFfiApi {
 
 #[cfg(feature = "static")]
 extern "C" {
-    pub fn fl_image_create_from_file_impl(
+    pub fn fl_image_load_impl(data: *const core::ffi::c_void, url: FlString) -> u64;
+    pub fn fl_image_load_with_options_impl(
         data: *const core::ffi::c_void,
-        filename: FlString,
-    ) -> u64;
-    pub fn fl_image_create_svg_from_file_impl(
-        data: *const core::ffi::c_void,
-        filename: FlString,
-        size: f32,
+        url: FlString,
+        options: ImageOptions,
     ) -> u64;
     pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus;
     pub fn fl_image_get_info_impl(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo;
@@ -66,16 +68,7 @@ pub enum ImageLoadStatus {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum SvgFlags {
-    /// Render the SVG image using RGBA format
-    Rgba = 0,
-    /// Render the SVG image using Alpha only
-    Alpha = 1,
-}
-
-#[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ImageInfo {
     /// Format of the image. See the ImageFormat enum
     pub format: u32,
@@ -89,6 +82,21 @@ pub struct ImageInfo {
     pub frame_delay: u32,
 }
 
+unsafe impl bytemuck::Pod for ImageInfo {}
+unsafe impl bytemuck::Zeroable for ImageInfo {}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Default)]
+pub struct ImageOptions {
+    /// The scale of the image. This is useful for loading SVGs at different sizes.
+    pub scale: Vec2,
+    /// Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based on the aspect ratio of the image.
+    pub size: Vec2,
+}
+
+unsafe impl bytemuck::Pod for ImageOptions {}
+unsafe impl bytemuck::Zeroable for ImageOptions {}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct Image {
@@ -96,28 +104,28 @@ pub struct Image {
 }
 
 impl Image {
-    /// Async Load image from url/file. Supported formats are: JPG, PNG, and GIF
+    /// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
     /// Notice that this will return a async handle so the data may not be acceassable directly.
-    pub fn create_from_file(filename: &str) -> Image {
+    pub fn load(url: &str) -> Image {
         unsafe {
             let _api = &*g_flowi_image_api;
             #[cfg(feature = "static")]
-            let ret_val = fl_image_create_from_file_impl(_api.data, FlString::new(filename));
+            let ret_val = fl_image_load_impl(_api.data, FlString::new(url));
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
-            let ret_val = (_api.create_from_file)(_api.data, FlString::new(filename));
+            let ret_val = (_api.load)(_api.data, FlString::new(url));
             Image { handle: ret_val }
         }
     }
 
-    /// Async load and render SVG from url/file. size is the size of the image in pixels.
-    pub fn create_svg_from_file(filename: &str, size: f32) -> Image {
+    /// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
+    /// Notice that this will return a async handle so the data may not be acceassable directly.
+    pub fn load_with_options(url: &str, options: ImageOptions) -> Image {
         unsafe {
             let _api = &*g_flowi_image_api;
             #[cfg(feature = "static")]
-            let ret_val =
-                fl_image_create_svg_from_file_impl(_api.data, FlString::new(filename), size);
+            let ret_val = fl_image_load_with_options_impl(_api.data, FlString::new(url), options);
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
-            let ret_val = (_api.create_svg_from_file)(_api.data, FlString::new(filename), size);
+            let ret_val = (_api.load_with_options)(_api.data, FlString::new(url), options);
             Image { handle: ret_val }
         }
     }

@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "manual.h"
+#include "math_data.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,13 +36,6 @@ typedef enum FlImageLoadStatus {
     FlImageLoadStatus_Failed = 2,
 } FlImageLoadStatus;
 
-typedef enum FlSvgFlags {
-    // Render the SVG image using RGBA format
-    FlSvgFlags_Rgba = 0,
-    // Render the SVG image using Alpha only
-    FlSvgFlags_Alpha = 1,
-} FlSvgFlags;
-
 typedef struct FlImageInfo {
     // Format of the image. See the ImageFormat enum
     uint32_t format;
@@ -55,14 +49,23 @@ typedef struct FlImageInfo {
     uint32_t frame_delay;
 } FlImageInfo;
 
+typedef struct FlImageOptions {
+    // The scale of the image. This is useful for loading SVGs at different sizes.
+    FlVec2 scale;
+    // Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based
+    // on the aspect ratio of the image.
+    FlVec2 size;
+} FlImageOptions;
+
 typedef uint64_t FlImage;
 
-// Async Load image from url/file. Supported formats are: JPG, PNG, and GIF
+// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
 // Notice that this will return a async handle so the data may not be acceassable directly.
-static FlImage fl_image_create_from_file(const char* filename);
+static FlImage fl_image_load(const char* url);
 
-// Async load and render SVG from url/file. size is the size of the image in pixels.
-static FlImage fl_image_create_svg_from_file(const char* filename, float size);
+// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
+// Notice that this will return a async handle so the data may not be acceassable directly.
+static FlImage fl_image_load_with_options(const char* url, FlImageOptions options);
 
 // Get the status of the image. See the [ImageLoadStatus] enum
 static FlImageLoadStatus fl_image_get_status(FlImage image);

@@ -3,6 +3,7 @@ pub mod image_api;
 pub mod imgui;
 pub use generated::*;
 pub use manual::Result;
+pub use manual::Color;
 mod io_handler;
 mod manual;
 pub mod render;

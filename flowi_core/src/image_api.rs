@@ -1,4 +1,4 @@
-use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus};
+use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus, ImageOptions};
 use crate::io_handler::LoadedData;
 use crate::manual::{FlData, FlString};
 use crate::InternalState;
@@ -39,12 +39,12 @@ pub enum ImageErrors {
 
 #[derive(Default, Debug)]
 enum ImageType {
-    PngData(Box<[u8]>),
-    JpegData(Box<[u8]>),
-    GifData(Box<[u8]>),
+    PngData(Box<[u8]>, Option<ImageOptions>),
+    JpegData(Box<[u8]>, Option<ImageOptions>),
+    GifData(Box<[u8]>, Option<ImageOptions>),
     // Doesn't work because of data not being thread-safe :( 
     //SvgData((resvg::Tree, f32)),
-    SvgData((Box<[u8]>, f32)),
+    SvgData((Box<[u8]>, Option<ImageOptions>)),
     #[default]
     None,
 }
@@ -190,14 +190,33 @@ fn decode_gif(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     Ok(output_data)
 }
 
-fn render_svg(data: &[u8], scale: f32) -> Result<Vec<u8>, ImageErrors> {
+fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
     let opt = usvg::Options::default();
     let tree = usvg::Tree::from_data(data.as_ref(), &opt).unwrap();
     let rtree = resvg::Tree::from_usvg(&tree);
 
     let pixmap_size = rtree.size.to_int_size();
-    let width = (pixmap_size.width() as f32 * scale) as _;
-    let height = (pixmap_size.height() as f32 * scale) as _;
+    let mut width = pixmap_size.width() as u32;
+    let mut height = pixmap_size.height() as u32;
+
+    /*
+    if let Some(options) = image_options {
+        dbg!(options.size.x, options.size.y);
+
+        if options.size.x > 0.0 && options.size.y == 0.0 {
+            let width_ratio = options.size.x / width as f32;
+            width = options.size.x as u32;
+            height = (height as f32 * width_ratio) as u32;
+        } else if options.size.x == 0.0 && options.size.y > 0.0 {
+            let height_ratio = options.size.y / height as f32;
+            height = options.size.y as u32;
+            width = (width as f32 * height_ratio) as u32;
+        } else if options.size.x > 0.0 && options.size.y > 0.0 {
+            width = options.size.x as u32;
+            height = options.size.y as u32;
+        }
+    }
+    */
 
     let mut pixmap = tiny_skia::Pixmap::new(width, height).unwrap();
     rtree.render(tiny_skia::Transform::default(), &mut pixmap.as_mut());
@@ -298,6 +317,13 @@ impl MemoryDriver for ImageLoader {
         file_ext_hint: &str,
         driver_data: &Option<Box<[u8]>>,
     ) -> Option<MemoryDriverType> {
+        let options = if let Some(input_data) = driver_data {
+            let d: &[ImageOptions] = bytemuck::cast_slice(input_data.as_ref());
+            Some(d[0])
+        } else {
+            None
+        };
+
         // we use the file_ext_hint to try to speed up the process
         match file_ext_hint {
             "png" => {
@@ -305,7 +331,7 @@ impl MemoryDriver for ImageLoader {
                 let headers = png_decoder.decode_headers();
                 if headers.is_ok() {
                     return Some(Box::new(ImageLoader {
-                        image_type: ImageType::PngData(data),
+                        image_type: ImageType::PngData(data, options),
                     }));
                 }
             }
@@ -314,7 +340,7 @@ impl MemoryDriver for ImageLoader {
                 let headers = jpeg_decoder.decode_headers();
                 if headers.is_ok() {
                     return Some(Box::new(ImageLoader {
-                        image_type: ImageType::JpegData(data),
+                        image_type: ImageType::JpegData(data, options),
                     }));
                 }
             }
@@ -323,22 +349,16 @@ impl MemoryDriver for ImageLoader {
                 decoder.set_color_output(gif::ColorOutput::Indexed);
                 if decoder.read_info(data.as_ref()).is_ok() {
                     return Some(Box::new(ImageLoader {
-                        image_type: ImageType::GifData(data),
+                        image_type: ImageType::GifData(data, options),
                     }));
                 }
             }
             "svg" => {
                 let opt = usvg::Options::default();
                 let svg = usvg::Tree::from_data(data.as_ref(), &opt);
-                let size = if let Some(input_data) = driver_data {
-                    let d: &[f32] = bytemuck::cast_slice(input_data.as_ref());
-                    d[0]
-                } else {
-                    1.0
-                };
                 if svg.is_ok() {
                     return Some(Box::new(ImageLoader {
-                        image_type: ImageType::SvgData((data, size))
+                        image_type: ImageType::SvgData((data, options))
                     }));
                 }
             }
@@ -350,7 +370,7 @@ impl MemoryDriver for ImageLoader {
         let headers = jpeg_decoder.decode_headers();
         if headers.is_ok() {
             return Some(Box::new(ImageLoader {
-                image_type: ImageType::JpegData(data),
+                image_type: ImageType::JpegData(data, options),
             }));
         }
 
@@ -358,7 +378,7 @@ impl MemoryDriver for ImageLoader {
         let headers = png_decoder.decode_headers();
         if headers.is_ok() {
             return Some(Box::new(ImageLoader {
-                image_type: ImageType::PngData(data),
+                image_type: ImageType::PngData(data, options),
             }));
         }
 
@@ -367,7 +387,7 @@ impl MemoryDriver for ImageLoader {
         match decoder.read_info(data.as_ref()) {
             Ok(_) => {
                 return Some(Box::new(ImageLoader {
-                    image_type: ImageType::GifData(data),
+                    image_type: ImageType::GifData(data, options),
                 }));
             }
             Err(_) => {}
@@ -383,10 +403,10 @@ impl MemoryDriver for ImageLoader {
         //progress.set_step(1);
 
         let decoded_data = match self.image_type {
-            ImageType::PngData(ref data) => decode_png(data),
-            ImageType::JpegData(ref data) => decode_jpeg(data),
-            ImageType::GifData(ref data) => decode_gif(data),
-            ImageType::SvgData((ref data, size)) => render_svg(data, size),
+            ImageType::PngData(ref data, _opts) => decode_png(data),
+            ImageType::JpegData(ref data, _opts) => decode_jpeg(data),
+            ImageType::GifData(ref data, _opts) => decode_gif(data),
+            ImageType::SvgData((ref data, opts)) => render_svg(data, opts),
             ImageType::None => return Err(Error::Generic("Unknown image type".to_owned())),
         };
 
@@ -409,9 +429,16 @@ pub(crate) fn install_image_loader(vfs: &Fileorama) {
 }
 
 #[inline]
-fn create_from_file(state: &mut InternalState, filename: &str) -> u64 {
+fn load(state: &mut InternalState, filename: &str) -> u64 {
     state.io_handler.load_with_driver(filename, IMAGE_LOADER_NAME)
 }
+
+#[inline]
+fn load_with_options(state: &mut InternalState, filename: &str, options: ImageOptions) -> u64 {
+    let data = [options];
+    state.io_handler.load_with_driver_data(filename, IMAGE_LOADER_NAME, &data)
+}
+
 
 #[inline]
 fn image_status(state: &InternalState, id: u64) -> ImageLoadStatus {
@@ -421,7 +448,7 @@ fn image_status(state: &InternalState, id: u64) -> ImageLoadStatus {
             LoadedData::Error(_) => ImageLoadStatus::Failed,
         }
     } else {
-        ImageLoadStatus::Loaded
+        ImageLoadStatus::Loading
     }
 }
 
@@ -465,18 +492,21 @@ struct WrapState<'a> {
 
 // FFI functions
 #[no_mangle]
-pub fn fl_image_create_from_file_impl(data: *mut core::ffi::c_void, filename: FlString) -> u64 {
+pub fn fl_image_load_impl(data: *mut core::ffi::c_void, url: FlString) -> u64 {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    let name = filename.as_str();
-    create_from_file(state, name)
+    let name = url.as_str();
+    load(state, name)
 }
 
 #[no_mangle]
-pub fn fl_image_create_svg_from_file_impl(data: *mut core::ffi::c_void, filename: FlString, size: f32) -> u64 {
+pub fn fl_image_load_with_options_impl(
+    data: *const core::ffi::c_void,
+    url: FlString,
+    options: ImageOptions,
+) -> u64 {
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    let name = filename.as_str();
-    let data = [size]; 
-    state.io_handler.load_with_driver_data(name, IMAGE_LOADER_NAME, &data)
+    let name = url.as_str();
+    load_with_options(state, name, options)
 }
 
 #[no_mangle]
@@ -541,7 +571,7 @@ mod tests {
             height: 0,
         };
         let mut instance = crate::Instance::new(&settings);
-        let handle = create_from_file(&mut instance.state, "data/png/solid_red.png");
+        let handle = load(&mut instance.state, "data/png/solid_red.png");
 
         wait_for_image_to_load(&mut instance, handle);
         validate_red_image(&instance.state, handle);
@@ -554,7 +584,7 @@ mod tests {
             height: 0,
         };
         let mut instance = crate::Instance::new(&settings);
-        let handle = create_from_file(&mut instance.state, "data/jpeg/green.jpg");
+        let handle = load(&mut instance.state, "data/jpeg/green.jpg");
 
         wait_for_image_to_load(&mut instance, handle);
 
@@ -584,7 +614,7 @@ mod tests {
             height: 0,
         };
         let mut instance = crate::Instance::new(&settings);
-        let handle = create_from_file(&mut instance.state, "data/gif/test.gif");
+        let handle = load(&mut instance.state, "data/gif/test.gif");
 
         wait_for_image_to_load(&mut instance, handle);
 
@@ -608,7 +638,7 @@ mod tests {
             height: 0,
         };
         let mut instance = crate::Instance::new(&settings);
-        let handle = create_from_file(&mut instance.state, "data/home.svg");
+        let handle = load(&mut instance.state, "data/home.svg");
 
         wait_for_image_to_load(&mut instance, handle);
 
@@ -634,7 +664,7 @@ mod tests {
     fn png_load_fail() {
         let settings = ApplicationSettings { width: 0, height: 0 };
         let mut instance = crate::Instance::new(&settings);
-        let handle = create_from_file(&mut instance.state, "data/png/non_such_file.png");
+        let handle = load(&mut instance.state, "data/png/non_such_file.png");
 
         wait_for_image_to_load(&mut instance, handle);
         assert!(image_status(&instance.state, handle) == ImageLoadStatus::Failed);
@@ -648,7 +678,7 @@ mod tests {
             height: 0,
         };
         let mut instance = crate::Instance::new(&settings);
-        let handle = create_from_file(&mut instance.state, "data/png/broken/xs1n0g01.png");
+        let handle = load(&mut instance.state, "data/png/broken/xs1n0g01.png");
 
         wait_for_image_to_load(&mut instance, handle);
         assert!(image_status(&instance.state, handle) == ImageLoadStatus::Failed);

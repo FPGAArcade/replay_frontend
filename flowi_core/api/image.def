@@ -1,4 +1,4 @@
-//mod render_commands
+mod math_data
 
 enum ImageFormat {
     /// 8-bit per channel Red, Green and Blue
@@ -35,20 +35,21 @@ struct ImageInfo {
     frame_delay: u32,
 }
 
-enum SvgFlags {
-    /// Render the SVG image using RGBA format
-    Rgba = 0,
-    /// Render the SVG image using Alpha only
-    Alpha = 1,
+struct ImageOptions {
+    /// The scale of the image. This is useful for loading SVGs at different sizes.
+    scale: Vec2,
+    /// Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based on the aspect ratio of the image.
+    size: Vec2,
 }
 
 #[attributes(Handle)]
 struct Image {
-    /// Async Load image from url/file. Supported formats are: JPG, PNG, and GIF
+    /// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
     /// Notice that this will return a async handle so the data may not be acceassable directly.
-    [static] create_from_file(filename: String) -> Image,
-    /// Async load and render SVG from url/file. size is the size of the image in pixels. 
-    [static] create_svg_from_file(filename: String, size: f32) -> Image,
+    [static] load(url: String) -> Image,
+    /// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
+    /// Notice that this will return a async handle so the data may not be acceassable directly.
+    [static] load_with_options(url: String, options: ImageOptions) -> Image,
     /// Get the status of the image. See the [ImageLoadStatus] enum 
     [static] get_status(image: Image) -> ImageLoadStatus,
     /// Get info about the image. Will be null if the image hasn't loaded yet or failed to load.

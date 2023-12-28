@@ -7,7 +7,7 @@ use crate::manual::{get_last_error, Color, FlData, FlString, Result};
 use bitflags::bitflags;
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct ApplicationSettings {
     pub width: u32,
     pub height: u32,

@@ -18,7 +18,6 @@ pub(crate) struct App {
     left_side_menu: LeftSideMenu,
     state: State,
     montserrat_font: Font,
-    test_image: Image,
     first_frame: bool,
     width: u32,
     height: u32,
@@ -27,13 +26,15 @@ pub(crate) struct App {
 fn main_loop(app: &mut App) {
     Font::push(app.montserrat_font);
 
+    /*
     // Kinda a hack, but will do for now
     if !app.first_frame {
         app.first_frame = true;
         app.left_side_menu.update_size(app.width, app.height, 1.0, 1.0);
     }
+    */
 
-    app.left_side_menu.show();
+    app.left_side_menu.update(app.width, app.height);
 
     Font::pop();
 
@@ -64,8 +65,7 @@ fn main() {
     let app = Box::new(App {
         state: State::Navigating,
         left_side_menu: LeftSideMenu::new(width, height),
-        montserrat_font: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 32).unwrap(),
-        test_image: Image::create_from_file("data/test_data/planet.png"),
+        montserrat_font: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 56).unwrap(),
         first_frame: false,
         width,
         height,

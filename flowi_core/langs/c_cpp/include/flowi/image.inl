@@ -1,7 +1,7 @@
 typedef struct FlImageApi {
     struct FlInternalData* priv;
-    FlImage (*create_from_file)(struct FlInternalData* priv, FlString filename);
-    FlImage (*create_svg_from_file)(struct FlInternalData* priv, FlString filename, float size);
+    FlImage (*load)(struct FlInternalData* priv, FlString url);
+    FlImage (*load_with_options)(struct FlInternalData* priv, FlString url, FlImageOptions options);
     FlImageLoadStatus (*get_status)(struct FlInternalData* priv, FlImage image);
     FlImageInfo* (*get_info)(struct FlInternalData* priv, FlImage image);
     FlData (*get_data)(struct FlInternalData* priv, FlImage image);
@@ -10,31 +10,32 @@ typedef struct FlImageApi {
 extern FlImageApi* g_flowi_image_api;
 
 #ifdef FLOWI_STATIC
-FlImage fl_image_create_from_file_impl(struct FlInternalData* priv, FlString filename);
-FlImage fl_image_create_svg_from_file_impl(struct FlInternalData* priv, FlString filename, float size);
+FlImage fl_image_load_impl(struct FlInternalData* priv, FlString url);
+FlImage fl_image_load_with_options_impl(struct FlInternalData* priv, FlString url, FlImageOptions options);
 FlImageLoadStatus fl_image_get_status_impl(struct FlInternalData* priv, FlImage image);
 FlImageInfo* fl_image_get_info_impl(struct FlInternalData* priv, FlImage image);
 FlData fl_image_get_data_impl(struct FlInternalData* priv, FlImage image);
 #endif
 
-// Async Load image from url/file. Supported formats are: JPG, PNG, and GIF
+// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
 // Notice that this will return a async handle so the data may not be acceassable directly.
-FL_INLINE FlImage fl_image_create_from_file(const char* filename) {
-    FlString filename_ = fl_cstr_to_flstring(filename);
+FL_INLINE FlImage fl_image_load(const char* url) {
+    FlString url_ = fl_cstr_to_flstring(url);
 #ifdef FLOWI_STATIC
-    return fl_image_create_from_file_impl(g_flowi_image_api->priv, filename_);
+    return fl_image_load_impl(g_flowi_image_api->priv, url_);
 #else
-    return (g_flowi_image_api->create_from_file)(g_flowi_image_api->priv, filename_);
+    return (g_flowi_image_api->load)(g_flowi_image_api->priv, url_);
 #endif
 }
 
-// Async load and render SVG from url/file. size is the size of the image in pixels.
-FL_INLINE FlImage fl_image_create_svg_from_file(const char* filename, float size) {
-    FlString filename_ = fl_cstr_to_flstring(filename);
+// Async Load image from url/file. Supported formats are: JPG, PNG, SVG and GIF
+// Notice that this will return a async handle so the data may not be acceassable directly.
+FL_INLINE FlImage fl_image_load_with_options(const char* url, FlImageOptions options) {
+    FlString url_ = fl_cstr_to_flstring(url);
 #ifdef FLOWI_STATIC
-    return fl_image_create_svg_from_file_impl(g_flowi_image_api->priv, filename_, size);
+    return fl_image_load_with_options_impl(g_flowi_image_api->priv, url_, options);
 #else
-    return (g_flowi_image_api->create_svg_from_file)(g_flowi_image_api->priv, filename_, size);
+    return (g_flowi_image_api->load_with_options)(g_flowi_image_api->priv, url_, options);
 #endif
 }
 

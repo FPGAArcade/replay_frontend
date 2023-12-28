@@ -1,4 +1,5 @@
 use core::ffi::c_void;
+use crate::math_data::Vec2;
 
 #[repr(C)]
 pub struct FlString {
@@ -42,12 +43,24 @@ pub struct FlowiError {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,
     pub a: f32,
+}
+
+impl Vec2 {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
+impl Color {
+    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { r, g, b, a }
+    }
 }
 
 pub fn get_last_error() -> FlowiError {

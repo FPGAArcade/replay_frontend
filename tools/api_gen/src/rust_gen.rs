@@ -349,7 +349,7 @@ impl RustGen {
             writeln!(f, "#[repr(C)]")?;
 
             if sdef.has_attribute("Copy") {
-                writeln!(f, "#[derive(Copy, Clone, Debug)]")?;
+                writeln!(f, "#[derive(Copy, Clone, Debug, Default)]")?;
             } else {
                 writeln!(f, "#[derive(Debug)]")?;
             }
