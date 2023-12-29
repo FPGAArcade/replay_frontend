@@ -40,13 +40,13 @@ typedef struct FlImageInfo {
     // Format of the image. See the ImageFormat enum
     uint32_t format;
     // width of the image
-    uint32_t width;
+    int width;
     // height of the Image
-    uint32_t height;
+    int height;
     // Number of frames. This is 1 for static images and > 1 for animated images
-    uint32_t frame_count;
+    int frame_count;
     // How long each frame should be displayed for in milliseconds
-    uint32_t frame_delay;
+    int frame_delay;
 } FlImageInfo;
 
 typedef struct FlImageOptions {
@@ -54,7 +54,10 @@ typedef struct FlImageOptions {
     FlVec2 scale;
     // Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based
     // on the aspect ratio of the image.
-    FlVec2 size;
+    FlIVec2 size;
+    // Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based
+    // on the aspect ratio of the image.
+    FlColor color;
 } FlImageOptions;
 
 typedef uint64_t FlImage;

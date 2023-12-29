@@ -25,6 +25,8 @@ typedef enum FlPainterLayer {
     FlPainterLayer_Foreground = 2,
 } FlPainterLayer;
 
+static void fl_painter_draw_rect_filled(FlVec2 p1, FlVec2 p2, FlColor color, float rounding);
+
 #include "painter.inl"
 #ifdef __cplusplus
 }

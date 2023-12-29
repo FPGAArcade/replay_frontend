@@ -16,9 +16,53 @@ use crate::math_data::*;
 use crate::image::*;
 
 #[repr(C)]
+pub struct PainterFfiApi {
+    pub(crate) data: *const core::ffi::c_void,
+    pub(crate) draw_rect_filled: unsafe extern "C" fn(
+        data: *const core::ffi::c_void,
+        p1: Vec2,
+        p2: Vec2,
+        color: Color,
+        rounding: f32,
+    ),
+}
+
+#[cfg(feature = "static")]
+extern "C" {
+    pub fn fl_painter_draw_rect_filled_impl(
+        data: *const core::ffi::c_void,
+        p1: Vec2,
+        p2: Vec2,
+        color: Color,
+        rounding: f32,
+    );
+}
+
+#[no_mangle]
+pub static mut g_flowi_painter_api: *const PainterFfiApi = std::ptr::null_mut();
+
+#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PainterLayer {
     ActiveWindow = 0,
     Background = 1,
     Foreground = 2,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct Painter {
+    _dummy: u32,
+}
+
+impl Painter {
+    pub fn draw_rect_filled(p1: Vec2, p2: Vec2, color: Color, rounding: f32) {
+        unsafe {
+            let _api = &*g_flowi_painter_api;
+            #[cfg(feature = "static")]
+            fl_painter_draw_rect_filled_impl(_api.data, p1, p2, color, rounding);
+            #[cfg(any(feature = "dynamic", feature = "plugin"))]
+            (_api.draw_rect_filled)(_api.data, p1, p2, color, rounding);
+        }
+    }
 }

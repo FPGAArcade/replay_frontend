@@ -128,8 +128,8 @@ impl FlowiRenderer for BgfxRenderer {
         let window_handle = window.expect("Window handle is required");
 
         init.type_r = get_render_type();
-        init.resolution.width = settings.width;
-        init.resolution.height = settings.height;
+        init.resolution.width = settings.width as _;
+        init.resolution.height = settings.height as _;
         init.resolution.reset = ResetFlags::VSYNC.bits();
         init.platform_data = get_platform_data(window_handle);
 

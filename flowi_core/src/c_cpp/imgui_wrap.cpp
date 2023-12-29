@@ -124,10 +124,10 @@ FL_PUBLIC_SYMBOL void fl_ui_image_impl(FlInternalData* ctx, FlImage image_id) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FL_PUBLIC_SYMBOL FlVec2 fl_ui_calc_text_size_impl(FlInternalData* ctx, FlString string) {
+FL_PUBLIC_SYMBOL FlIVec2 fl_ui_calc_text_size_impl(FlInternalData* ctx, FlString string) {
     FL_UNUSED(ctx);
     ImVec2 size = ImGui::CalcTextSize(string.str, string.str + string.len);
-    return { size.x, size.y };
+    return { (int)size.x, (int)size.y };
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -225,6 +225,9 @@ FlUiApi g_ui_funcs = {
     fl_ui_image_impl,
     fl_ui_calc_text_size_impl,
 };
+
+
+extern FlPainterApi g_painter_funcs;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -549,7 +552,6 @@ FL_PUBLIC_SYMBOL FlVec2 fl_text_calc_size_impl(FlInternalData* ctx, FlString tex
 
 FL_PUBLIC_SYMBOL void fl_text_show_impl(FlInternalData* ctx, FlString text) {
     FL_UNUSED(ctx);
-    printf("fl_text_show_impl\n");
     ImGui::TextUnformatted(text.str, text.str + text.len);
 }
 
@@ -1523,6 +1525,7 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     state->ui_api = g_ui_funcs;
     state->window_api = g_window_funcs;
     state->renderer_api = s_renderer_funcs;
+    state->painter_api = g_painter_funcs;
 
     state->button_api.priv = state;
     state->cursor_api.priv = state;
@@ -1535,6 +1538,7 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     state->text_api.priv = state;
     state->ui_api.priv = state;
     state->window_api.priv = state;
+    state->painter_api.priv = state;
 
     // Rust API
     state->renderer_api.priv = state;
@@ -1548,7 +1552,7 @@ void imgui_create(FlInternalData* state, const FlApplicationSettings* settings) 
     //g_flowi_io_api = &state->io_api;
     g_flowi_item_api = &state->item_api;
     g_flowi_menu_api = &state->menu_api;
-    //g_flowi_painter_api = nullptr;//&state->painter;
+    g_flowi_painter_api = &state->painter_api;
     g_flowi_style_api = &state->style_api;
     g_flowi_text_api = &state->text_api;
     g_flowi_ui_api = &state->ui_api;
@@ -1738,4 +1742,18 @@ extern "C" void fl_input_add_key_analog_event_impl(struct FlInternalData* priv, 
     io.AddKeyAnalogEvent(translate_flkey_to_imgui(key), down, value);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+FL_PUBLIC_SYMBOL void fl_painter_draw_rect_filled_impl(struct FlInternalData* priv, FlVec2 p1, FlVec2 p2, FlColor color, float rounding) {
+    FL_UNUSED(priv);
+    ImColor c(color.r, color.g, color.b, color.a);
+    ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(p1.x, p1.y), ImVec2(p2.x, p2.y), c, rounding);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+FlPainterApi g_painter_funcs = {
+    NULL,
+    fl_painter_draw_rect_filled_impl,
+};
 

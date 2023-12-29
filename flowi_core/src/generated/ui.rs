@@ -20,13 +20,13 @@ pub struct UiFfiApi {
     pub(crate) data: *const core::ffi::c_void,
     pub(crate) image: unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64),
     pub(crate) calc_text_size:
-        unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString) -> Vec2,
+        unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString) -> IVec2,
 }
 
 #[cfg(feature = "static")]
 extern "C" {
     pub fn fl_ui_image_impl(data: *const core::ffi::c_void, image: u64);
-    pub fn fl_ui_calc_text_size_impl(data: *const core::ffi::c_void, text: FlString) -> Vec2;
+    pub fn fl_ui_calc_text_size_impl(data: *const core::ffi::c_void, text: FlString) -> IVec2;
 }
 
 #[no_mangle]
@@ -50,7 +50,7 @@ impl Ui {
         }
     }
 
-    pub fn calc_text_size(text: &str) -> Vec2 {
+    pub fn calc_text_size(text: &str) -> IVec2 {
         unsafe {
             let _api = &*g_flowi_ui_api;
             #[cfg(feature = "static")]

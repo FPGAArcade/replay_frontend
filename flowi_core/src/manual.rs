@@ -1,4 +1,4 @@
-use crate::math_data::Vec2;
+use crate::math_data::{Vec2, IVec2};
 use core::ffi::c_void;
 
 #[repr(C)]
@@ -60,6 +60,12 @@ impl Vec2 {
 impl Color {
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
+    }
+}
+
+impl IVec2 {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
     }
 }
 

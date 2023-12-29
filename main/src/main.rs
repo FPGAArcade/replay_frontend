@@ -15,8 +15,8 @@ pub(crate) struct App {
     state: State,
     montserrat_font: Font,
     first_frame: bool,
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
 }
 
 fn main_loop(app: &mut App) {
@@ -28,8 +28,8 @@ fn main_loop(app: &mut App) {
 }
 
 fn main() {
-    let width = 1920;
-    let height = 1080;
+    let width = 1920i32;
+    let height = 1080i32;
 
     let settings = flowi::ApplicationSettings { width, height };
 

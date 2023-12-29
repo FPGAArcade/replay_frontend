@@ -91,8 +91,8 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     // TODO: handle multiple frames
     let image_info = ImageInfo {
         format: format as u32,
-        width: dimensions.0 as u32,
-        height: dimensions.1 as u32,
+        width: dimensions.0 as i32,
+        height: dimensions.1 as i32,
         frame_delay: 0,
         frame_count: 1,
     };
@@ -123,8 +123,8 @@ fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
 
     let image_info = ImageInfo {
         format: ImageFormat::Rgb as u32,
-        width: dimensions.0 as u32,
-        height: dimensions.1 as u32,
+        width: dimensions.0 as i32,
+        height: dimensions.1 as i32,
         frame_count: 1,
         frame_delay: 0,
     };
@@ -165,10 +165,10 @@ fn decode_gif(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
 
     let image_info = ImageInfo {
         format: ImageFormat::Rgba as u32,
-        width: width as u32,
-        height: height as u32,
-        frame_count: frames.len() as u32,
-        frame_delay: frame_delay_ms,
+        width: width as i32,
+        height: height as i32,
+        frame_count: frames.len() as i32,
+        frame_delay: frame_delay_ms as i32,
     };
 
     // Write header at the start of the data
@@ -190,35 +190,31 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     let rtree = resvg::Tree::from_usvg(&tree);
 
     let pixmap_size = rtree.size.to_int_size();
-    let mut width = pixmap_size.width() as u32;
-    let mut height = pixmap_size.height() as u32;
+    let mut width = pixmap_size.width() as i32;
+    let mut height = pixmap_size.height() as i32;
     let mut scale_x = 1.0;
     let mut scale_y = 1.0;
 
-    dbg!(width, height);
-
     if let Some(options) = image_options {
-        if options.size.x > 0.0 && options.size.y == 0.0 {
-            let width_ratio = options.size.x / width as f32;
-            width = options.size.x as u32;
-            height = (height as f32 * width_ratio) as u32;
+        if options.size.x > 0 && options.size.y == 0 {
+            let width_ratio = options.size.x as f32 / width as f32;
+            width = options.size.x as i32;
+            height = (height as f32 * width_ratio) as i32;
             scale_x = width_ratio;
             scale_y = width_ratio;
-        } else if options.size.x == 0.0 && options.size.y > 0.0 {
-            let height_ratio = options.size.y / height as f32;
-            height = options.size.y as u32;
-            width = (width as f32 * height_ratio) as u32;
+        } else if options.size.x == 0 && options.size.y > 0 {
+            let height_ratio = options.size.y as f32 / height as f32;
+            height = options.size.y as i32;
+            width = (width as f32 * height_ratio) as i32;
             scale_x = height_ratio;
             scale_y = height_ratio;
-        } else if options.size.x > 0.0 && options.size.y > 0.0 {
-            width = options.size.x as u32;
-            height = options.size.y as u32;
+        } else if options.size.x > 0 && options.size.y > 0 {
+            width = options.size.x as i32;
+            height = options.size.y as i32;
         }
     }
 
-    dbg!(width, height);
-
-    let mut pixmap = tiny_skia::Pixmap::new(width, height).unwrap();
+    let mut pixmap = tiny_skia::Pixmap::new(width as _, height as _).unwrap();
     rtree.render(tiny_skia::Transform::from_scale(scale_x, scale_y), &mut pixmap.as_mut());
 
     let svg_data = pixmap.as_ref().data();
@@ -226,8 +222,8 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
 
     let image_info = ImageInfo {
         format: ImageFormat::Rgba as u32,
-        width: width as u32,
-        height: height as u32,
+        width,
+        height,
         frame_count: 1,
         frame_delay: 0,
     };
@@ -241,11 +237,20 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
 
     output_data[image_info_offset..].copy_from_slice(svg_data);
 
-    /*
-    for i in 0..svg_data.len() / 4 {
-        output_data[image_info_offset + ((i * 4) + 3)] = 0xff;
+    if let Some(options) = image_options {
+        if options.color.r > 0.0 || options.color.r > 0.0 || options.color.b > 0.0 {
+            let r = (options.color.r * 255.0) as u8;
+            let g = (options.color.g * 255.0) as u8;
+            let b = (options.color.b * 255.0) as u8;
+
+            // TODO: Optimize
+            for i in 0..svg_data.len() / 4 {
+                output_data[image_info_offset + ((i * 4) + 0)] = r;
+                output_data[image_info_offset + ((i * 4) + 1)] = g;
+                output_data[image_info_offset + ((i * 4) + 2)] = b;
+            }
+        }
     }
-    */
 
     Ok(output_data)
 }
@@ -324,8 +329,8 @@ impl MemoryDriver for ImageLoader {
         driver_data: &Option<Box<[u8]>>,
     ) -> Option<MemoryDriverType> {
         let options = if let Some(input_data) = driver_data {
-            let d: &[ImageOptions] = bytemuck::cast_slice(input_data.as_ref());
-            Some(d[0])
+            let io: &ImageOptions = unsafe { std::mem::transmute(input_data.as_ptr()) };
+            Some(*io)
         } else {
             None
         };
@@ -444,8 +449,6 @@ fn load(state: &mut InternalState, filename: &str) -> u64 {
 fn load_with_options(state: &mut InternalState, filename: &str, options: &ImageOptions) -> u64 {
     let data = [*options];
 
-    dbg!(&data);
-
     state
         .io_handler
         .load_with_driver_data(filename, IMAGE_LOADER_NAME, &data)
@@ -515,7 +518,6 @@ pub fn fl_image_load_with_options_impl(
     url: FlString,
     options: &ImageOptions,
 ) -> u64 {
-    dbg!(&options);
     let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
     let name = url.as_str();
     load_with_options(state, name, options)

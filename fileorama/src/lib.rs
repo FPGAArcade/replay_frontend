@@ -330,7 +330,7 @@ impl Fileorama {
     /// no files an error will/archive will be returned instead and the user code has to handle it
     /// This function also takes a driver name with the data has to be loaded from. If the the last
     /// driver isn't the specified driver the function will return an error indicating that.
-    pub fn load_url_with_driver_data<T: Sized + bytemuck::Pod>(
+    pub fn load_url_with_driver_data<T: Sized>(
         &self,
         path: &str,
         driver_name: &'static str,
@@ -338,10 +338,14 @@ impl Fileorama {
     ) -> Handle {
         let (thread_send, main_recv) = unbounded::<RecvMsg>();
 
-        let data: &[u8] = bytemuck::cast_slice(data);
-        let data = data.to_vec().into_boxed_slice();
+        let data: &[u8] = unsafe {
+            std::slice::from_raw_parts(
+                data.as_ptr() as *const u8,
+                data.len() * std::mem::size_of::<T>(),
+            )
+        }; 
 
-        dbg!(&data);
+        let data = data.to_vec().into_boxed_slice();
 
         let load_info = LoadInfo {
             path: path.into(),
@@ -655,7 +659,7 @@ impl<'a> Loader<'a> {
                 }
 
                 if let Some(new_driver) = d.create_from_url(&current_path) {
-                    let driver_name = new_driver.name();
+                    let _driver_name = new_driver.name();
                     // If we found a driver we mount it inside the vfs
                     self.driver_index = vfs.node_drivers.len() as _;
                     vfs.node_drivers.push(NodeDriver::IoDriver(new_driver));

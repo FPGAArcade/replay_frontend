@@ -10,8 +10,9 @@
 #include <flowi/item.h>
 #include <flowi/layout.h>
 #include <flowi/menu.h>
-#include <flowi/style.h>
+#include <flowi/painter.h>
 #include <flowi/renderer.h>
+#include <flowi/style.h>
 #include <flowi/text.h>
 #include <flowi/window.h>
 //#include "../external/hashmap.h"
@@ -51,14 +52,14 @@ typedef struct FlInternalData {
     FlFontApi font_api;
     FlImageApi image_api;
     FlInputApi input_api;
-    //FlIoApi io_api;
     FlItemApi item_api;
     FlMenuApi menu_api;
+    FlPainterApi painter_api;
+    FlRendererApi renderer_api;
     FlStyleApi style_api;
     FlTextApi text_api;
     FlUiApi ui_api;
     FlWindowApi window_api;
-    FlRendererApi renderer_api;
     LinearAllocator frame_allocator;
     StringAllocator string_allocator;
 } FlInternalData;

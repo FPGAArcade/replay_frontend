@@ -19,7 +19,7 @@ struct Ui {
     //[static] push_button(text: String) -> bool, 
 
     // Calculate the size of the text with the selected font
-    [static] calc_text_size(text: String) -> Vec2,
+    [static] calc_text_size(text: String) -> IVec2,
 }
 
 

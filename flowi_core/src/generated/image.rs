@@ -73,26 +73,25 @@ pub struct ImageInfo {
     /// Format of the image. See the ImageFormat enum
     pub format: u32,
     /// width of the image
-    pub width: u32,
+    pub width: i32,
     /// height of the Image
-    pub height: u32,
+    pub height: i32,
     /// Number of frames. This is 1 for static images and > 1 for animated images
-    pub frame_count: u32,
+    pub frame_count: i32,
     /// How long each frame should be displayed for in milliseconds
-    pub frame_delay: u32,
+    pub frame_delay: i32,
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct ImageOptions {
     /// The scale of the image. This is useful for loading SVGs at different sizes.
     pub scale: Vec2,
     /// Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based on the aspect ratio of the image.
-    pub size: Vec2,
+    pub size: IVec2,
+    /// Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based on the aspect ratio of the image.
+    pub color: Color,
 }
-
-unsafe impl bytemuck::Pod for ImageOptions {}
-unsafe impl bytemuck::Zeroable for ImageOptions {}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
