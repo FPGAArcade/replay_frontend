@@ -5,6 +5,7 @@ typedef struct FlTextApi {
     void (*label)(struct FlInternalData* priv, FlString label, FlString text);
     void (*show_color)(struct FlInternalData* priv, FlColor color, FlString text);
     void (*show)(struct FlInternalData* priv, FlString text);
+    void (*show_wrapped)(struct FlInternalData* priv, FlString text);
     void (*disabled)(struct FlInternalData* priv, FlString text);
 } FlTextApi;
 
@@ -16,6 +17,7 @@ void fl_text_bullet_impl(struct FlInternalData* priv, FlString text);
 void fl_text_label_impl(struct FlInternalData* priv, FlString label, FlString text);
 void fl_text_show_color_impl(struct FlInternalData* priv, FlColor color, FlString text);
 void fl_text_show_impl(struct FlInternalData* priv, FlString text);
+void fl_text_show_wrapped_impl(struct FlInternalData* priv, FlString text);
 void fl_text_disabled_impl(struct FlInternalData* priv, FlString text);
 #endif
 
@@ -67,6 +69,16 @@ FL_INLINE void fl_text_show(const char* text) {
     fl_text_show_impl(g_flowi_text_api->priv, text_);
 #else
     (g_flowi_text_api->show)(g_flowi_text_api->priv, text_);
+#endif
+}
+
+// Show basic text
+FL_INLINE void fl_text_show_wrapped(const char* text) {
+    FlString text_ = fl_cstr_to_flstring(text);
+#ifdef FLOWI_STATIC
+    fl_text_show_wrapped_impl(g_flowi_text_api->priv, text_);
+#else
+    (g_flowi_text_api->show_wrapped)(g_flowi_text_api->priv, text_);
 #endif
 }
 

@@ -11,6 +11,8 @@ struct Text {
     [static] show_color(color: Color, text: String),
     /// Show basic text 
     [static] show(text: String),
+    /// Show basic text 
+    [static] show_wrapped(text: String),
     /// Draw text disabled 
     [static] disabled(text: String),
 }

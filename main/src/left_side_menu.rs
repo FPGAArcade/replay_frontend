@@ -1,9 +1,7 @@
 use flowi::{
-    button::Button,
-    image::Image,
-    image::ImageLoadStatus,
-    image::ImageOptions,
+    image::{Image, ImageLoadStatus, ImageOptions},
     layout::Cursor,
+    font::Font,
     painter::Painter,
     text::Text,
     math_data::{Vec2, IVec2},
@@ -11,6 +9,8 @@ use flowi::{
     window::{Window, WindowFlags},
     Color,
 };
+    
+use crate::Fonts;
 
 const MENU_SELECTION_NAMES_COUNT: usize = 6;
 
@@ -88,8 +88,8 @@ pub struct LeftSideMenu {
     logo: Image,
     logo_pos: Vec2,
     state: State,
-    width: i32,
-    height: i32,
+    pub width: i32,
+    pub height: i32,
     // margin to the left screen edge
     icons_left_margin: i32,
     // margin between the icons and the text
@@ -219,11 +219,8 @@ impl LeftSideMenu {
     }
 
     fn draw(&mut self) {
-        Window::set_pos(Vec2 { x: 0.0, y: 0.0 });
-        Window::set_size(Vec2 {
-            x: self.width as _,
-            y: self.height as _,
-        });
+        Window::set_pos(Vec2::new(0.0, 0.0));
+        Window::set_size(Vec2::new(self.width as _, self.height as _));
 
         Window::begin("left_side_menu", WindowFlags::NO_DECORATION);
 
@@ -243,16 +240,26 @@ impl LeftSideMenu {
             Text::show(menu_item.text);
         }
 
-
         Window::end();
     }
 
-    pub fn update(&mut self, width: i32, height: i32) {
+    pub fn update(&mut self, fonts: &Fonts, width: i32, height: i32) -> bool {
+        Font::push(fonts.default);
+
+        let mut show_state = false;
+
         match self.state {
             State::CalculatingTextSizes => self.calculate_text_size(),
             State::WatingForAssets => self.wait_for_assets(),
             State::CalculateLayout => self.calculate_layout(width, height).unwrap(),
-            State::Ready => self.draw(),
+            State::Ready => {
+                self.draw();
+                show_state = true;
+            }
         }
+
+        Font::pop();
+
+        show_state
     }
 }

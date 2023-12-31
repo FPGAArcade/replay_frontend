@@ -689,6 +689,22 @@ void ImDrawList::PrimRectUV(const ImVec2& a, const ImVec2& c, const ImVec2& uv_a
     _IdxWritePtr += 6;
 }
 
+void ImDrawList::PrimRectUVColor(const ImVec2& a, const ImVec2& c, const ImVec2& uv_a, const ImVec2& uv_c, ImU32 col0, ImU32 col1, ImU32 col2, ImU32 col3)
+{
+    ImVec2 b(c.x, a.y), d(a.x, c.y), uv_b(uv_c.x, uv_a.y), uv_d(uv_a.x, uv_c.y);
+    ImDrawIdx idx = (ImDrawIdx)_VtxCurrentIdx;
+    _IdxWritePtr[0] = idx; _IdxWritePtr[1] = (ImDrawIdx)(idx+1); _IdxWritePtr[2] = (ImDrawIdx)(idx+2);
+    _IdxWritePtr[3] = idx; _IdxWritePtr[4] = (ImDrawIdx)(idx+2); _IdxWritePtr[5] = (ImDrawIdx)(idx+3);
+    _VtxWritePtr[0].pos = a; _VtxWritePtr[0].uv = uv_a; _VtxWritePtr[0].col = col0;
+    _VtxWritePtr[1].pos = b; _VtxWritePtr[1].uv = uv_b; _VtxWritePtr[1].col = col1;
+    _VtxWritePtr[2].pos = c; _VtxWritePtr[2].uv = uv_c; _VtxWritePtr[2].col = col2;
+    _VtxWritePtr[3].pos = d; _VtxWritePtr[3].uv = uv_d; _VtxWritePtr[3].col = col3;
+    _VtxWritePtr += 4;
+    _VtxCurrentIdx += 4;
+    _IdxWritePtr += 6;
+}
+
+
 void ImDrawList::PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImU32 col)
 {
     ImDrawIdx idx = (ImDrawIdx)_VtxCurrentIdx;
@@ -1618,6 +1634,20 @@ void ImDrawList::AddImage(ImTextureID user_texture_id, const ImVec2& p_min, cons
 
     PrimReserve(6, 4);
     PrimRectUV(p_min, p_max, uv_min, uv_max, col);
+
+    if (push_texture_id)
+        PopTextureID();
+}
+
+void ImDrawList::AddImageColor(ImTextureID user_texture_id, const ImVec2& p_min, const ImVec2& p_max, const ImVec2& uv_min, const ImVec2& uv_max, 
+                               ImU32 col0, ImU32 col1, ImU32 col2, ImU32 col3)
+{
+    const bool push_texture_id = user_texture_id != _CmdHeader.TextureId;
+    if (push_texture_id)
+        PushTextureID(user_texture_id);
+
+    PrimReserve(6, 4);
+    PrimRectUVColor(p_min, p_max, uv_min, uv_max, col0, col1, col2, col3);
 
     if (push_texture_id)
         PopTextureID();

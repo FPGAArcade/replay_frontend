@@ -20,6 +20,7 @@ pub struct TextFfiApi {
     pub(crate) show_color:
         unsafe extern "C" fn(data: *const core::ffi::c_void, color: Color, text: FlString),
     pub(crate) show: unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString),
+    pub(crate) show_wrapped: unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString),
     pub(crate) disabled: unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString),
 }
 
@@ -30,6 +31,7 @@ extern "C" {
     pub fn fl_text_label_impl(data: *const core::ffi::c_void, label: FlString, text: FlString);
     pub fn fl_text_show_color_impl(data: *const core::ffi::c_void, color: Color, text: FlString);
     pub fn fl_text_show_impl(data: *const core::ffi::c_void, text: FlString);
+    pub fn fl_text_show_wrapped_impl(data: *const core::ffi::c_void, text: FlString);
     pub fn fl_text_disabled_impl(data: *const core::ffi::c_void, text: FlString);
 }
 
@@ -96,6 +98,17 @@ impl Text {
             fl_text_show_impl(_api.data, FlString::new(text));
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             (_api.show)(_api.data, FlString::new(text));
+        }
+    }
+
+    /// Show basic text
+    pub fn show_wrapped(text: &str) {
+        unsafe {
+            let _api = &*g_flowi_text_api;
+            #[cfg(feature = "static")]
+            fl_text_show_wrapped_impl(_api.data, FlString::new(text));
+            #[cfg(any(feature = "dynamic", feature = "plugin"))]
+            (_api.show_wrapped)(_api.data, FlString::new(text));
         }
     }
 

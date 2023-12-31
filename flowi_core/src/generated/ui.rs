@@ -19,6 +19,17 @@ use crate::image::*;
 pub struct UiFfiApi {
     pub(crate) data: *const core::ffi::c_void,
     pub(crate) image: unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64),
+    pub(crate) image_size:
+        unsafe extern "C" fn(data: *const core::ffi::c_void, image: u64, size: Vec2),
+    pub(crate) image_size_color_shade: unsafe extern "C" fn(
+        data: *const core::ffi::c_void,
+        image: u64,
+        size: Vec2,
+        color0: Color,
+        color1: Color,
+        color2: Color,
+        color3: Color,
+    ),
     pub(crate) calc_text_size:
         unsafe extern "C" fn(data: *const core::ffi::c_void, text: FlString) -> IVec2,
 }
@@ -26,6 +37,16 @@ pub struct UiFfiApi {
 #[cfg(feature = "static")]
 extern "C" {
     pub fn fl_ui_image_impl(data: *const core::ffi::c_void, image: u64);
+    pub fn fl_ui_image_size_impl(data: *const core::ffi::c_void, image: u64, size: Vec2);
+    pub fn fl_ui_image_size_color_shade_impl(
+        data: *const core::ffi::c_void,
+        image: u64,
+        size: Vec2,
+        color0: Color,
+        color1: Color,
+        color2: Color,
+        color3: Color,
+    );
     pub fn fl_ui_calc_text_size_impl(data: *const core::ffi::c_void, text: FlString) -> IVec2;
 }
 
@@ -47,6 +68,49 @@ impl Ui {
             fl_ui_image_impl(_api.data, image.handle);
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             (_api.image)(_api.data, image.handle);
+        }
+    }
+
+    pub fn image_size(image: Image, size: Vec2) {
+        unsafe {
+            let _api = &*g_flowi_ui_api;
+            #[cfg(feature = "static")]
+            fl_ui_image_size_impl(_api.data, image.handle, size);
+            #[cfg(any(feature = "dynamic", feature = "plugin"))]
+            (_api.image_size)(_api.data, image.handle, size);
+        }
+    }
+
+    pub fn image_size_color_shade(
+        image: Image,
+        size: Vec2,
+        color0: Color,
+        color1: Color,
+        color2: Color,
+        color3: Color,
+    ) {
+        unsafe {
+            let _api = &*g_flowi_ui_api;
+            #[cfg(feature = "static")]
+            fl_ui_image_size_color_shade_impl(
+                _api.data,
+                image.handle,
+                size,
+                color0,
+                color1,
+                color2,
+                color3,
+            );
+            #[cfg(any(feature = "dynamic", feature = "plugin"))]
+            (_api.image_size_color_shade)(
+                _api.data,
+                image.handle,
+                size,
+                color0,
+                color1,
+                color2,
+                color3,
+            );
         }
     }
 

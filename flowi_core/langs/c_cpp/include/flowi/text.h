@@ -29,6 +29,9 @@ static void fl_text_show_color(FlColor color, const char* text);
 // Show basic text
 static void fl_text_show(const char* text);
 
+// Show basic text
+static void fl_text_show_wrapped(const char* text);
+
 // Draw text disabled
 static void fl_text_disabled(const char* text);
 

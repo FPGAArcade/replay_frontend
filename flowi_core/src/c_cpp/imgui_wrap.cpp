@@ -10,6 +10,7 @@
 #include <flowi/item.h>
 #include <flowi/painter.h>
 #include <flowi/input.h>
+#include <flowi/manual.h>
 #include "image_private.h"
 #include "internal.h"
 //#include "primitives.h"
@@ -107,11 +108,8 @@ extern "C" ImDrawData imgui_get_draw_data() {
 
 FL_PUBLIC_SYMBOL void fl_ui_image_impl(FlInternalData* ctx, FlImage image_id) {
     FL_UNUSED(ctx);
-    FL_UNUSED(image_id);
 
     FlTexture render_handle = fl_renderer_get_texture(image_id);
-
-    //printf("fl_ui_image_impl: %llx\n", render_handle);
 
     if (render_handle == 0) {
         return;
@@ -120,6 +118,41 @@ FL_PUBLIC_SYMBOL void fl_ui_image_impl(FlInternalData* ctx, FlImage image_id) {
     FlImageInfo* image_data = fl_image_get_info(image_id);
 
     ImGui::Image((ImTextureID)render_handle, ImVec2(image_data->width, image_data->height));
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+FL_PUBLIC_SYMBOL void fl_ui_image_size_impl(FlInternalData* ctx, FlImage image_id, FlVec2 size) {
+    FL_UNUSED(ctx);
+
+    FlTexture render_handle = fl_renderer_get_texture(image_id);
+
+    if (render_handle == 0) {
+        return;
+    }
+
+    ImGui::Image((ImTextureID)render_handle, ImVec2(size.x, size.y)); 
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+FL_PUBLIC_SYMBOL void fl_ui_image_size_color_shade_impl(FlInternalData* ctx, FlImage image_id, FlVec2 size, FlColor col0, FlColor col1, FlColor col2, FlColor col3) {
+    FL_UNUSED(ctx);
+
+    FlTexture render_handle = fl_renderer_get_texture(image_id);
+
+    if (render_handle == 0) {
+        return;
+    }
+
+    ImVec2 start = ImGui::GetCursorPos();
+    ImVec2 end = ImVec2(start.x + size.x, start.y + size.y);
+
+    ImGui::GetWindowDrawList()->AddImageColor((ImTextureID)render_handle, start, end, ImVec2(0, 0), ImVec2(1, 1), 
+        ImGui::ColorConvertFloat4ToU32(ImVec4(col0.r, col0.g, col0.b, col0.a)), 
+        ImGui::ColorConvertFloat4ToU32(ImVec4(col1.r, col1.g, col1.b, col1.a)), 
+        ImGui::ColorConvertFloat4ToU32(ImVec4(col2.r, col2.g, col2.b, col2.a)), 
+        ImGui::ColorConvertFloat4ToU32(ImVec4(col3.r, col3.g, col3.b, col3.a)));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -223,9 +256,10 @@ FlStyleApi g_style_funcs = {
 FlUiApi g_ui_funcs = {
     NULL,
     fl_ui_image_impl,
+    fl_ui_image_size_impl,
+    fl_ui_image_size_color_shade_impl,
     fl_ui_calc_text_size_impl,
 };
-
 
 extern FlPainterApi g_painter_funcs;
 
@@ -557,6 +591,13 @@ FL_PUBLIC_SYMBOL void fl_text_show_impl(FlInternalData* ctx, FlString text) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+FL_PUBLIC_SYMBOL void fl_text_show_wrapped_impl(FlInternalData* ctx, FlString text) {
+    FL_UNUSED(ctx);
+    ImGui::TextWrapped(text.str, text.str + text.len);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 FL_PUBLIC_SYMBOL void fl_text_bullet_impl(FlInternalData* ctx, FlString text) {
     char temp_buffer[2048];
 
@@ -626,6 +667,7 @@ struct FlTextApi g_text_funcs = {
     fl_text_label_impl,
     fl_text_show_color_impl,
     fl_text_show_impl,
+    fl_text_show_wrapped_impl,
     fl_text_disabled_impl,
 };
 
