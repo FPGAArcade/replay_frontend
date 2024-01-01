@@ -16,6 +16,7 @@ pub struct Fonts {
     pub default: Font,
     pub system_header: Font,
     pub system_text: Font,
+    pub rot_header: Font,
 }
 
 pub(crate) struct App {
@@ -47,6 +48,7 @@ fn main() {
         default: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 56).unwrap(),
         system_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 72).unwrap(),
         system_text: Font::load("data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap(),
+        rot_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 56).unwrap(),
     };
 
     let app = Box::new(App {
