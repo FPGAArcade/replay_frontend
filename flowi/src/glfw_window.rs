@@ -1,10 +1,10 @@
-use crate::application::Window;
 use flowi_core::{
     input::{Input, Key},
     ApplicationSettings,
+    render::Window,
 };
 use glfw::Action;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
 
 fn translate_glfw_to_flowi_key(key: glfw::Key) -> Option<Key> {
     match key {
@@ -116,6 +116,18 @@ pub(crate) struct GlfwWindow {
     events: glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
     time: f64,
     should_close: bool,
+}
+
+unsafe impl HasRawDisplayHandle for GlfwWindow {
+    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+        self.window.raw_display_handle()
+    }
+}
+
+unsafe impl HasRawWindowHandle for GlfwWindow {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        self.window.raw_window_handle()
+    }
 }
 
 impl GlfwWindow {
@@ -353,10 +365,6 @@ impl Window for GlfwWindow {
         self.update_mouse_data();
         self.update_modifiers();
         self.update_pad();
-    }
-
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        self.window.raw_window_handle()
     }
 
     fn is_focused(&self) -> bool {

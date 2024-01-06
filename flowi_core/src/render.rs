@@ -1,9 +1,40 @@
 use crate::{generated::image::Image, generated::renderer::Texture, ApplicationSettings};
-use raw_window_handle::RawWindowHandle;
+use raw_window_handle::{HasRawWindowHandle, HasRawDisplayHandle};
 use std::collections::HashMap;
 
+pub trait Window: HasRawDisplayHandle + HasRawWindowHandle {
+    fn new(settings: &ApplicationSettings) -> Self where Self: Sized;
+    fn update(&mut self);
+    fn should_close(&mut self) -> bool;
+    fn is_focused(&self) -> bool;
+}
+
+pub struct WindowWrapper {
+    pub w: Box<dyn Window>,
+}
+
+unsafe impl HasRawWindowHandle for WindowWrapper {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        self.w.raw_window_handle()
+    }
+} 
+
+unsafe impl HasRawDisplayHandle for WindowWrapper {
+    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+        self.w.raw_display_handle()
+    }
+}
+
+impl WindowWrapper {
+    pub fn new(window: Box<dyn Window>) -> Self {
+        Self {
+            w: window,
+        }
+    }
+}
+
 pub trait FlowiRenderer {
-    fn new(settings: &ApplicationSettings, window: Option<&RawWindowHandle>) -> Self
+    fn new(settings: &ApplicationSettings, window: &WindowWrapper) -> Self
     where
         Self: Sized;
     fn render(&mut self);
@@ -13,7 +44,7 @@ pub trait FlowiRenderer {
 pub struct DummyRenderer {}
 
 impl FlowiRenderer for DummyRenderer {
-    fn new(_settings: &ApplicationSettings, _window: Option<&RawWindowHandle>) -> Self {
+    fn new(_settings: &ApplicationSettings, _window: &WindowWrapper) -> Self {
         Self {}
     }
 

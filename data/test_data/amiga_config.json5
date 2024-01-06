@@ -1,0 +1,433 @@
+{
+	"name": "Amiga",
+	"base": "Empty",
+	"template": true,
+	"metadata": {
+		"shortname": "Amiga",
+		"fullname": "Commodore Amiga",
+		"manufacturer": "Commodre",
+		"year": "1985",
+		"info": "Amiga is a family of personal computers introduced by Commodore in 1985. The original model is one of a number of mid-1980s computers with 16- or 32-bit processors, 256 KB or more of RAM, mouse-based GUIs, and significantly improved graphics and audio compared to previous 8-bit systems. This includes the Atari ST—released earlier the same year—as well as the Macintosh and Acorn Archimedes. Based on the Motorola 68000 microprocessor, the Amiga differs from its contemporaries through the inclusion of custom hardware to accelerate graphics and sound, including sprites and a blitter, and a pre-emptive multitasking operating system called AmigaOS. (Wikipedia)\n",
+		"tags": [
+			"Computer",
+			"Commodore",
+			"Motorola",
+			"68000"
+		],
+		"icon": null
+	},
+	"pll": {
+		"aux": {
+			"freq": 50,
+			"adjustable": true
+		}
+	},
+	"variants": [
+		{
+			"NTSC": {
+				"pll": {
+					"sys": {
+						"freq": 114.54545
+					},
+					"vid": {
+						"freq": 28.63636
+					}
+				},
+				"config": {
+					"default": 4660
+				}
+			}
+		},
+		{
+			"PAL": {
+				"pll": {
+					"sys": {
+						"freq": 113.50064
+					},
+					"vid": {
+						"freq": 28.37516
+					}
+				},
+				"config": {
+					"default": 4660
+				}
+			}
+		}
+	],
+	"boards": [
+		"R1",
+		"V4",
+		"DE",
+		"R2"
+	],
+	"memory": {
+		"verify": true,
+		"uploads": [
+			{
+				"name": "Kickstart",
+				"address": 16252928,
+				"size": 524288,
+				"swizzle": "_",
+				"repeat": true
+			},
+			{
+				"name": "Kickstart (ext)",
+				"address": 14680064,
+				"size": 524288,
+				"swizzle": "_",
+				"repeat": false
+			},
+			{
+				"name": "Diagnostics Cart",
+				"address": 15728640,
+				"size": 524288,
+				"swizzle": "_",
+				"repeat": false
+			},
+			{
+				"name": "HRTMon",
+				"address": 10551296,
+				"size": 262144
+			}
+		]
+	},
+	"config": {
+		"default": 4660,
+		"options": [
+			{
+				"name": "Chipset Timing",
+				"bits": "11",
+				"options": [
+					{
+						"name": "Accurate",
+						"value": 1
+					},
+					{
+						"name": "Fastest",
+						"value": 0
+					}
+				],
+				"menu": "Amiga Chipset"
+			},
+			{
+				"name": "Chipset Type",
+				"bits": "7,6",
+				"options": [
+					{
+						"name": "OCS-A500"
+					},
+					{
+						"name": "OCS-A1000"
+					},
+					{
+						"name": "ECS"
+					},
+					{
+						"name": "AGA"
+					}
+				],
+				"menu": "Amiga Chipset"
+			},
+			{
+				"name": "Chipset Mode",
+				"bits": "4",
+				"options": [
+					{
+						"name": "PAL"
+					},
+					{
+						"name": "NTSC"
+					}
+				],
+				"menu": "Amiga Chipset"
+			},
+			{
+				"name": "Chipset XRAM",
+				"bits": "14",
+				"options": [
+					{
+						"name": "Disable"
+					},
+					{
+						"name": "Enable"
+					}
+				],
+				"menu": "Amiga Chipset"
+			},
+			{
+				"name": "P96 Graphics",
+				"bits": "31",
+				"options": [
+					{
+						"name": "Enable"
+					},
+					{
+						"name": "Disable"
+					}
+				],
+				"menu": "Amiga Chipset"
+			},
+			{
+				"name": "AHI XAudio",
+				"bits": "29",
+				"options": [
+					{
+						"name": "Enable"
+					},
+					{
+						"name": "Disable"
+					}
+				],
+				"menu": "Amiga Chipset"
+			},
+			{
+				"name": "SDCARD",
+				"bits": "30",
+				"options": [
+					{
+						"name": "Disable"
+					},
+					{
+						"name": "Enable"
+					}
+				],
+				"menu": "Amiga Chipset"
+			},
+			{
+				"name": "Chip RAM",
+				"bits": "13,12",
+				"options": [
+					{
+						"name": "0.5 MB"
+					},
+					{
+						"name": "1.0 MB"
+					},
+					{
+						"name": "1.5 MB"
+					},
+					{
+						"name": "2.0 MB"
+					}
+				],
+				"menu": "Amiga Memory"
+			},
+			{
+				"name": "Slow RAM",
+				"bits": "15,14",
+				"options": [
+					{
+						"name": "none"
+					},
+					{
+						"name": "0.5 MB"
+					},
+					{
+						"name": "1.0 MB"
+					},
+					{
+						"name": "1.5 MB"
+					}
+				],
+				"menu": "Amiga Memory"
+			},
+			{
+				"name": "Fast RAM",
+				"bits": "17,16",
+				"options": [
+					{
+						"name": "none"
+					},
+					{
+						"name": "2.0 MB"
+					},
+					{
+						"name": "4.0 MB"
+					},
+					{
+						"name": "8.0 MB"
+					}
+				],
+				"menu": "Amiga Memory"
+			},
+			{
+				"name": "Replay XRAM",
+				"bits": "18",
+				"options": [
+					{
+						"name": "none"
+					},
+					{
+						"name": "48.0 MB"
+					}
+				],
+				"menu": "Amiga Memory"
+			},
+			{
+				"name": "Floppy Drives",
+				"bits": "22,21,20,19",
+				"checkbox": [
+					{
+						"name": "DF0"
+					},
+					{
+						"name": "DF1"
+					},
+					{
+						"name": "DF2"
+					},
+					{
+						"name": "DF3"
+					}
+				],
+				"menu": "Amiga Drives"
+			},
+			{
+				"name": "Floppy Speed",
+				"bits": "24",
+				"options": [
+					{
+						"name": "Normal"
+					},
+					{
+						"name": "Fast"
+					}
+				],
+				"menu": "Amiga Drives"
+			},
+			{
+				"name": "Real Floppy",
+				"bits": "26,25",
+				"options": [
+					{
+						"name": "None"
+					},
+					{
+						"name": "PC DS1"
+					},
+					{
+						"name": "Amiga DS0"
+					}
+				],
+				"menu": "Amiga Drives"
+			},
+			{
+				"name": "A600/1200 IDE",
+				"bits": "20",
+				"options": [
+					{
+						"name": "Enable"
+					},
+					{
+						"name": "Disable"
+					}
+				],
+				"menu": "Amiga Drives"
+			},
+			{
+				"name": "Sync",
+				"bits": "6",
+				"options": [
+					{
+						"name": "H plus V"
+					},
+					{
+						"name": "Composite"
+					}
+				],
+				"menu": "Amiga Audio/Video"
+			},
+			{
+				"name": "Scan Doubler",
+				"bits": "7",
+				"options": [
+					{
+						"name": "15 kHz (off)"
+					},
+					{
+						"name": "30 kHz (on)"
+					}
+				],
+				"menu": "Amiga Audio/Video"
+			},
+			{
+				"name": "Scan Doubler Inhibit",
+				"bits": "25,24",
+				"checkbox": [
+					{
+						"name": "High rate"
+					},
+					{
+						"name": "Interlaced"
+					}
+				],
+				"menu": "Amiga Audio/Video"
+			},
+			{
+				"name": "Audio Mix",
+				"bits": "20",
+				"options": [
+					{
+						"name": "Stereo"
+					},
+					{
+						"name": "Mono"
+					}
+				],
+				"menu": "Amiga Audio/Video"
+			},
+			{
+				"name": "Audio Filter",
+				"bits": "21",
+				"options": [
+					{
+						"name": "Fixed low pass"
+					},
+					{
+						"name": "None"
+					}
+				],
+				"menu": "Amiga Audio/Video"
+			},
+			{
+				"name": "Joy P1 Bottom",
+				"bits": "17,16",
+				"options": [
+					{
+						"name": "Joystick",
+						"value": 0
+					},
+					{
+						"name": "Amiga Mouse",
+						"value": 1
+					},
+					{
+						"name": "Atari Mouse",
+						"value": 3
+					}
+				],
+				"menu": "Amiga I/O"
+			},
+			{
+				"name": "Joy P2 Top",
+				"bits": "19,18",
+				"options": [
+					{
+						"name": "Joystick",
+						"value": 0
+					},
+					{
+						"name": "Amiga Mouse",
+						"value": 1
+					},
+					{
+						"name": "Atari Mouse",
+						"value": 3
+					}
+				],
+				"menu": "Amiga I/O"
+			}
+		]
+	},
+	"include": "amiga_template.yaml"
+}

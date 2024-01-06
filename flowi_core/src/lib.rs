@@ -4,6 +4,7 @@ pub mod imgui;
 pub use generated::*;
 pub use manual::Color;
 pub use manual::Result;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 mod io_handler;
 mod manual;
 pub mod render;
@@ -14,6 +15,7 @@ pub use crate::render::{DummyRenderer, FlowiRenderer};
 use core::ffi::c_void;
 use fileorama::Fileorama;
 use io_handler::IoHandler;
+use crate::render::{Window, WindowWrapper};
 
 #[repr(C)]
 pub struct InternalState {
@@ -35,11 +37,42 @@ extern "C" {
     fn c_post_update(data: *const c_void);
 }
 
+struct DummyWindow {}
+
+impl Window for DummyWindow {
+    fn new(_settings: &ApplicationSettings) -> Self {
+        Self {}
+    }
+
+    fn update(&mut self) {}
+
+    fn should_close(&mut self) -> bool {
+        false
+    }
+
+    fn is_focused(&self) -> bool {
+        false
+    }
+}
+
+unsafe impl HasRawDisplayHandle for DummyWindow {
+    fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
+        unimplemented!()
+    }
+}
+
+unsafe impl HasRawWindowHandle for DummyWindow {
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        unimplemented!()
+    }
+}
+
 impl Instance {
     pub fn new(settings: &ApplicationSettings) -> Self {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
-        let renderer = Box::new(DummyRenderer::new(settings, None));
+        let dummy_window = WindowWrapper::new(Box::new(DummyWindow {}));
+        let renderer = Box::new(DummyRenderer::new(settings, &dummy_window));
 
         crate::image_api::install_image_loader(&vfs);
 

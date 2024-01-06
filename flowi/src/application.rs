@@ -1,4 +1,4 @@
-use crate::bgfx_renderer::BgfxRenderer;
+use crate::wgpu_renderer::WgpuRenderer;
 use crate::glfw_window::GlfwWindow;
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
@@ -6,17 +6,7 @@ use flowi_core::ApplicationSettings;
 use flowi_core::FlowiRenderer;
 use flowi_core::Instance;
 use flowi_core::Result;
-use raw_window_handle::RawWindowHandle;
-
-pub(crate) trait Window {
-    fn new(settings: &ApplicationSettings) -> Self
-    where
-        Self: Sized;
-    fn update(&mut self);
-    fn should_close(&mut self) -> bool;
-    fn is_focused(&self) -> bool;
-    fn raw_window_handle(&self) -> RawWindowHandle;
-}
+use flowi_core::render::{Window, WindowWrapper};
 
 #[repr(C)]
 struct WrappedMainData {
@@ -26,7 +16,7 @@ struct WrappedMainData {
 
 #[repr(C)]
 pub struct Application {
-    pub(crate) window: Box<dyn Window>,
+    pub(crate) window: WindowWrapper,
     pub(crate) core: Instance,
     user: WrappedMainData,
     pub(crate) settings: ApplicationSettings,
@@ -43,9 +33,9 @@ unsafe extern "C" fn user_trampoline_ud<T>(wd: &WrappedMainData) {
 unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
 
-    while !state.window.should_close() {
+    while !state.window.w.should_close() {
         state.core.pre_update();
-        state.window.update();
+        state.window.w.update();
         state.core.update();
 
         user_trampoline_ud::<T>(&state.user);
@@ -61,7 +51,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 impl Application {
     pub fn new(settings: &ApplicationSettings) -> Result<Box<Self>> {
         let core = Instance::new(settings);
-        let window = Box::new(GlfwWindow::new(settings));
+        let window = WindowWrapper::new(Box::new(GlfwWindow::new(settings)));
 
         Ok(Box::new(Self {
             window,
@@ -79,9 +69,9 @@ impl Application {
     where
         F: Fn(&mut T) + 'a,
     {
-        let renderer = Box::new(BgfxRenderer::new(
+        let renderer = Box::new(WgpuRenderer::new(
             &self.settings,
-            Some(&self.window.raw_window_handle()),
+            &self.window,
         ));
         self.core.state.renderer = renderer;
 
