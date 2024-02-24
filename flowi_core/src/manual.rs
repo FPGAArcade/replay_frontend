@@ -1,4 +1,4 @@
-use crate::math_data::{Vec2, IVec2};
+use crate::math_data::{IVec2, Vec2};
 use core::ffi::c_void;
 
 #[repr(C)]

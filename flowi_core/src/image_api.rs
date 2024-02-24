@@ -215,7 +215,10 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     }
 
     let mut pixmap = tiny_skia::Pixmap::new(width as _, height as _).unwrap();
-    rtree.render(tiny_skia::Transform::from_scale(scale_x, scale_y), &mut pixmap.as_mut());
+    rtree.render(
+        tiny_skia::Transform::from_scale(scale_x, scale_y),
+        &mut pixmap.as_mut(),
+    );
 
     let svg_data = pixmap.as_ref().data();
     let image_info_offset = std::mem::size_of::<ImageInfo>();

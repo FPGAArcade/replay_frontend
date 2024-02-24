@@ -1,13 +1,13 @@
 use flowi::{
-    image::Image,
-    math_data::Vec2,
-    Color,
-    window::{Window, WindowFlags},
-    ui::Ui,
     font::Font,
-    text::Text,
+    image::Image,
     layout::Cursor,
+    math_data::Vec2,
     painter::Painter,
+    text::Text,
+    ui::Ui,
+    window::{Window, WindowFlags},
+    Color,
 };
 
 use crate::Fonts;
@@ -58,7 +58,7 @@ impl SystemView {
             _image_url: String::from("data/amiga.png"),
             image_rot_url: String::from("data/amiga_rot.png"),
             image: Image::load("data/amiga.png"),
-            .. Default::default()
+            ..Default::default()
         };
 
         let c64_system = System {
@@ -71,14 +71,14 @@ impl SystemView {
             ..Default::default()
         };
 
-        let mut systems = vec![amiga_system, c64_system, nes_system]; 
+        let mut systems = vec![amiga_system, c64_system, nes_system];
 
         for system in &mut systems {
             system.image_rot = Image::load(&system.image_rot_url);
         }
 
         SystemView {
-            systems, 
+            systems,
             select_system: 0,
         }
     }
@@ -140,7 +140,10 @@ impl SystemView {
         if let Ok(info) = Image::get_info(system.image) {
             let image_width = (info.width as f32) / 1.6;
 
-            Cursor::set_pos(Vec2::new(start_x as f32 + (width as f32 - image_width), 0.0));
+            Cursor::set_pos(Vec2::new(
+                start_x as f32 + (width as f32 - image_width),
+                0.0,
+            ));
             let image_size = Vec2::new(image_width, (info.height as f32) / 1.6);
 
             let color0 = Color::new(1.0, 1.0, 1.0, 0.0);
@@ -149,7 +152,7 @@ impl SystemView {
             let color3 = Color::new(1.0, 1.0, 1.0, 0.0);
 
             Ui::image_size_color_shade(system.image, image_size, color0, color1, color2, color3);
-        } 
+        }
 
         Font::push(fonts.system_header);
         Cursor::set_pos(Vec2::new(40.0, 4.0));

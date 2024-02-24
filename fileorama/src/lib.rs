@@ -343,7 +343,7 @@ impl Fileorama {
                 data.as_ptr() as *const u8,
                 data.len() * std::mem::size_of::<T>(),
             )
-        }; 
+        };
 
         let data = data.to_vec().into_boxed_slice();
 

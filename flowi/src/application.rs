@@ -1,12 +1,16 @@
-use crate::bgfx_renderer::BgfxRenderer;
-use crate::glfw_window::GlfwWindow;
+use flowi_core::imgui::{DrawCmd, DrawData, DrawVert, FontAtlas, ImDrawIdx};
+//use crate::bgfx_renderer::BgfxRenderer;
+//use crate::glfw_window::GlfwWindow;
+use crate::sdl_window::Sdl2Window;
+use crate::sw_renderer::SwRenderer;
+
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
 use flowi_core::ApplicationSettings;
 use flowi_core::FlowiRenderer;
 use flowi_core::Instance;
 use flowi_core::Result;
-use raw_window_handle::RawWindowHandle;
+//use raw_window_handle::RawWindowHandle;
 
 pub(crate) trait Window {
     fn new(settings: &ApplicationSettings) -> Self
@@ -15,7 +19,7 @@ pub(crate) trait Window {
     fn update(&mut self);
     fn should_close(&mut self) -> bool;
     fn is_focused(&self) -> bool;
-    fn raw_window_handle(&self) -> RawWindowHandle;
+    //fn raw_window_handle(&self) -> RawWindowHandle;
 }
 
 #[repr(C)]
@@ -61,7 +65,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 impl Application {
     pub fn new(settings: &ApplicationSettings) -> Result<Box<Self>> {
         let core = Instance::new(settings);
-        let window = Box::new(GlfwWindow::new(settings));
+        let window = Box::new(Sdl2Window::new(settings));
 
         Ok(Box::new(Self {
             window,
@@ -79,10 +83,7 @@ impl Application {
     where
         F: Fn(&mut T) + 'a,
     {
-        let renderer = Box::new(BgfxRenderer::new(
-            &self.settings,
-            Some(&self.window.raw_window_handle()),
-        ));
+        let renderer = Box::new(SwRenderer::new(&self.settings, None));
         self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end

@@ -33,7 +33,12 @@ fn main_loop(app: &mut App) {
         return;
     }
 
-    app.system_view.update(&app.fonts, app.left_side_menu.width, app.width - app.left_side_menu.width, app.height);
+    app.system_view.update(
+        &app.fonts,
+        app.left_side_menu.width,
+        app.width - app.left_side_menu.width,
+        app.height,
+    );
 }
 
 fn main() {

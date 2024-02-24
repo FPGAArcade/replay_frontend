@@ -1,15 +1,15 @@
 use flowi::{
+    font::Font,
     image::{Image, ImageLoadStatus, ImageOptions},
     layout::Cursor,
-    font::Font,
+    math_data::{IVec2, Vec2},
     painter::Painter,
     text::Text,
-    math_data::{Vec2, IVec2},
     ui::Ui,
     window::{Window, WindowFlags},
     Color,
 };
-    
+
 use crate::Fonts;
 
 const MENU_SELECTION_NAMES_COUNT: usize = 6;
@@ -130,14 +130,14 @@ impl LeftSideMenu {
     // We assume that the caller has loaded the font already at this point and will set it
     fn calculate_text_size(&mut self) {
         let mut options = ImageOptions::default();
-        options.color = Color::new(1.0, 1.0, 1.0, 0.0); 
+        options.color = Color::new(1.0, 1.0, 1.0, 0.0);
 
         for menu_item in &mut self.items {
             menu_item.text_size = Ui::calc_text_size(menu_item.text);
 
             // We only set the height of the image, the width will be calculated automatically to keep the aspect ratio
             options.size = IVec2::new(0, (menu_item.text_size.y as f32 * 0.7) as _);
-        
+
             menu_item.icon = Image::load_with_options(menu_item.icon_path, &options);
         }
 
@@ -182,7 +182,7 @@ impl LeftSideMenu {
             max_width_icons = max_width_icons.max(icon.width);
             max_text_width = max_text_width.max(menu_item.text_size.x as i32);
 
-            menu_item.icon_size = Vec2::new(icon.width as f32, icon.height as f32); 
+            menu_item.icon_size = Vec2::new(icon.width as f32, icon.height as f32);
 
             _icons_center_x += icon.width;
         }
@@ -192,7 +192,8 @@ impl LeftSideMenu {
 
         let text_start = x_icons_start + max_width_icons + self.icons_text_margin;
 
-        let total_width = (x_icons_start + max_text_width + self.icons_text_margin + max_width_icons) + 40;
+        let total_width =
+            (x_icons_start + max_text_width + self.icons_text_margin + max_width_icons) + 40;
         let items_starting_y = (height - total_height) / 2;
 
         let mut y = items_starting_y;
@@ -229,7 +230,7 @@ impl LeftSideMenu {
 
         let start = Vec2::new(0.0, self.items[1].pos.y);
         let text_size = self.items[1].text_size;
-        let end = Vec2::new(self.width as f32, start.y + text_size.y as f32); 
+        let end = Vec2::new(self.width as f32, start.y + text_size.y as f32);
 
         Painter::draw_rect_filled(start, end, Color::new(0.1, 0.1, 0.1, 0.1), 0.0);
 
