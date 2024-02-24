@@ -9,6 +9,9 @@ use sdl2::{
     event::Event,
     keyboard::Keycode,
     mouse::MouseButton,
+    render::TextureAccess,
+    pixels::PixelFormatEnum,
+    render::Texture,
 };
 
 fn translate_sdl2_to_flowi_key(key: Keycode) -> Option<Key> {
@@ -115,7 +118,9 @@ pub(crate) struct Sdl2Window {
     sdl_context: sdl2::Sdl,
     canvas: sdl2::render::Canvas<sdl2::video::Window>,
     event_pump: sdl2::EventPump,
+    texture: Texture,
     time: f64,
+    shift: u8,
     should_close: bool,
 }
 
@@ -268,6 +273,19 @@ impl Sdl2Window {
             );
         }
     }
+
+    fn update_texture(texture: &mut Texture, color_shift: u8) -> Result<(), String> {
+        texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+            for y in 0..1080-1 {
+                for x in 0..1920-1 {
+                    let offset = y * pitch + x * 3;
+                    buffer[offset] = color_shift; // Red
+                    buffer[offset + 1] = 64; // Green
+                    buffer[offset + 2] = 255 - color_shift; // Blue
+                }
+            }
+        }).map_err(|e| e.to_string())
+    }
 }
 
 impl Window for Sdl2Window {
@@ -275,8 +293,8 @@ impl Window for Sdl2Window {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
-        let width = 800;//core::cmp::max(settings.width as u32, 800);
-        let height = 600; //core::cmp::max(settings.height as u32, 600);
+        let width = 1920;//core::cmp::max(settings.width as u32, 800);
+        let height = 1080; //core::cmp::max(settings.height as u32, 600);
 
         let window = video_subsystem
             .window("Flowi", width, height)
@@ -287,6 +305,13 @@ impl Window for Sdl2Window {
         let mut canvas = window.into_canvas().build().map_err(|e| e.to_string()).unwrap();
 
         canvas.set_draw_color(sdl2::pixels::Color::RGB(255, 0, 0));
+
+        let texture_creator = canvas.texture_creator();  
+        let texture = texture_creator.create_texture(
+            PixelFormatEnum::RGB24, 
+            TextureAccess::Streaming, 
+            width, height).unwrap();
+
         canvas.clear();
         canvas.present();
 
@@ -295,6 +320,8 @@ impl Window for Sdl2Window {
         Self {
             sdl_context,
             canvas,
+            texture,
+            shift: 0,
             event_pump,
             time: 0.0,
             should_close: false,
@@ -330,6 +357,13 @@ impl Window for Sdl2Window {
         // should be integrated into the main event loop or adapted accordingly.
 
         self.update_input();
+
+        Self::update_texture(&mut self.texture, self.shift);
+
+        self.canvas.copy(&self.texture, None, Some(sdl2::rect::Rect::new(0, 0, 1920, 1080))).unwrap();
+        self.canvas.present();
+
+        self.shift = self.shift.wrapping_add(1);
     }
 
     fn is_focused(&self) -> bool {
