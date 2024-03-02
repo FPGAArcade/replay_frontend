@@ -1,13 +1,13 @@
 use minifb::{Key, Window, WindowOptions};
-use sw_rasterizer::{Vertex, SwRasterizer, Point};
+use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv};
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Read;
 
 const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
-const TILE_WIDTH: usize = 32;
-const TILE_HEIGHT: usize = 40;
+const TILE_WIDTH: usize = 32 * 2;
+const TILE_HEIGHT: usize = 40 * 2;
 
 fn draw_tile_grid(dest_buffer: &mut [u32]) {
     for i in 0..HEIGHT {
@@ -68,13 +68,13 @@ impl TempRenderData {
             for _i in 0..vertices {
                 let pos_x = data.read_f32::<LittleEndian>()?;
                 let pos_y = data.read_f32::<LittleEndian>()?;
-                let uv_x = data.read_f32::<LittleEndian>()?;
-                let uv_y = data.read_f32::<LittleEndian>()?;
+                let u = data.read_f32::<LittleEndian>()?;
+                let v = data.read_f32::<LittleEndian>()?;
                 let color = data.read_u32::<LittleEndian>()?;
 
                 let vertex = Vertex {
                     pos: Point { x: pos_x, y: pos_y },
-                    uv: (uv_x, uv_y),
+                    uv: Uv { u, v },
                     color,
                 };
 
@@ -125,10 +125,9 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
-            *i = 0; // write something more funny here!
+            *i = 0x00224411; // write something more funny here!
         }
 
-        draw_tile_grid(&mut buffer);
             
         sw_raster.begin(render_data.render_passes.len());
 
@@ -137,6 +136,7 @@ fn main() {
         }
 
         unsafe { sw_raster.rasterize(&mut buffer) };
+        draw_tile_grid(&mut buffer);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window
