@@ -117,9 +117,9 @@ impl std::fmt::Debug for *mut ImDrawCmd {
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct DrawVert {
-    pub pos: ImVec2,
-    pub uv: ImVec2,
-    pub col: ImU32,
+    pub pos: (f32, f32),
+    pub uv: (f32, f32),
+    pub col: u32,
 }
 
 #[repr(C)]
