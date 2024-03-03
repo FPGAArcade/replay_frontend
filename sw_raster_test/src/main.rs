@@ -1,13 +1,11 @@
 use minifb::{Key, Window, WindowOptions};
-use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv, copy_single_threaded, copy_multi_threaded};
+use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv, copy_single_threaded, copy_multi_threaded, TILE_WIDTH, TILE_HEIGHT};
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Read;
 
 const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
-const TILE_WIDTH: usize = 32 * 2;
-const TILE_HEIGHT: usize = 40 * 2;
 
 fn draw_tile_grid(dest_buffer: &mut [u32]) {
     for i in 0..HEIGHT {
@@ -128,7 +126,8 @@ fn main() {
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
-    
+
+    let mut tile_buffers = vec![0u32; TILE_WIDTH * TILE_HEIGHT * 4];
 
     let xor_buffer = generate_xor_buffer();
 
@@ -154,12 +153,13 @@ fn main() {
 
 
         let start = std::time::Instant::now();
+        sw_raster.clear_all_single(&mut buffer, &mut tile_buffers);
         //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
         //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
         //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
-        copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
-        copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
-        copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        //copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        //copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        //copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
         let duration = start.elapsed();
         println!("{} micros", duration.as_micros());
 
