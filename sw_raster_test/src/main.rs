@@ -1,5 +1,5 @@
 use minifb::{Key, Window, WindowOptions};
-use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv};
+use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv, copy_single_threaded, copy_multi_threaded};
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Read;
@@ -99,6 +99,20 @@ impl TempRenderData {
     }
 }
 
+// Generate a 1920x1080 u32 buffer with xor pattern 
+fn generate_xor_buffer() -> Vec<u32> {
+    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
+
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let xor_color = ((x ^ y) & 0xff) as u32;
+            buffer[y * WIDTH + x] = (xor_color << 16) | (xor_color << 8) | xor_color; 
+        }
+    }
+
+    buffer
+}
+
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
@@ -114,6 +128,9 @@ fn main() {
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
+    
+
+    let xor_buffer = generate_xor_buffer();
 
     let mut sw_raster = SwRasterizer::new(TILE_WIDTH, TILE_HEIGHT);
 
@@ -135,8 +152,11 @@ fn main() {
             sw_raster.add_vertices(&pass.vertices, &pass.indices);
         }
 
-        unsafe { sw_raster.rasterize(&mut buffer) };
-        draw_tile_grid(&mut buffer);
+        //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
+
+        //unsafe { sw_raster.rasterize(&mut buffer) };
+        //draw_tile_grid(&mut buffer);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window

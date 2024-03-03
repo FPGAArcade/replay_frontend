@@ -9,6 +9,7 @@ edition = "2021"
 sw_rasterizer = { path = "../sw_rasterizer" }
 minifb = "0.25.0"
 byteorder = "1"
+rayon = "1.9.0"
 
 [features]
 timing_enabled = []

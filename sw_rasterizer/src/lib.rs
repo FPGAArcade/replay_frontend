@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Point {
     pub x: f32,
@@ -367,6 +369,35 @@ impl<'a> SwRasterizer<'a> {
             rasterizer_tile(&mut tile_buffer, tile, output);
         }
     }
+}
+
+pub fn sol_copy_to_buffer(dest: *mut u32, src: &[u32], offset: usize) {
+    let slice_size = 1920 * (1080 / 4);
+    let slice_start = offset * slice_size;
+    let slice_end = slice_start + slice_size;
+    let src = &src[slice_start..slice_end];
+    let offset = offset * slice_size;
+    let dest = unsafe { dest.add(offset) };
+
+    unsafe {
+        std::ptr::copy_nonoverlapping(src.as_ptr(), dest, src.len());
+    }
+}
+
+pub fn copy_single_threaded(dest: *mut u32, src: &[u32]) {
+    sol_copy_to_buffer(dest, src, 0);
+    sol_copy_to_buffer(dest, src, 1);
+    sol_copy_to_buffer(dest, src, 2);
+    sol_copy_to_buffer(dest, src, 3);
+}
+
+// Copy multi threaded using rayon using a parallel iterator
+pub fn copy_multi_threaded(dest_in: *mut u32, src: &[u32]) {
+    let dest_thread = dest_in as u64; 
+    (0..4).into_par_iter().for_each(|i| {
+        let dest = dest_thread as *mut u32;
+        sol_copy_to_buffer(dest, src, i);
+    });
 }
 
 
