@@ -75,7 +75,7 @@ fn prof_cat_triangles(bencher: Bencher, n: u64) {
 }
 
 #[divan::bench()]
-fn sol_copy_once_single_threaded_1(bencher: Bencher) {
+fn sol_copy_1_single(bencher: Bencher) {
     let mut buffer = vec![0u32; 1920 * 1080];
     let input = vec![0u32; 1920 * 1080];
 
@@ -85,7 +85,7 @@ fn sol_copy_once_single_threaded_1(bencher: Bencher) {
 }
 
 #[divan::bench()]
-fn sol_copy_once_multi_threaded_1(bencher: Bencher) {
+fn sol_copy_1_multi(bencher: Bencher) {
     let mut buffer = vec![0u32; 1920 * 1080];
     let input = vec![0u32; 1920 * 1080];
 
@@ -95,7 +95,7 @@ fn sol_copy_once_multi_threaded_1(bencher: Bencher) {
 }
 
 #[divan::bench()]
-fn sol_copy_once_single_threaded_3(bencher: Bencher) {
+fn sol_copy_3_single(bencher: Bencher) {
     let mut buffer = vec![0u32; 1920 * 1080];
     let input0 = vec![0u32; 1920 * 1080];
     let input1 = vec![0u32; 1920 * 1080];
@@ -109,7 +109,7 @@ fn sol_copy_once_single_threaded_3(bencher: Bencher) {
 }
 
 #[divan::bench()]
-fn sol_copy_once_multi_threaded_3(bencher: Bencher) {
+fn sol_copy_3_multi(bencher: Bencher) {
     let mut buffer = vec![0u32; 1920 * 1080];
     let input0 = vec![0u32; 1920 * 1080];
     let input1 = vec![0u32; 1920 * 1080];
