@@ -152,8 +152,16 @@ fn main() {
             sw_raster.add_vertices(&pass.vertices, &pass.indices);
         }
 
+
+        let start = std::time::Instant::now();
+        //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
         //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
         copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        copy_multi_threaded(buffer.as_mut_ptr(), &xor_buffer);
+        let duration = start.elapsed();
+        println!("{} micros", duration.as_micros());
 
         //unsafe { sw_raster.rasterize(&mut buffer) };
         //draw_tile_grid(&mut buffer);
