@@ -94,3 +94,32 @@ fn sol_copy_once_multi_threaded(bencher: Bencher) {
     });
 }
 
+#[divan::bench()]
+fn sol_copy_once_single_threaded_3(bencher: Bencher) {
+    let mut buffer = vec![0u32; 1920 * 1080];
+    let input0 = vec![0u32; 1920 * 1080];
+    let input1 = vec![0u32; 1920 * 1080];
+    let input2 = vec![0u32; 1920 * 1080];
+
+    bencher.bench_local(move || {
+        copy_single_threaded(black_box(buffer.as_mut_ptr()), black_box(&input0));
+        copy_single_threaded(black_box(buffer.as_mut_ptr()), black_box(&input1));
+        copy_single_threaded(black_box(buffer.as_mut_ptr()), black_box(&input2));
+    });
+}
+
+#[divan::bench()]
+fn sol_copy_once_multi_threaded_3(bencher: Bencher) {
+    let mut buffer = vec![0u32; 1920 * 1080];
+    let input0 = vec![0u32; 1920 * 1080];
+    let input1 = vec![0u32; 1920 * 1080];
+    let input2 = vec![0u32; 1920 * 1080];
+
+    bencher.bench_local(move || {
+        copy_multi_threaded(black_box(buffer.as_mut_ptr()), black_box(&input0));
+        copy_multi_threaded(black_box(buffer.as_mut_ptr()), black_box(&input1));
+        copy_multi_threaded(black_box(buffer.as_mut_ptr()), black_box(&input2));
+    });
+}
+
+
