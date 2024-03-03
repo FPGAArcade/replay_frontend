@@ -39,6 +39,8 @@ pub type Vertex = InternalVertex;
 const RENDER_WIDTH: usize = 1920;
 const RENDER_HEIGHT: usize = 1080;
 const TILE_PRIM_PREALLOC: usize = 32 * 1024;
+pub const TILE_WIDTH: usize = 128;
+pub const TILE_HEIGHT: usize = 120;
 
 // This macro measures the execution time of the given block and prints it with the specified name.
 #[macro_export]
@@ -369,6 +371,50 @@ impl<'a> SwRasterizer<'a> {
             rasterizer_tile(&mut tile_buffer, tile, output);
         }
     }
+
+    unsafe fn clear_tiles_single(tile: &Tile, output: *mut u32, tile_buffers: *mut u32) {
+        let tile_min_x = tile.min.x as usize;
+        let tile_min_y = tile.min.y as usize;
+
+        let target_offset = tile_min_y * RENDER_WIDTH + tile_min_x;
+
+        // Get the tile buffer as a slice
+        let tile_buffer = {
+            let len = TILE_WIDTH * TILE_HEIGHT;
+            let offset = tile.local_tile_index * len;
+            std::slice::from_raw_parts_mut(tile_buffers.add(offset), len)
+        };
+
+        tile_buffer.fill(0x00ff00ff);
+
+        // copy tile back to main buffer
+        for y in 0..TILE_HEIGHT {
+            // get target output slice 
+            let output_line = std::slice::from_raw_parts_mut(output.add(target_offset + y * RENDER_WIDTH), TILE_WIDTH); 
+            let tile_line = &tile_buffer[y * TILE_WIDTH..(y + 1) * TILE_WIDTH];
+            output_line.copy_from_slice(tile_line);
+        }
+    }
+
+    pub fn clear_all_single(&self, output: &mut [u32], tile_buffers: &mut [u32]) {
+        for tile in self.tiles.iter() {
+            unsafe {
+                SwRasterizer::clear_tiles_single(tile, output.as_mut_ptr(), tile_buffers.as_mut_ptr());
+            }
+        }
+    }
+
+    pub fn clear_all_multi(&self, output: &mut [u32], tile_buffers: &mut [u32]) {
+        let output = output.as_mut_ptr() as u64;
+        let tile_buffers = tile_buffers.as_mut_ptr() as u64;
+        self.tiles.par_iter().for_each(|tile| {
+            let output = output as *mut u32;
+            let tile_buffers = tile_buffers as *mut u32;
+            unsafe {
+                SwRasterizer::clear_tiles_single(tile, output, tile_buffers);
+            }
+        });
+    }
 }
 
 pub fn sol_copy_to_buffer(dest: *mut u32, src: &[u32], offset: usize) {
@@ -389,6 +435,16 @@ pub fn copy_single_threaded(dest: *mut u32, src: &[u32]) {
     sol_copy_to_buffer(dest, src, 1);
     sol_copy_to_buffer(dest, src, 2);
     sol_copy_to_buffer(dest, src, 3);
+}
+
+fn copy_tiled(dest: &mut [u32], src: &[u32], offset: usize) {
+    let slice_size = 1920 * (1080 / 4);
+    let slice_start = offset * slice_size;
+    let slice_end = slice_start + slice_size;
+    let src = &src[slice_start..slice_end];
+    let offset = offset * slice_size;
+
+    dest[offset..offset + slice_size].copy_from_slice(src);
 }
 
 // Copy multi threaded using rayon using a parallel iterator
