@@ -6,38 +6,31 @@ use resvg::{tiny_skia, usvg, usvg::TreeParsing};
 
 use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
 use thiserror::Error as ThisError;
-
-use zune_jpeg::{
-    errors::DecodeErrors as JpegDecodeErrors, zune_core::colorspace::ColorSpace as JpegColorSpace,
-    zune_core::options::DecoderOptions as JpegDecoderOptions, JpegDecoder,
+    
+use zune_core::{
+    colorspace::ColorSpace as ZuneColorSpace,
+    options::DecoderOptions as ZuneDecoderOptions,
+    bit_depth::BitDepth,
 };
 
-use zune_png::{
-    error::PngDecodeErrors, zune_core::bit_depth::BitDepth as PngBitDepth,
-    zune_core::colorspace::ColorSpace as PngColorSpace, PngDecoder,
+use zune_image::{
+    errors::ImageErrors as ZuneError, 
+    image::Image as ZuneImage,
 };
+
+//use zune_jpeg::zune_core::colorspace::ColorSpace;
 
 #[derive(ThisError, Debug)]
 pub enum ImageErrors {
-    #[error("Png Error")]
-    ParseError(#[from] PngDecodeErrors),
-    #[error("Jpeg Error")]
-    JpegError(#[from] JpegDecodeErrors),
-    #[error("Gif Error")]
-    GifError(#[from] gif::DecodingError),
-    #[error("Gif Disposal Error")]
-    GifDisposeError(#[from] gif_dispose::Error),
+    #[error("Zune Error")]
+    ZuneError(#[from] ZuneError),
     #[error("Generic")]
     Generic(String),
 }
 
 #[derive(Default, Debug)]
 enum ImageType {
-    PngData(Box<[u8]>, Option<ImageOptions>),
-    JpegData(Box<[u8]>, Option<ImageOptions>),
-    GifData(Box<[u8]>, Option<ImageOptions>),
-    // Doesn't work because of data not being thread-safe :(
-    //SvgData((resvg::Tree, f32)),
+    ZuneImage(Box<[u8]>, Option<ImageOptions>),
     SvgData((Box<[u8]>, Option<ImageOptions>)),
     #[default]
     None,
@@ -48,18 +41,16 @@ struct ImageLoader {
     image_type: ImageType,
 }
 
-fn decode_png(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
-    let mut decoder = PngDecoder::new(data);
-    decoder.decode_headers()?;
+fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
+    let mut image = ZuneImage::read(data, ZuneDecoderOptions::default())?;
 
-    // unwraping here is safe as we have already checked that the headers are ok
-    let depth = decoder.get_depth().unwrap();
-    let buffer_size = decoder.output_buffer_size().unwrap();
-    let color_space = decoder.get_colorspace().unwrap();
-    let dimensions = decoder.get_dimensions().unwrap();
+    let color_space = image.colorspace();
+    let depth = image.depth();
+    let color_space = image.colorspace();
+    let dimensions = image.dimensions();
 
-    // Only supporting 8-bit PNGs for now
-    if depth != PngBitDepth::Eight {
+    // Only supporting 8 bit depth for now
+    if depth != BitDepth::Eight {
         return Err(ImageErrors::Generic(format!(
             "Unsupported depth: {:?}",
             depth
@@ -67,19 +58,26 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     }
 
     let image_info_offset = std::mem::size_of::<ImageInfo>();
+    // Only deal with one frame for now
+    // TODO: Optimize
+    let frames = image.flatten_frames();
+    let mut total_output_size = frames.iter().map(|f| f.len()).sum::<usize>();
 
-    let output_size = buffer_size + image_info_offset;
+    let output_size = total_output_size + image_info_offset;
     let mut output_data = vec![0u8; output_size]; // TODO: uninit
+    let write_data = &mut output_data[image_info_offset..];
 
-    decoder.decode_into(&mut output_data[image_info_offset..])?;
+    for frame in frames {
+        write_data.copy_from_slice(&frame);
+    }
 
     let format = match color_space {
-        PngColorSpace::RGB => ImageFormat::Rgb,
-        PngColorSpace::RGBA => ImageFormat::Rgba,
-        PngColorSpace::BGR => ImageFormat::Bgr,
-        PngColorSpace::BGRA => ImageFormat::Bgra,
-        PngColorSpace::Luma => ImageFormat::Alpha,
-        PngColorSpace::LumaA => ImageFormat::Alpha,
+        ZuneColorSpace::RGB => ImageFormat::Rgb,
+        ZuneColorSpace::RGBA => ImageFormat::Rgba,
+        ZuneColorSpace::BGR => ImageFormat::Bgr,
+        ZuneColorSpace::BGRA => ImageFormat::Bgra,
+        ZuneColorSpace::Luma => ImageFormat::Alpha,
+        ZuneColorSpace::LumaA => ImageFormat::Alpha,
         _ => {
             return Err(ImageErrors::Generic(format!(
                 "Unknown colorspace: {:?}",
@@ -100,86 +98,6 @@ fn decode_png(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
     // Write header at the start of the data
     let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
     *write_image_info = image_info;
-
-    Ok(output_data)
-}
-
-fn decode_jpeg(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
-    let opts = JpegDecoderOptions::new_fast().jpeg_set_out_colorspace(JpegColorSpace::RGB);
-
-    let mut decoder = JpegDecoder::new(data);
-    decoder.set_options(opts);
-    decoder.decode_headers()?;
-
-    let dimensions = decoder.dimensions().unwrap();
-    let buffer_size = decoder.output_buffer_size().unwrap();
-
-    let image_info_offset = std::mem::size_of::<ImageInfo>();
-
-    let output_size = buffer_size + image_info_offset;
-    let mut output_data = vec![0u8; output_size]; // TODO: uninit
-
-    decoder.decode_into(&mut output_data[image_info_offset..])?;
-
-    let image_info = ImageInfo {
-        format: ImageFormat::Rgb as u32,
-        width: dimensions.0 as i32,
-        height: dimensions.1 as i32,
-        frame_count: 1,
-        frame_delay: 0,
-    };
-
-    // Write header at the start of the data
-    let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
-    *write_image_info = image_info;
-
-    Ok(output_data)
-}
-
-fn decode_gif(data: &[u8]) -> Result<Vec<u8>, ImageErrors> {
-    let mut gif_opts = gif::DecodeOptions::new();
-    gif_opts.set_color_output(gif::ColorOutput::Indexed);
-
-    let mut decoder = gif_opts.read_info(data)?;
-    let mut screen = gif_dispose::Screen::new_decoder(&decoder);
-
-    let image_info_offset = std::mem::size_of::<ImageInfo>();
-    let width = screen.pixels.width();
-    let height = screen.pixels.height();
-
-    let mut frames = Vec::new();
-    let mut buffer_size = 0;
-    let mut frame_delay_ms = u32::MAX;
-
-    while let Some(frame) = decoder.read_next_frame()? {
-        screen.blit_frame(&frame)?;
-        // we only handle a uniform delay for now
-        frame_delay_ms = frame_delay_ms.min(frame.delay as u32 * 10);
-        let f = screen.pixels.buf().to_vec();
-        buffer_size += f.len() * 4;
-        frames.push(f);
-    }
-
-    let output_size = buffer_size + image_info_offset;
-    let mut output_data = vec![0u8; output_size]; // TODO: uninit
-
-    let image_info = ImageInfo {
-        format: ImageFormat::Rgba as u32,
-        width: width as i32,
-        height: height as i32,
-        frame_count: frames.len() as i32,
-        frame_delay: frame_delay_ms as i32,
-    };
-
-    // Write header at the start of the data
-    let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
-    *write_image_info = image_info;
-
-    for (i, frame) in frames.iter().enumerate() {
-        let offset = image_info_offset + (i * frame.len());
-        let frame: &[u8] = bytemuck::cast_slice(frame);
-        output_data[offset..offset + frame.len()].copy_from_slice(frame);
-    }
 
     Ok(output_data)
 }
@@ -274,27 +192,8 @@ impl MemoryDriver for ImageLoader {
     fn can_create_from_data(&self, data: &[u8], file_ext_hint: &str) -> bool {
         // we use the file_ext_hint to try to speed up the process
         match file_ext_hint {
-            "png" => {
-                let mut png_decoder = PngDecoder::new(data);
-                let headers = png_decoder.decode_headers();
-                if headers.is_ok() {
-                    return true;
-                }
-            }
-            "jpg" | "jpeg" => {
-                let mut jpeg_decoder = JpegDecoder::new(data);
-                let headers = jpeg_decoder.decode_headers();
-                if headers.is_ok() {
-                    return true;
-                }
-            }
-            "gif" => {
-                let mut decoder = gif::DecodeOptions::new();
-                decoder.set_color_output(gif::ColorOutput::Indexed);
-                if decoder.read_info(data).is_ok() {
-                    return true;
-                }
-            }
+            "jpg" | "jpeg" | "png" => return true, 
+
             "svg" => {
                 let opt = usvg::Options::default();
                 let svg = usvg::Tree::from_data(data.as_ref(), &opt);
@@ -303,25 +202,10 @@ impl MemoryDriver for ImageLoader {
                 }
             }
 
-            _ => {}
+            _ => (),
         }
 
-        // fallback to trying all decoders
-        let mut png_decoder = PngDecoder::new(data);
-        let headers = png_decoder.decode_headers();
-        if headers.is_ok() {
-            return true;
-        }
-
-        let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
-        let headers = jpeg_decoder.decode_headers();
-        if headers.is_ok() {
-            return true;
-        }
-
-        let mut decoder = gif::DecodeOptions::new();
-        decoder.set_color_output(gif::ColorOutput::Indexed);
-        decoder.read_info(data.as_ref()).is_ok()
+        false
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
@@ -340,33 +224,12 @@ impl MemoryDriver for ImageLoader {
 
         // we use the file_ext_hint to try to speed up the process
         match file_ext_hint {
-            "png" => {
-                let mut png_decoder = PngDecoder::new(data.as_ref());
-                let headers = png_decoder.decode_headers();
-                if headers.is_ok() {
-                    return Some(Box::new(ImageLoader {
-                        image_type: ImageType::PngData(data, options),
-                    }));
-                }
+            "jpg" | "jpeg" | "png" => {
+                return Some(Box::new(ImageLoader {
+                    image_type: ImageType::ZuneImage(data, options),
+                }));
             }
-            "jpg" | "jpeg" => {
-                let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
-                let headers = jpeg_decoder.decode_headers();
-                if headers.is_ok() {
-                    return Some(Box::new(ImageLoader {
-                        image_type: ImageType::JpegData(data, options),
-                    }));
-                }
-            }
-            "gif" => {
-                let mut decoder = gif::DecodeOptions::new();
-                decoder.set_color_output(gif::ColorOutput::Indexed);
-                if decoder.read_info(data.as_ref()).is_ok() {
-                    return Some(Box::new(ImageLoader {
-                        image_type: ImageType::GifData(data, options),
-                    }));
-                }
-            }
+
             "svg" => {
                 let opt = usvg::Options::default();
                 let svg = usvg::Tree::from_data(data.as_ref(), &opt);
@@ -376,35 +239,7 @@ impl MemoryDriver for ImageLoader {
                     }));
                 }
             }
-            _ => {}
-        }
-
-        // Check if png or jpeg loader can open the data
-        let mut jpeg_decoder = JpegDecoder::new(data.as_ref());
-        let headers = jpeg_decoder.decode_headers();
-        if headers.is_ok() {
-            return Some(Box::new(ImageLoader {
-                image_type: ImageType::JpegData(data, options),
-            }));
-        }
-
-        let mut png_decoder = PngDecoder::new(data.as_ref());
-        let headers = png_decoder.decode_headers();
-        if headers.is_ok() {
-            return Some(Box::new(ImageLoader {
-                image_type: ImageType::PngData(data, options),
-            }));
-        }
-
-        let mut decoder = gif::DecodeOptions::new();
-        decoder.set_color_output(gif::ColorOutput::Indexed);
-        match decoder.read_info(data.as_ref()) {
-            Ok(_) => {
-                return Some(Box::new(ImageLoader {
-                    image_type: ImageType::GifData(data, options),
-                }));
-            }
-            Err(_) => {}
+            _ => (),
         }
 
         None
@@ -416,9 +251,7 @@ impl MemoryDriver for ImageLoader {
         //progress.set_step(1);
 
         let decoded_data = match self.image_type {
-            ImageType::PngData(ref data, _opts) => decode_png(data),
-            ImageType::JpegData(ref data, _opts) => decode_jpeg(data),
-            ImageType::GifData(ref data, _opts) => decode_gif(data),
+            ImageType::ZuneImage(ref data, opts) => decode_zune(data, opts),
             ImageType::SvgData((ref data, opts)) => render_svg(data, opts),
             ImageType::None => return Err(Error::Generic("Unknown image type".to_owned())),
         };

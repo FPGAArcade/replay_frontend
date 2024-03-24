@@ -78,9 +78,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
+checksum = "cf4b9d6a944f767f8e5e0db018570623c85f3d925ac718db4e06d0187adb21c1"
 
 [[package]]
 name = "block-buffer"
@@ -436,7 +436,7 @@ checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 name = "flowi"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.4.1",
+ "bitflags 2.5.0",
  "flowi_core",
  "glam 0.24.2",
  "raw-window-handle 0.5.2",
@@ -448,12 +448,10 @@ name = "flowi_core"
 version = "0.1.0"
 dependencies = [
  "base64ct",
- "bitflags 2.4.1",
+ "bitflags 2.5.0",
  "bytemuck",
  "cc",
  "fileorama",
- "gif",
- "gif-dispose",
  "glam 0.23.0",
  "log",
  "notify",
@@ -461,8 +459,8 @@ dependencies = [
  "resvg",
  "sha2",
  "thiserror",
- "zune-jpeg",
- "zune-png",
+ "zune-core",
+ "zune-image",
 ]
 
 [[package]]
@@ -642,17 +640,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gif-dispose"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "347afae04a03ca25a3a76d130abb63e7e6e7367b895470fdc3d996aec916c3d7"
-dependencies = [
- "gif",
- "imgref",
- "rgb",
-]
-
-[[package]]
 name = "glam"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -678,12 +665,6 @@ name = "imagesize"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "029d73f573d8e8d63e6d5020011d3255b28c3ba85d6cf870a07184ed23de9284"
-
-[[package]]
-name = "imgref"
-version = "1.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90d944e334f00f4449c9640b440a171f816be0152305c12ef90424fc35fd035c"
 
 [[package]]
 name = "inotify"
@@ -742,12 +723,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc0000e42512c92e31c2252315bda326620a4e034105e900c98ec492fa077b3e"
 
 [[package]]
+name = "jpeg-encoder"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cf3affe27ffd9f1992690ec7575568b222abe9cb39738f6531968aca8e64906"
+
+[[package]]
 name = "js-sys"
 version = "0.3.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "406cda4b368d531c842222cf9d2600a9a4acce8d29423695379c6868a143a9ee"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kamadak-exif"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef4fc70d0ab7e5b6bafa30216a6b48705ea964cdfc29c050f2412295eba58077"
+dependencies = [
+ "mutate_once",
 ]
 
 [[package]]
@@ -915,6 +911,12 @@ dependencies = [
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "mutate_once"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16cf681a23b4d0a43fc35024c176437f9dcd818db34e0f42ab456a0ee5ad497b"
 
 [[package]]
 name = "nix"
@@ -1292,7 +1294,7 @@ version = "0.38.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72e572a5e8ca657d7366229cdde4bd14c4eb5499a9573d4d366fe1b599daa316"
 dependencies = [
- "bitflags 2.4.1",
+ "bitflags 2.5.0",
  "errno",
  "libc",
  "linux-raw-sys",
@@ -2288,9 +2290,23 @@ dependencies = [
 
 [[package]]
 name = "zune-core"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aae122f32a8e2a653acb430c9af5e79e7056c519fa8bac46e51e670868e5c0f2"
+checksum = "3f423a2c17029964870cfaabb1f13dfab7d092a62a29a89264f4d36990ca414a"
+
+[[package]]
+name = "zune-image"
+version = "0.4.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d6b98ac0fc8c650406e88f7b33f264798b85b7eff88cc09a8f86688c24d0261"
+dependencies = [
+ "bytemuck",
+ "jpeg-encoder",
+ "kamadak-exif",
+ "zune-core",
+ "zune-jpeg",
+ "zune-png",
+]
 
 [[package]]
 name = "zune-inflate"

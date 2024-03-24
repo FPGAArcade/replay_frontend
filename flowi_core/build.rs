@@ -122,7 +122,7 @@ fn build_cc(target_os: &str) {
     let mut build = cc::Build::new();
     build.cpp(true);
 
-    println!("cargo:rerun-if-changed=src/c_cpp");
+    //println!("cargo:rerun-if-changed=src/c_cpp");
 
     match target_os {
         "linux" => {
@@ -170,7 +170,7 @@ fn main() {
     let target_os = os.as_str();
 
     println!("cargo:rerun-if-changed=external");
-    println!("cargo:rerun-if-changed=c_cpp");
+    println!("cargo:rerun-if-changed=src/c_cpp");
 
     build_cc(target_os);
 }

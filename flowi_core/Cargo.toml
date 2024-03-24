@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 base64ct = { version = "1.6.0", features = ["alloc"] }
 raw-window-handle = "0.5"
-bitflags = "2.0.0-rc.1"
+bitflags = "2.5.0"
 bytemuck = "1.14.0"
 fileorama = { path = "../fileorama" }
 glam = "0.23.0"
@@ -14,10 +14,8 @@ log = "0.4"
 notify = "5.1.0"
 sha2 = "0.10.6"
 thiserror = "1.0"
-zune-jpeg = "0.4"
-zune-png = "0.4"
-gif = "0.12"
-gif-dispose = "4.0"
+zune-image = { version = "0.4", default-features = false, features = ["metadata", "jpeg", "png"] }
+zune-core = "0.4.12"
 resvg = { version = "0.36.0", features = [] }
 
 [build-dependencies]

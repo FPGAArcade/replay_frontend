@@ -295,6 +295,18 @@ unsafe fn rasterizer_tile(_tile_buffer: &mut [u32], tile: &Tile, main_buffer: &m
     }
 }
 
+struct RenderDataTempInput8bit {
+    texture0: Vec<u32>,
+    texture1: Vec<u32>,
+    texture2: Vec<u32>,
+}
+
+struct RenderDataTemp8bit<'a> {
+    texture0: &'a [u32], 
+    texture1: &'a [u32], 
+    texture2: &'a [u32],
+}
+
 impl<'a> SwRasterizer<'a> {
     pub fn new(tile_width: usize, tile_height: usize) -> Self {
         let mut tiles = Vec::with_capacity((RENDER_WIDTH / tile_width) * (RENDER_HEIGHT / tile_height));
@@ -372,49 +384,78 @@ impl<'a> SwRasterizer<'a> {
         }
     }
 
-    unsafe fn clear_tiles_single(tile: &Tile, output: *mut u32, tile_buffers: *mut u32) {
+    fn get_tile_buffer(tile: &Tile, tile_buffers: *mut u32) -> &mut [u32] {
+        let len = TILE_WIDTH * TILE_HEIGHT;
+        let offset = tile.local_tile_index * len;
+        unsafe {
+            std::slice::from_raw_parts_mut(tile_buffers.add(offset), len)
+        }
+    }
+
+    unsafe fn render_to_tile_8bit(tile_buffer: &mut [u32], tile: &Tile, render_data: &RenderDataTemp8bit) {
         let tile_min_x = tile.min.x as usize;
         let tile_min_y = tile.min.y as usize;
 
         let target_offset = tile_min_y * RENDER_WIDTH + tile_min_x;
 
-        // Get the tile buffer as a slice
-        let tile_buffer = {
-            let len = TILE_WIDTH * TILE_HEIGHT;
-            let offset = tile.local_tile_index * len;
-            std::slice::from_raw_parts_mut(tile_buffers.add(offset), len)
-        };
+        // Copy texture t tile
+        for y in 0..TILE_HEIGHT {
+            let tile_line = &mut tile_buffer[y * TILE_WIDTH..(y + 1) * TILE_WIDTH];
+            let texture_line = &render_data.texture0[target_offset + y * RENDER_WIDTH..(y + 1) * RENDER_WIDTH];
+            tile_line.copy_from_slice(texture_line);
+        }
+    }
 
+    unsafe fn clear_tile(tile_buffer: &mut [u32]) {
         tile_buffer.fill(0x00ff00ff);
+    }
+
+    unsafe fn copy_tile_to_output(output: *mut u32, tile_buffer: &[u32], tile: &Tile) {
+        let tile_min_x = tile.min.x as usize;
+        let tile_min_y = tile.min.y as usize;
+
+        let target_offset = tile_min_y * RENDER_WIDTH + tile_min_x;
 
         // copy tile back to main buffer
         for y in 0..TILE_HEIGHT {
             // get target output slice 
-            let output_line = std::slice::from_raw_parts_mut(output.add(target_offset + y * RENDER_WIDTH), TILE_WIDTH); 
+            let output_line = unsafe { std::slice::from_raw_parts_mut(output.add(target_offset + y * RENDER_WIDTH), TILE_WIDTH) }; 
             let tile_line = &tile_buffer[y * TILE_WIDTH..(y + 1) * TILE_WIDTH];
             output_line.copy_from_slice(tile_line);
         }
     }
 
-    pub fn clear_all_single(&self, output: &mut [u32], tile_buffers: &mut [u32]) {
+    pub fn clear_all_single(&self, output: &mut [u32], tile_buffers: *mut u32) {
         for tile in self.tiles.iter() {
             unsafe {
-                SwRasterizer::clear_tiles_single(tile, output.as_mut_ptr(), tile_buffers.as_mut_ptr());
+                let tile_buffer = Self::get_tile_buffer(tile, tile_buffers);
+                SwRasterizer::clear_tile(tile_buffer);
+                Self::copy_tile_to_output(output.as_mut_ptr(), tile_buffer, tile);
             }
         }
     }
 
+    /*
     pub fn clear_all_multi(&self, output: &mut [u32], tile_buffers: &mut [u32]) {
         let output = output.as_mut_ptr() as u64;
         let tile_buffers = tile_buffers.as_mut_ptr() as u64;
         self.tiles.par_iter().for_each(|tile| {
             let output = output as *mut u32;
             let tile_buffers = tile_buffers as *mut u32;
+
+            // Get the tile buffer as a slice
+            let tile_buffer = unsafe {
+                let len = TILE_WIDTH * TILE_HEIGHT;
+                let offset = tile.local_tile_index * len;
+                std::slice::from_raw_parts_mut(tile_buffers.add(offset), len)
+            };
+
             unsafe {
-                SwRasterizer::clear_tiles_single(tile, output, tile_buffers);
+                SwRasterizer::clear_tiles_single(tile_buffer, tile, output);
             }
         });
     }
+    */
 }
 
 pub fn sol_copy_to_buffer(dest: *mut u32, src: &[u32], offset: usize) {
