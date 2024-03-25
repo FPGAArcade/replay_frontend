@@ -50,7 +50,6 @@ impl IoHandler {
                 }
 
                 Ok(RecvMsg::NotFound) => {
-                    dbg!("NotFound");
                     self.loaded
                         .insert(*id, LoadedData::Error("File not found".to_string()));
                     self.inflight.remove(i);

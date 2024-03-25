@@ -41,10 +41,9 @@ struct ImageLoader {
     image_type: ImageType,
 }
 
-fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
-    let mut image = ZuneImage::read(data, ZuneDecoderOptions::default())?;
+fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
+    let image = ZuneImage::read(data, ZuneDecoderOptions::default())?;
 
-    let color_space = image.colorspace();
     let depth = image.depth();
     let color_space = image.colorspace();
     let dimensions = image.dimensions();
@@ -61,7 +60,7 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
     // Only deal with one frame for now
     // TODO: Optimize
     let frames = image.flatten_frames();
-    let mut total_output_size = frames.iter().map(|f| f.len()).sum::<usize>();
+    let total_output_size = frames.iter().map(|f| f.len()).sum::<usize>();
 
     let output_size = total_output_size + image_info_offset;
     let mut output_data = vec![0u8; output_size]; // TODO: uninit
@@ -104,7 +103,7 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
 
 fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
     let opt = usvg::Options::default();
-    let tree = usvg::Tree::from_data(data.as_ref(), &opt).unwrap();
+    let tree = usvg::Tree::from_data(data, &opt).unwrap();
     let rtree = resvg::Tree::from_usvg(&tree);
 
     let pixmap_size = rtree.size.to_int_size();
@@ -116,19 +115,19 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     if let Some(options) = image_options {
         if options.size.x > 0 && options.size.y == 0 {
             let width_ratio = options.size.x as f32 / width as f32;
-            width = options.size.x as i32;
+            width = options.size.x;
             height = (height as f32 * width_ratio) as i32;
             scale_x = width_ratio;
             scale_y = width_ratio;
         } else if options.size.x == 0 && options.size.y > 0 {
             let height_ratio = options.size.y as f32 / height as f32;
-            height = options.size.y as i32;
+            height = options.size.y;
             width = (width as f32 * height_ratio) as i32;
             scale_x = height_ratio;
             scale_y = height_ratio;
         } else if options.size.x > 0 && options.size.y > 0 {
-            width = options.size.x as i32;
-            height = options.size.y as i32;
+            width = options.size.x;
+            height = options.size.y;
         }
     }
 
@@ -159,14 +158,14 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     output_data[image_info_offset..].copy_from_slice(svg_data);
 
     if let Some(options) = image_options {
-        if options.color.r > 0.0 || options.color.r > 0.0 || options.color.b > 0.0 {
+        if options.color.r > 0.0 || options.color.g > 0.0 || options.color.b > 0.0 {
             let r = (options.color.r * 255.0) as u8;
             let g = (options.color.g * 255.0) as u8;
             let b = (options.color.b * 255.0) as u8;
 
             // TODO: Optimize
             for i in 0..svg_data.len() / 4 {
-                output_data[image_info_offset + ((i * 4) + 0)] = r;
+                output_data[image_info_offset + (i * 4)] = r;
                 output_data[image_info_offset + ((i * 4) + 1)] = g;
                 output_data[image_info_offset + ((i * 4) + 2)] = b;
             }
@@ -176,7 +175,7 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     Ok(output_data)
 }
 
-static IMAGE_LOADER_NAME: &'static str = "flowi_image_loader";
+static IMAGE_LOADER_NAME: &str = "flowi_image_loader";
 
 impl MemoryDriver for ImageLoader {
     fn name(&self) -> &'static str {
@@ -196,7 +195,7 @@ impl MemoryDriver for ImageLoader {
 
             "svg" => {
                 let opt = usvg::Options::default();
-                let svg = usvg::Tree::from_data(data.as_ref(), &opt);
+                let svg = usvg::Tree::from_data(data, &opt);
                 if svg.is_ok() {
                     return true;
                 }
@@ -216,7 +215,7 @@ impl MemoryDriver for ImageLoader {
         driver_data: &Option<Box<[u8]>>,
     ) -> Option<MemoryDriverType> {
         let options = if let Some(input_data) = driver_data {
-            let io: &ImageOptions = unsafe { std::mem::transmute(input_data.as_ptr()) };
+            let io: &ImageOptions = unsafe { &*(input_data.as_ptr() as *const ImageOptions) }; 
             Some(*io)
         } else {
             None
@@ -271,7 +270,7 @@ impl MemoryDriver for ImageLoader {
 }
 
 pub(crate) fn install_image_loader(vfs: &Fileorama) {
-    vfs.add_memory_driver(Box::new(ImageLoader::default()));
+    vfs.add_memory_driver(Box::<ImageLoader>::default());
 }
 
 #[inline]
@@ -294,8 +293,8 @@ fn load_with_options(state: &mut InternalState, filename: &str, options: &ImageO
 fn image_status(state: &InternalState, id: u64) -> ImageLoadStatus {
     if let Some(image) = state.io_handler.loaded.get(&id) {
         match image {
-            LoadedData::Data(_) => ImageLoadStatus::Loaded,
-            LoadedData::Error(_) => ImageLoadStatus::Failed,
+            LoadedData::Data(_e) => ImageLoadStatus::Loaded,
+            LoadedData::Error(_e) => ImageLoadStatus::Failed,
         }
     } else {
         ImageLoadStatus::Loading
@@ -481,19 +480,6 @@ mod tests {
         assert_eq!(info.height, 16);
         assert_eq!(info.frame_count, 1);
     }
-
-    /*
-    TODO: Fix this broken test
-    #[test]
-    fn png_load_fail() {
-        let settings = ApplicationSettings { width: 0, height: 0 };
-        let mut instance = crate::Instance::new(&settings);
-        let handle = load(&mut instance.state, "data/png/non_such_file.png");
-
-        wait_for_image_to_load(&mut instance, handle);
-        assert!(image_status(&instance.state, handle) == ImageLoadStatus::Failed);
-    }
-    */
 
     #[test]
     fn png_load_broken_fail() {
