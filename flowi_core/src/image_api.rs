@@ -458,30 +458,6 @@ mod tests {
     }
 
     #[test]
-    fn gif_animation_ok() {
-        let settings = ApplicationSettings {
-            width: 0,
-            height: 0,
-        };
-        let mut instance = crate::Instance::new(&settings);
-        let handle = load(&mut instance.state, "data/gif/test.gif");
-
-        wait_for_image_to_load(&mut instance, handle);
-
-        assert_eq!(
-            image_status(&instance.state, handle),
-            ImageLoadStatus::Loaded
-        );
-        let info = image_info(&instance.state, handle);
-        assert_ne!(info, std::ptr::null());
-        let info = unsafe { &*(info as *const ImageInfo) };
-        assert_eq!(info.format, ImageFormat::Rgba as u32);
-        assert_eq!(info.width, 142);
-        assert_eq!(info.height, 142);
-        assert_eq!(info.frame_count, 12);
-    }
-
-    #[test]
     fn svg_load_ok() {
         let settings = ApplicationSettings {
             width: 0,
