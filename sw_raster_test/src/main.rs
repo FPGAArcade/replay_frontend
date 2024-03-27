@@ -1,5 +1,5 @@
 use minifb::{Key, Window, WindowOptions};
-use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv, copy_single_threaded, copy_multi_threaded, TILE_WIDTH, TILE_HEIGHT};
+use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv, TILE_WIDTH, TILE_HEIGHT};
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::Read;
@@ -153,7 +153,7 @@ fn main() {
 
 
         let start = std::time::Instant::now();
-        sw_raster.clear_all_single(&mut buffer, &mut tile_buffers);
+        //sw_raster.clear_all_single(&mut buffer, &mut tile_buffers);
         //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
         //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);
         //copy_single_threaded(buffer.as_mut_ptr(), &xor_buffer);

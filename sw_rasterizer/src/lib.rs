@@ -330,16 +330,14 @@ impl<'a> SwRasterizer<'a> {
         // process the command buffers
         let mut tile_buffer = vec![0u32; self.tile_width * self.tile_height];
         
-        measure_time!("categorize triangles", {
-            for i in 0..self.index {
-                let command_buffer = &mut self.commands[i];
-                let vertices = command_buffer.vertices.unwrap_unchecked();
-                let indices = command_buffer.index_buffer.unwrap_unchecked();
-                let count = cat_triangles(&mut command_buffer.commands, vertices, indices);
+        for i in 0..self.index {
+            let command_buffer = &mut self.commands[i];
+            let vertices = command_buffer.vertices.unwrap_unchecked();
+            let indices = command_buffer.index_buffer.unwrap_unchecked();
+            let count = cat_triangles(&mut command_buffer.commands, vertices, indices);
 
-                command_buffer.count = count;
-            }
-        });
+            command_buffer.count = count;
+        }
 
         for tile in self.tiles.iter_mut() {
             bin_primitives(tile, &self.commands);
@@ -358,6 +356,7 @@ impl<'a> SwRasterizer<'a> {
         }
     }
 
+    /*
     unsafe fn render_to_tile_8bit(tile_buffer: &mut [u32], tile: &Tile, render_data: &RenderDataTemp8bit) {
         let tile_min_x = tile.min.x as usize;
         let tile_min_y = tile.min.y as usize;
@@ -371,6 +370,7 @@ impl<'a> SwRasterizer<'a> {
             tile_line.copy_from_slice(texture_line);
         }
     }
+    */
 
     unsafe fn clear_tile(tile_buffer: &mut [u32]) {
         tile_buffer.fill(0x00ff00ff);

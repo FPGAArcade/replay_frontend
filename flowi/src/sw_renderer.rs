@@ -29,15 +29,15 @@ impl FlowiRenderer for SwRenderer {
     fn new(_settings: &ApplicationSettings, _window: Option<&RawWindowHandle>) -> Self {
         let _font_atlas = FontAtlas::build_r8_texture();
 
-        Self { dummy: 0 }
+        Self { command_lists: Vec::new() } 
     }
 
     fn render(&mut self) {
-        let draw_data = DrawData::get_data();
+        //let draw_data = DrawData::get_data();
 
-        let t = self.categorize_triangles(&draw_data);
+        //let t = self.categorize_triangles(&draw_data);
 
-        dbg!(t);
+        //dbg!(t);
     }
 
     fn get_texture(&mut self, _image: Image) -> CoreTexture {
@@ -92,6 +92,7 @@ impl SwRenderer {
     }
     */
 
+    /*
 
     #[no_mangle]
     pub unsafe fn categorize_triangles(output: &mut [u32] , vertices: &[Vertex], indices: &[u16]) {
@@ -143,4 +144,5 @@ impl SwRenderer {
             write_index += 1;
         }
     }
+    */
 }
