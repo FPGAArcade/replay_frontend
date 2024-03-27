@@ -341,7 +341,7 @@ impl Fileorama {
         let data: &[u8] = unsafe {
             std::slice::from_raw_parts(
                 data.as_ptr() as *const u8,
-                data.len() * std::mem::size_of::<T>(),
+                data.len() * std::mem::size_of_val(data),
             )
         };
 
@@ -716,7 +716,7 @@ impl<'a> Loader<'a> {
                 continue;
             }
 
-            if !d.can_create_from_data(node_data, &file_ext_hint) {
+            if !d.can_create_from_data(node_data, file_ext_hint) {
                 continue;
             }
 
@@ -724,7 +724,7 @@ impl<'a> Loader<'a> {
             // Found a driver for this data. Updated the node index with the new driver
             // and switch state to load that from the new driver
             if let Some(new_driver) =
-                d.create_from_data(node_data.clone(), &file_ext_hint, driver_data)
+                d.create_from_data(node_data.clone(), file_ext_hint, driver_data)
             {
                 self.driver_index = vfs.node_drivers.len() as _;
 
@@ -783,15 +783,11 @@ impl<'a> Loader<'a> {
                 NodeDriver::IoDriver(ref mut io_driver) => {
                     let msg = io_driver.load(&current_path, &mut progress)?;
 
-                    match msg {
-                        LoadStatus::Data(in_data) => {
-                            //trace!("Switching to find driver data");
-                            self.data = Some(in_data);
-                            self.state = LoadState::FindDriverData;
-                            return Ok(());
-                        }
-
-                        _ => (),
+                    if let LoadStatus::Data(in_data) = msg {
+                        //trace!("Switching to find driver data");
+                        self.data = Some(in_data);
+                        self.state = LoadState::FindDriverData;
+                        return Ok(());
                     }
 
                     (msg, io_driver.name())
@@ -1131,7 +1127,7 @@ fn handle_msg(
 ) {
     match msg {
         SendMsg::LoadUrl(info, driver_data) => {
-            if let Err(e) = load(vfs, &info, driver_data, io_drivers, mem_drivers) {
+            if let Err(e) = load(vfs, info, driver_data, io_drivers, mem_drivers) {
                 handle_error(e, &info.msg);
             }
         }

@@ -42,33 +42,11 @@ const TILE_PRIM_PREALLOC: usize = 32 * 1024;
 pub const TILE_WIDTH: usize = 128;
 pub const TILE_HEIGHT: usize = 120;
 
-// This macro measures the execution time of the given block and prints it with the specified name.
-#[macro_export]
-macro_rules! measure_time {
-    ($name:expr, $block:block) => {
-        // Check if the "timing_enabled" feature is active
-        #[cfg(feature = "timing_enabled")]
-        {
-            let start = std::time::Instant::now();
-            let result = $block;
-            let duration = start.elapsed();
-            println!("{} took: {} microseconds", $name, duration.as_micros());
-            result
-        }
-        // If "timing_enabled" feature is not active, just execute the block without measuring
-        #[cfg(not(feature = "timing_enabled"))]
-        {
-            $block
-        }
-    };
-}
-
 #[derive(Debug, Clone, Copy)]
 struct TilePosition {
     x: i16,
     y: i16,
 }
-
 
 #[derive(Debug)]
 struct TriangleFlat {
@@ -295,18 +273,6 @@ unsafe fn rasterizer_tile(_tile_buffer: &mut [u32], tile: &Tile, main_buffer: &m
     }
 }
 
-struct RenderDataTempInput8bit {
-    texture0: Vec<u32>,
-    texture1: Vec<u32>,
-    texture2: Vec<u32>,
-}
-
-struct RenderDataTemp8bit<'a> {
-    texture0: &'a [u32], 
-    texture1: &'a [u32], 
-    texture2: &'a [u32],
-}
-
 impl<'a> SwRasterizer<'a> {
     pub fn new(tile_width: usize, tile_height: usize) -> Self {
         let mut tiles = Vec::with_capacity((RENDER_WIDTH / tile_width) * (RENDER_HEIGHT / tile_height));
@@ -457,46 +423,6 @@ impl<'a> SwRasterizer<'a> {
     }
     */
 }
-
-pub fn sol_copy_to_buffer(dest: *mut u32, src: &[u32], offset: usize) {
-    let slice_size = 1920 * (1080 / 4);
-    let slice_start = offset * slice_size;
-    let slice_end = slice_start + slice_size;
-    let src = &src[slice_start..slice_end];
-    let offset = offset * slice_size;
-    let dest = unsafe { dest.add(offset) };
-
-    unsafe {
-        std::ptr::copy_nonoverlapping(src.as_ptr(), dest, src.len());
-    }
-}
-
-pub fn copy_single_threaded(dest: *mut u32, src: &[u32]) {
-    sol_copy_to_buffer(dest, src, 0);
-    sol_copy_to_buffer(dest, src, 1);
-    sol_copy_to_buffer(dest, src, 2);
-    sol_copy_to_buffer(dest, src, 3);
-}
-
-fn copy_tiled(dest: &mut [u32], src: &[u32], offset: usize) {
-    let slice_size = 1920 * (1080 / 4);
-    let slice_start = offset * slice_size;
-    let slice_end = slice_start + slice_size;
-    let src = &src[slice_start..slice_end];
-    let offset = offset * slice_size;
-
-    dest[offset..offset + slice_size].copy_from_slice(src);
-}
-
-// Copy multi threaded using rayon using a parallel iterator
-pub fn copy_multi_threaded(dest_in: *mut u32, src: &[u32]) {
-    let dest_thread = dest_in as u64; 
-    (0..4).into_par_iter().for_each(|i| {
-        let dest = dest_thread as *mut u32;
-        sol_copy_to_buffer(dest, src, i);
-    });
-}
-
 
 #[cfg(test)]
 mod tests {
