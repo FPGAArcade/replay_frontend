@@ -63,6 +63,7 @@ static MENU_ITEMS: [MenuItemInfo; MENU_SELECTION_NAMES_COUNT] = [
     },
 ];
 
+#[allow(dead_code)]
 struct MenuItem {
     pos: Vec2,
     text_size: IVec2,
@@ -82,6 +83,7 @@ enum State {
     Ready,
 }
 
+#[allow(dead_code)]
 pub struct LeftSideMenu {
     selection: MenuSelection,
     items: Vec<MenuItem>,
@@ -129,8 +131,10 @@ impl LeftSideMenu {
     // Calculate the text sizes so we know how large the icon images has to be.
     // We assume that the caller has loaded the font already at this point and will set it
     fn calculate_text_size(&mut self) {
-        let mut options = ImageOptions::default();
-        options.color = Color::new(1.0, 1.0, 1.0, 0.0);
+        let mut options = ImageOptions {
+            color: Color::new(1.0, 1.0, 1.0, 0.0),
+            ..Default::default()
+        };
 
         for menu_item in &mut self.items {
             menu_item.text_size = Ui::calc_text_size(menu_item.text);
@@ -163,24 +167,24 @@ impl LeftSideMenu {
         self.state = State::CalculateLayout;
     }
 
-    fn calculate_layout(&mut self, width: i32, height: i32) -> flowi::Result<()> {
+    fn calculate_layout(&mut self, _width: i32, height: i32) -> flowi::Result<()> {
         let logo_info = Image::get_info(self.logo)?;
         let logo_size = IVec2::new(logo_info.width, logo_info.height);
 
         let mut max_width_icons = 0i32;
         let mut _icons_center_x = 0;
-        let mut spacing_between_items = 14i32;
         let mut total_height = 0i32;
         let mut max_text_width = 0i32;
+        let spacing_between_items = 14i32;
 
         // Get the size of each icon and also handle if the data is not loaded yet. We return false
         // from this function and it will be called again next frame until we returnt true.
         for menu_item in &mut self.items {
             let icon = Image::get_info(menu_item.icon)?;
-            total_height += (menu_item.text_size.y as i32) + spacing_between_items;
+            total_height += menu_item.text_size.y + spacing_between_items;
 
             max_width_icons = max_width_icons.max(icon.width);
-            max_text_width = max_text_width.max(menu_item.text_size.x as i32);
+            max_text_width = max_text_width.max(menu_item.text_size.x);
 
             menu_item.icon_size = Vec2::new(icon.width as f32, icon.height as f32);
 
@@ -211,7 +215,7 @@ impl LeftSideMenu {
 
         self.logo_pos.x = ((total_width - logo_size.x) / 2) as _;
         self.logo_pos.y = 4.0;
-        self.width = (total_width + 40) as i32;
+        self.width = total_width + 40;
         self.height = height;
 
         self.state = State::Ready;

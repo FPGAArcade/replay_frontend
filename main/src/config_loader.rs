@@ -1,10 +1,10 @@
 use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, Progress};
-use flowi::IoHandler;
 use serde::Deserialize;
 use std::collections::HashMap;
 
 static CONFIG_LOADER_NAME: &str = "replay_config_loader";
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Config {
     name: String,
@@ -19,6 +19,7 @@ struct Config {
     include: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Metadata {
     shortname: String,
@@ -30,45 +31,53 @@ struct Metadata {
     icon: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Pll {
     aux: Option<Aux>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Aux {
     freq: f64,
     adjustable: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Variant {
     pll: Option<VariantPll>,
     config: Option<HashMap<String, u32>>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct VariantPll {
     sys: Option<Sys>,
     vid: Option<Vid>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Sys {
     freq: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Vid {
     freq: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Memory {
     verify: bool,
     uploads: Vec<Upload>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct Upload {
     name: String,
@@ -78,12 +87,14 @@ struct Upload {
     repeat: Option<bool>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct ConfigOptions {
     default: u32,
     options: Vec<OptionEntry>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct OptionEntry {
     name: String,
@@ -93,6 +104,7 @@ struct OptionEntry {
     menu: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct OptionValue {
     name: String,
@@ -114,10 +126,7 @@ impl MemoryDriver for ConfigLoader {
     }
 
     fn can_create_from_data(&self, _data: &[u8], file_ext_hint: &str) -> bool {
-        match file_ext_hint {
-            "json" | "json5" => true,
-            _ => false,
-        }
+        matches!(file_ext_hint, "json" | "json5")
     }
 
     fn create_from_data(

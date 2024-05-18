@@ -1,4 +1,4 @@
-use flowi_core::imgui::{DrawCmd, DrawData, DrawVert, FontAtlas, ImDrawIdx};
+//use flowi_core::imgui::{DrawCmd, DrawData, DrawVert, FontAtlas, ImDrawIdx};
 //use crate::bgfx_renderer::BgfxRenderer;
 //use crate::glfw_window::GlfwWindow;
 use crate::sdl_window::Sdl2Window;
@@ -18,7 +18,7 @@ pub(crate) trait Window {
         Self: Sized;
     fn update(&mut self);
     fn should_close(&mut self) -> bool;
-    fn is_focused(&self) -> bool;
+    //fn is_focused(&self) -> bool;
     //fn raw_window_handle(&self) -> RawWindowHandle;
 }
 

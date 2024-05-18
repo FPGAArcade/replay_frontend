@@ -1,4 +1,10 @@
-use rayon::prelude::*;
+//use rayon::prelude::*;
+
+impl Color {
+    pub fn new(r: u16, g: u16, b: u16, a: u16) -> Self {
+        Color { r, g, b, a }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Point {
@@ -10,6 +16,14 @@ pub struct Point {
 pub struct Uv {
     pub u: f32,
     pub v: f32,
+}
+
+#[derive(Default, Debug, Clone, Copy)]
+pub struct Color {
+    pub r: u16,
+    pub g: u16,
+    pub b: u16,
+    pub a: u16,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -26,15 +40,11 @@ impl InternalVertex {
 }
 
 // Define the type `Vertex` based on whether the `imgui` feature is enabled or not.
-#[cfg(feature = "imgui")]
-pub type Vertex = imgui::DrawVert;
-
 #[cfg(not(feature = "imgui"))]
 pub type Vertex = InternalVertex;
 
 const RENDER_WIDTH: usize = 1920;
 const RENDER_HEIGHT: usize = 1080;
-const TILE_PRIM_PREALLOC: usize = 32 * 1024;
 pub const TILE_WIDTH: usize = 128;
 pub const TILE_HEIGHT: usize = 120;
 
@@ -44,6 +54,7 @@ struct TilePosition {
     y: i16,
 }
 
+/*
 #[derive(Debug)]
 struct TriangleFlat {
     vertices: (Point, Point, Point),
@@ -57,6 +68,7 @@ struct TriangleTextured {
     texture: u32,
     color: u32,
 }
+*/
 
 #[derive(Debug)]
 struct QuadFlat {
@@ -64,6 +76,7 @@ struct QuadFlat {
     color: u32,
 }
 
+/*
 #[derive(Debug)]
 struct QuadTextured {
     vertices: (Point, Point),
@@ -71,13 +84,14 @@ struct QuadTextured {
     texture: u32,
     color: u32,
 }
+*/
 
 #[derive(Debug)]
 enum RenderPrimitive {
-    TriangleFlat(TriangleFlat),
-    TriangleTextured(TriangleTextured),
+    //TriangleFlat(TriangleFlat),
+    //TriangleTextured(TriangleTextured),
     QuadFlat(QuadFlat),
-    QuadTextured(QuadTextured),
+    //QuadTextured(QuadTextured),
 }
 
 #[derive(Clone, Default)]
@@ -88,6 +102,7 @@ pub struct CommandBuffer<'a> {
     count: usize,
 }
 
+/*
 #[derive(Debug, Clone)]
 struct TilePrimitives<'a> {
     vertices: Option<&'a [Vertex]>,
@@ -95,6 +110,7 @@ struct TilePrimitives<'a> {
     primitives: Vec<u32>,
     primitive_count: usize,
 }
+*/
 
 #[derive(Debug)]
 pub struct Tile {
@@ -118,13 +134,84 @@ const HAS_SAME_COLOR: u32 = 17;
 const NON_TEXTURED: u32 = 18;
 const IS_QUAD: u32 = 19;
 
+/*
+https://godbolt.org/z/W5ffYx9d5
+Some key takeaways in the SIMD implementation that I figured out:
+Only two shuffles are required
+We can do the compares using u32 as we are only comparing if the floats are equal so this is fine
+By using u32s we can compare the UVs and the colors at the same time
+So when the compares are complete we have a vector with the result (in u32s) x compare, y compare, uv compare, color compare
+I then and this vector with a fixed value which has 1 << IS_QUAD + 1, 1 << IS_QUAD, 1 << NO_TEXTURE, 1 << SAME_COLOR
+Now the result will be some of these if the compare above was success or not.
+Now I use advq in ARM which does a add across lanes which ends up as a single u32 value
+Using this value I shift down by IS_QUAD and if the value is 3 (meaning that both x and y is equal as they have been added) I know how much to advance the index buffer
+*
+#include <stdint.h>
+#include <arm_neon.h>
+
+typedef struct Vertex {
+    float x, y;
+    uint16_t u, v;
+    uint32_t color;
+} Vertex;
+
+const uint32_t HAS_SAME_COLOR = 17;
+const uint32_t NON_TEXTURED = 18;
+const uint32_t IS_QUAD = 19;
+
+uint32_t cat_input_simd(uint32_t* output, const Vertex* vertices, const uint32_t* indices, int count) {
+    uint32_t index = 0;
+    uint32_t write_index = 0;
+    uint32_t total_count = count - 3;
+
+    uint32_t fixed_data[4] = { 1 << (IS_QUAD + 1), 1 << IS_QUAD, 1 << NON_TEXTURED, 1 << HAS_SAME_COLOR };
+    uint32x4_t fixed_shift = vld1q_u32(&fixed_data);
+
+    while (index < total_count) {
+        uint32_t i0 = indices[index + 0];
+        uint32_t i1 = indices[index + 1];
+        uint32_t i2 = indices[index + 2];
+        uint32_t i3 = indices[index + 5];
+
+        uint32x4_t x0y0uv0c0 = vld1q_u32((uint32_t*)(vertices + i0));
+        uint32x4_t x1y1uv1c1 = vld1q_u32((uint32_t*)(vertices + i1));
+        uint32x4_t x2y2uv2c2 = vld1q_u32((uint32_t*)(vertices + i2));
+        uint32x4_t x3y3uv3c3 = vld1q_u32((uint32_t*)(vertices + i3));
+
+        uint32x4_t x3y1uv1c1 = __builtin_shufflevector(x3y3uv3c3, x1y1uv1c1, 0, 5, 6, 7);
+        uint32x4_t x1y3uv3c3 = __builtin_shufflevector(x1y1uv1c1, x3y3uv3c3, 0, 5, 6, 7);
+
+        uint32x4_t cmp0 = vceqq_u32(x0y0uv0c0, x3y1uv1c1);
+        uint32x4_t cmp1 = vceqq_u32(x2y2uv2c2, x1y3uv3c3);
+
+        // 0: same_x
+        // 1: same_y
+        // 2: same_uv
+        // 3: same color
+        uint32x4_t cmp = vandq_u32(cmp0, cmp1);
+        uint32x4_t res = vandq_u32(cmp, fixed_shift);
+        // add across for the final result
+        uint32_t t = vaddvq_u32(res);
+        uint32_t is_quad = t >> IS_QUAD;
+
+        output[write_index] = t | index;
+        index += is_quad == 3 ? 6 : 3;
+        write_index++;
+    }
+
+    return write_index;
+}
+*/
+
+/// # Safety
+/// This function is unsafe because it operates on raw pointers and does not perform bounds checking.
 pub unsafe fn cat_triangles(output: &mut [u32], vertices: &[Vertex], indices: &[u16]) -> usize {
     let mut index = 0;
     let mut write_index = 0;
     let total_count = indices.len() - 3;
 
     while index < total_count {
-        let i0 = *indices.get_unchecked(index + 0);
+        let i0 = *indices.get_unchecked(index);
         let i1 = *indices.get_unchecked(index + 1);
         let i2 = *indices.get_unchecked(index + 2);
         let i3 = *indices.get_unchecked(index + 5);
@@ -143,7 +230,7 @@ pub unsafe fn cat_triangles(output: &mut [u32], vertices: &[Vertex], indices: &[
         // not sure if equal compare will be ok here, must verify how imgui *exactly* calculate this value
         // We short cut this a bit given if two verts has this value, we assume the rest has it
         let white_uv =
-            if v0.uv.u == v1.uv.u && v0.uv.v == v1.uv.v && v2.uv.u == v2.uv.u && v2.uv.v == v3.uv.v
+            if v0.uv.u == v1.uv.u && v0.uv.v == v1.uv.v && v2.uv.u == v3.uv.u && v2.uv.v == v3.uv.v
             {
                 1
             } else {
@@ -160,10 +247,10 @@ pub unsafe fn cat_triangles(output: &mut [u32], vertices: &[Vertex], indices: &[
             0
         };
 
-        let t = ((white_uv << NON_TEXTURED)
+        let t = (white_uv << NON_TEXTURED)
             | (same_color << HAS_SAME_COLOR)
             | (is_quad << IS_QUAD)
-            | (index as u32)) as u32;
+            | (index as u32);
 
         *output.get_unchecked_mut(write_index) = t;
         index += if is_quad == 2 { 6 } else { 3 };
@@ -181,7 +268,7 @@ unsafe fn bin_primitives(tile: &mut Tile, commands: &[CommandBuffer]) {
 
     tile.primitives.clear();
 
-    for (i, command_buffer) in commands.iter().enumerate() {
+    for command_buffer in commands {
         for i in 0..command_buffer.count {
             let vertices = command_buffer.vertices.unwrap_unchecked();
             let indices = command_buffer.index_buffer.unwrap_unchecked();
@@ -204,7 +291,7 @@ unsafe fn bin_primitives(tile: &mut Tile, commands: &[CommandBuffer]) {
             let v3 = vertices.get_unchecked(i3 as usize);
             */
 
-            let i0 = indices[index + 0] as usize;
+            let i0 = indices[index] as usize;
             let i3 = indices[index + 2] as usize;
 
             let v0 = vertices[i0];
@@ -231,6 +318,7 @@ unsafe fn bin_primitives(tile: &mut Tile, commands: &[CommandBuffer]) {
 
                 tile.primitives.push(prim);
             } else {
+                /*
                 let prim = RenderPrimitive::QuadTextured(QuadTextured {
                     vertices: (prim_pos_min, prim_pos_max),
                     uv: (v0.uv, v3.uv),
@@ -239,6 +327,7 @@ unsafe fn bin_primitives(tile: &mut Tile, commands: &[CommandBuffer]) {
                 });
 
                 tile.primitives.push(prim);
+                */
             }
         }
     }
@@ -269,8 +358,7 @@ unsafe fn rasterizer_tile(_tile_buffer: &mut [u32], tile: &Tile, main_buffer: &m
                         main_buffer[index] = quad.color;
                     }
                 }
-            }
-            _ => {}
+            } // _ => {}
         }
     }
 }
@@ -335,6 +423,8 @@ impl<'a> SwRasterizer<'a> {
         self.index += 1;
     }
 
+    /// # Safety
+    /// This function is unsafe because it operates on raw pointers and does not perform bounds checking.
     pub unsafe fn rasterize(&mut self, output: &mut [u32]) {
         // process the command buffers
         let mut tile_buffer = vec![0u32; self.tile_width * self.tile_height];
@@ -357,27 +447,14 @@ impl<'a> SwRasterizer<'a> {
         }
     }
 
-    fn get_tile_buffer(tile: &Tile, tile_buffers: *mut u32) -> &mut [u32] {
-        let len = TILE_WIDTH * TILE_HEIGHT;
-        let offset = tile.local_tile_index * len;
-        unsafe { std::slice::from_raw_parts_mut(tile_buffers.add(offset), len) }
+    #[inline(always)]
+    fn get_tile_buffer<'b>(
+        tile_offset: usize,
+        len: usize,
+        tile_buffers: *mut u32,
+    ) -> &'b mut [u32] {
+        unsafe { std::slice::from_raw_parts_mut(tile_buffers.add(tile_offset), len) }
     }
-
-    /*
-    unsafe fn render_to_tile_8bit(tile_buffer: &mut [u32], tile: &Tile, render_data: &RenderDataTemp8bit) {
-        let tile_min_x = tile.min.x as usize;
-        let tile_min_y = tile.min.y as usize;
-
-        let target_offset = tile_min_y * RENDER_WIDTH + tile_min_x;
-
-        // Copy texture t tile
-        for y in 0..TILE_HEIGHT {
-            let tile_line = &mut tile_buffer[y * TILE_WIDTH..(y + 1) * TILE_WIDTH];
-            let texture_line = &render_data.texture0[target_offset + y * RENDER_WIDTH..(y + 1) * RENDER_WIDTH];
-            tile_line.copy_from_slice(texture_line);
-        }
-    }
-    */
 
     unsafe fn clear_tile(tile_buffer: &mut [u32]) {
         tile_buffer.fill(0x00ff00ff);
@@ -404,9 +481,11 @@ impl<'a> SwRasterizer<'a> {
     }
 
     pub fn clear_all_single(&self, output: &mut [u32], tile_buffers: *mut u32) {
+        let tile_len = TILE_WIDTH * TILE_HEIGHT;
         for tile in self.tiles.iter() {
             unsafe {
-                let tile_buffer = Self::get_tile_buffer(tile, tile_buffers);
+                let tile_offset = tile.local_tile_index * tile_len;
+                let tile_buffer = Self::get_tile_buffer(tile_offset, tile_len, tile_buffers);
                 SwRasterizer::clear_tile(tile_buffer);
                 Self::copy_tile_to_output(output.as_mut_ptr(), tile_buffer, tile);
             }

@@ -5,7 +5,7 @@ use flowi_core::{
 };
 
 use sdl2::{
-    controller::{Axis, Button, GameController},
+    //controller::{Axis, Button, GameController},
     event::Event,
     keyboard::Keycode,
     mouse::MouseButton,
@@ -223,6 +223,7 @@ impl Sdl2Window {
         }
     }
 
+    /*
     fn update_pad(&mut self, controller: &GameController) {
         let digital_buttons = [
             (Key::GamepadBack, Button::Back, 6),
@@ -273,6 +274,7 @@ impl Sdl2Window {
             );
         }
     }
+    */
 
     fn update_texture(texture: &mut Texture, color_shift: u8) -> Result<(), String> {
         texture
@@ -291,7 +293,7 @@ impl Sdl2Window {
 }
 
 impl Window for Sdl2Window {
-    fn new(settings: &ApplicationSettings) -> Self {
+    fn new(_settings: &ApplicationSettings) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
@@ -368,7 +370,7 @@ impl Window for Sdl2Window {
 
         self.update_input();
 
-        Self::update_texture(&mut self.texture, self.shift);
+        Self::update_texture(&mut self.texture, self.shift).unwrap();
 
         self.canvas
             .copy(
@@ -382,12 +384,14 @@ impl Window for Sdl2Window {
         self.shift = self.shift.wrapping_add(1);
     }
 
+    /*
     fn is_focused(&self) -> bool {
         // SDL2 window focus management
         self.canvas.window().window_flags()
             & sdl2::sys::SDL_WindowFlags::SDL_WINDOW_INPUT_FOCUS as u32
             != 0
     }
+    */
 
     fn should_close(&mut self) -> bool {
         self.should_close

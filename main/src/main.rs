@@ -8,6 +8,7 @@ mod systems_view;
 use left_side_menu::LeftSideMenu;
 use systems_view::SystemView;
 
+#[allow(dead_code)]
 pub(crate) enum State {
     Navigating,
     Hidden,
@@ -20,6 +21,7 @@ pub struct Fonts {
     pub rot_header: Font,
 }
 
+#[allow(dead_code)]
 pub(crate) struct App {
     left_side_menu: LeftSideMenu,
     system_view: SystemView,

@@ -6,7 +6,7 @@ members = [
     "flowi",
     "main",
     "sw_rasterizer",
-    "sw_raster_test",
+    # "sw_raster_test",
 ]
 exclude = [
     "tools/api_gen", 

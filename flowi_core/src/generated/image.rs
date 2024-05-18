@@ -163,7 +163,7 @@ impl Image {
             let ret_val = fl_image_get_data_impl(_api.data, image.handle);
             #[cfg(any(feature = "dynamic", feature = "plugin"))]
             let ret_val = (_api.get_data)(_api.data, image.handle);
-            if ret_val.data == std::ptr::null() {
+            if ret_val.data.is_null() {
                 None
             } else {
                 Some(std::slice::from_raw_parts(
