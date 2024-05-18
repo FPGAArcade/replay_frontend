@@ -1,12 +1,12 @@
-use crate::image::{Image};
-use flowi_core::imgui::{FontAtlas};
+use crate::image::Image;
+use flowi_core::imgui::FontAtlas;
 use flowi_core::render::FlowiRenderer;
 use flowi_core::renderer::Texture as CoreTexture;
 use flowi_core::ApplicationSettings;
 use raw_window_handle::RawWindowHandle;
 
 pub struct SwRenderer {
-    pub command_lists: Vec<RenderList>, 
+    pub command_lists: Vec<RenderList>,
 }
 
 // Define the render commands
@@ -29,7 +29,9 @@ impl FlowiRenderer for SwRenderer {
     fn new(_settings: &ApplicationSettings, _window: Option<&RawWindowHandle>) -> Self {
         let _font_atlas = FontAtlas::build_r8_texture();
 
-        Self { command_lists: Vec::new() } 
+        Self {
+            command_lists: Vec::new(),
+        }
     }
 
     fn render(&mut self) {
@@ -77,7 +79,7 @@ impl SwRenderer {
                     render_commands.push(RenderCommand::Quad(i0));
                     index += 6;
                     continue;
-                } 
+                }
 
                 render_commands.push(RenderCommand::Triangle(i0));
                 index += 3;
@@ -87,7 +89,7 @@ impl SwRenderer {
                 commands: render_commands,
             });
         }
-    
+
         render_lists
     }
     */
@@ -115,32 +117,32 @@ impl SwRenderer {
             let v2 = *vertices.get_unchecked(i2 as usize);
             let v3 = *vertices.get_unchecked(i3 as usize);
 
-            let same_color = if  
+            let same_color = if
                 v0.color == v1.color &&
                 v0.color == v2.color &&
                 v0.color == v3.color { 1 } else { 0 };
 
             // not sure if equal compare will be ok here, must verify how imgui *exactly* calculate this value
             // We short cut this a bit given if two verts has this value, we assume the rest has it
-            let white_uv = if 
+            let white_uv = if
                 v0.u == white_u &&
                 v0.v == white_v &&
                 v3.u == white_u &&
                 v3.v == white_v { 1 } else { 0 };
 
-            let is_quad = if 
+            let is_quad = if
                 v0.x == v3.x &&
                 v0.y == v1.y &&
-                v1.x == v2.x && 
+                v1.x == v2.x &&
                 v2.y == v3.y { 1 } else { 0 };
 
-            let t = ((white_uv << NON_TEXTURED) 
-                | (same_color << HAS_SAME_COLOR) 
-                | (is_quad << IS_QUAD) 
+            let t = ((white_uv << NON_TEXTURED)
+                | (same_color << HAS_SAME_COLOR)
+                | (is_quad << IS_QUAD)
                 | (index as u32)) as u32;
 
-            *output.get_unchecked_mut(write_index) = t; 
-            index += if is_quad != 0 { 6 } else { 3 }; 
+            *output.get_unchecked_mut(write_index) = t;
+            index += if is_quad != 0 { 6 } else { 3 };
             write_index += 1;
         }
     }

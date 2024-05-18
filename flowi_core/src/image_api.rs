@@ -6,17 +6,13 @@ use resvg::{tiny_skia, usvg, usvg::TreeParsing};
 
 use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
 use thiserror::Error as ThisError;
-    
+
 use zune_core::{
-    colorspace::ColorSpace as ZuneColorSpace,
+    bit_depth::BitDepth, colorspace::ColorSpace as ZuneColorSpace,
     options::DecoderOptions as ZuneDecoderOptions,
-    bit_depth::BitDepth,
 };
 
-use zune_image::{
-    errors::ImageErrors as ZuneError, 
-    image::Image as ZuneImage,
-};
+use zune_image::{errors::ImageErrors as ZuneError, image::Image as ZuneImage};
 
 //use zune_jpeg::zune_core::colorspace::ColorSpace;
 
@@ -191,7 +187,7 @@ impl MemoryDriver for ImageLoader {
     fn can_create_from_data(&self, data: &[u8], file_ext_hint: &str) -> bool {
         // we use the file_ext_hint to try to speed up the process
         match file_ext_hint {
-            "jpg" | "jpeg" | "png" => return true, 
+            "jpg" | "jpeg" | "png" => return true,
 
             "svg" => {
                 let opt = usvg::Options::default();
@@ -215,7 +211,7 @@ impl MemoryDriver for ImageLoader {
         driver_data: &Option<Box<[u8]>>,
     ) -> Option<MemoryDriverType> {
         let options = if let Some(input_data) = driver_data {
-            let io: &ImageOptions = unsafe { &*(input_data.as_ptr() as *const ImageOptions) }; 
+            let io: &ImageOptions = unsafe { &*(input_data.as_ptr() as *const ImageOptions) };
             Some(*io)
         } else {
             None

@@ -1,8 +1,8 @@
-use minifb::{Key, Window, WindowOptions};
-use sw_rasterizer::{Vertex, SwRasterizer, Point, Uv, TILE_WIDTH, TILE_HEIGHT};
-use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
+use minifb::{Key, Window, WindowOptions};
+use std::io::Cursor;
 use std::io::Read;
+use sw_rasterizer::{Point, SwRasterizer, Uv, Vertex, TILE_HEIGHT, TILE_WIDTH};
 
 const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
@@ -97,20 +97,19 @@ impl TempRenderData {
     }
 }
 
-// Generate a 1920x1080 u32 buffer with xor pattern 
+// Generate a 1920x1080 u32 buffer with xor pattern
 fn generate_xor_buffer() -> Vec<u32> {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
 
     for y in 0..HEIGHT {
         for x in 0..WIDTH {
             let xor_color = ((x ^ y) & 0xff) as u32;
-            buffer[y * WIDTH + x] = (xor_color << 16) | (xor_color << 8) | xor_color; 
+            buffer[y * WIDTH + x] = (xor_color << 16) | (xor_color << 8) | xor_color;
         }
     }
 
     buffer
 }
-
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
@@ -122,7 +121,8 @@ fn main() {
         WindowOptions {
             resize: false,
             ..WindowOptions::default()
-        })
+        },
+    )
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
@@ -144,13 +144,11 @@ fn main() {
             *i = 0x00224411; // write something more funny here!
         }
 
-            
         sw_raster.begin(render_data.render_passes.len());
 
         for pass in render_data.render_passes.iter() {
             sw_raster.add_vertices(&pass.vertices, &pass.indices);
         }
-
 
         let start = std::time::Instant::now();
         //sw_raster.clear_all_single(&mut buffer, &mut tile_buffers);
@@ -167,8 +165,6 @@ fn main() {
         //draw_tile_grid(&mut buffer);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        window
-            .update_with_buffer(&buffer, WIDTH, HEIGHT)
-            .unwrap();
+        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }

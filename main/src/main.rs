@@ -1,9 +1,9 @@
 use flowi::font::Font;
 use flowi::Application;
 
+mod config_loader;
 mod left_side_menu;
 mod systems_view;
-mod config_loader;
 
 use left_side_menu::LeftSideMenu;
 use systems_view::SystemView;

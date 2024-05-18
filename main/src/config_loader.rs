@@ -1,6 +1,6 @@
+use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
 use serde::Deserialize;
 use std::collections::HashMap;
-use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
 
 static CONFIG_LOADER_NAME: &str = "replay_config_loader";
 
@@ -114,17 +114,19 @@ impl MemoryDriver for ConfigLoader {
 
     fn can_create_from_data(&self, _data: &[u8], file_ext_hint: &str) -> bool {
         match file_ext_hint {
-            "json" | "json5" => true, 
+            "json" | "json5" => true,
             _ => false,
         }
     }
 
-    fn create_from_data(&self, data: Box<[u8]>, file_ext_hint: &str, _driver_data: &Option<Box<[u8]>>) 
-        -> Option<Box<dyn MemoryDriver>> {
+    fn create_from_data(
+        &self,
+        data: Box<[u8]>,
+        file_ext_hint: &str,
+        _driver_data: &Option<Box<[u8]>>,
+    ) -> Option<Box<dyn MemoryDriver>> {
         match file_ext_hint {
-            "json" | "json5" => {
-                Some(Box::new(ConfigLoader { data }))
-            }
+            "json" | "json5" => Some(Box::new(ConfigLoader { data })),
             _ => None,
         }
     }
@@ -134,15 +136,20 @@ impl MemoryDriver for ConfigLoader {
         let string_slice: &str = unsafe { std::str::from_utf8_unchecked(slice) };
 
         let config: Config = match json5::from_str(string_slice) {
-            Ok(config) => config, 
+            Ok(config) => config,
 
             Err(e) => {
                 progress.step()?;
-                return Err(Error::Generic(format!("Error loading config file: {:?}", e)));
+                return Err(Error::Generic(format!(
+                    "Error loading config file: {:?}",
+                    e
+                )));
             }
         };
-                
+
         progress.step()?;
-        Ok(LoadStatus::Data(fileorama::Fileorama::convert_to_box_u8(Box::new(config))))
+        Ok(LoadStatus::Data(fileorama::Fileorama::convert_to_box_u8(
+            Box::new(config),
+        )))
     }
 }

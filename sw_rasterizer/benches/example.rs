@@ -1,7 +1,7 @@
-use divan::{Bencher, black_box};
-use sw_rasterizer::{cat_triangles, Vertex, copy_single_threaded, copy_multi_threaded};
-use rand::{Rng, SeedableRng};
+use divan::{black_box, Bencher};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use sw_rasterizer::{cat_triangles, copy_multi_threaded, copy_single_threaded, Vertex};
 
 fn main() {
     // Run registered benchmarks.
@@ -30,7 +30,7 @@ fn prof_cat_triangles(bencher: Bencher, n: u64) {
             vertices[vert + i].pos.y = rng.gen_range(0.0..1.0);
 
             if same_color {
-                vertices[vert + i].color = 0; 
+                vertices[vert + i].color = 0;
             } else {
                 vertices[vert + i].color = rng.gen_range(0..255);
             }
@@ -44,7 +44,7 @@ fn prof_cat_triangles(bencher: Bencher, n: u64) {
             }
         }
 
-        if gen_quad { 
+        if gen_quad {
             indices[index + 0] = vertex_index as u16;
             indices[index + 1] = (vertex_index + 1) as u16;
             indices[index + 2] = (vertex_index + 2) as u16;
@@ -54,7 +54,6 @@ fn prof_cat_triangles(bencher: Bencher, n: u64) {
 
             vertex_index += 4;
             index += 6;
-
         } else {
             indices[index + 0] = vertex_index as u16;
             indices[index + 1] = (vertex_index + 1) as u16;
@@ -67,10 +66,12 @@ fn prof_cat_triangles(bencher: Bencher, n: u64) {
         vert += 6;
     }
 
-    bencher.bench_local(move || {
-        unsafe {
-            cat_triangles(black_box(&mut out), black_box(&vertices), black_box(&indices));
-        }
+    bencher.bench_local(move || unsafe {
+        cat_triangles(
+            black_box(&mut out),
+            black_box(&vertices),
+            black_box(&indices),
+        );
     });
 }
 
@@ -121,5 +122,3 @@ fn sol_copy_3_multi(bencher: Bencher) {
         copy_multi_threaded(black_box(buffer.as_mut_ptr()), black_box(&input2));
     });
 }
-
-

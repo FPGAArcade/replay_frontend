@@ -440,16 +440,15 @@ impl Fileorama {
     /// assert_eq!(boxed_bytes.len(), std::mem::size_of::<Example>());
     /// ```
     ///
-    pub fn convert_to_box_u8<T>(data: Box<T>) -> Box<[u8]> 
-        where
-            T: Sized,
+    pub fn convert_to_box_u8<T>(data: Box<T>) -> Box<[u8]>
+    where
+        T: Sized,
     {
         let raw_ptr: *mut T = Box::into_raw(data);
         let size = std::mem::size_of::<T>();
 
-        let raw_slice: *mut [u8] = unsafe {
-            std::slice::from_raw_parts_mut(raw_ptr as *mut u8, size)
-        };
+        let raw_slice: *mut [u8] =
+            unsafe { std::slice::from_raw_parts_mut(raw_ptr as *mut u8, size) };
 
         // Step 4: Convert the raw slice to a Box<[u8]>
         let boxed_bytes: Box<[u8]> = unsafe { Box::from_raw(raw_slice) };

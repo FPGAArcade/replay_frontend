@@ -16,16 +16,12 @@ pub struct Uv {
 pub struct InternalVertex {
     pub pos: Point,
     pub uv: Uv,
-    pub color: u32
+    pub color: u32,
 }
 
 impl InternalVertex {
     pub fn new(pos: Point, uv: Uv, color: u32) -> Self {
-        InternalVertex {
-            pos,
-            uv,
-            color
-        }
+        InternalVertex { pos, uv, color }
     }
 }
 
@@ -122,7 +118,7 @@ const HAS_SAME_COLOR: u32 = 17;
 const NON_TEXTURED: u32 = 18;
 const IS_QUAD: u32 = 19;
 
-pub unsafe fn cat_triangles(output: &mut [u32] , vertices: &[Vertex], indices: &[u16]) -> usize {
+pub unsafe fn cat_triangles(output: &mut [u32], vertices: &[Vertex], indices: &[u16]) -> usize {
     let mut index = 0;
     let mut write_index = 0;
     let total_count = indices.len() - 3;
@@ -138,32 +134,39 @@ pub unsafe fn cat_triangles(output: &mut [u32] , vertices: &[Vertex], indices: &
         let v2 = *vertices.get_unchecked(i2 as usize);
         let v3 = *vertices.get_unchecked(i3 as usize);
 
-        let same_color = if  
-            v0.color == v1.color &&
-            v0.color == v2.color &&
-            v0.color == v3.color { 1 } else { 0 };
+        let same_color = if v0.color == v1.color && v0.color == v2.color && v0.color == v3.color {
+            1
+        } else {
+            0
+        };
 
         // not sure if equal compare will be ok here, must verify how imgui *exactly* calculate this value
         // We short cut this a bit given if two verts has this value, we assume the rest has it
-        let white_uv = if 
-            v0.uv.u == v1.uv.u &&
-            v0.uv.v == v1.uv.v &&
-            v2.uv.u == v2.uv.u &&
-            v2.uv.v == v3.uv.v { 1 } else { 0 };
+        let white_uv =
+            if v0.uv.u == v1.uv.u && v0.uv.v == v1.uv.v && v2.uv.u == v2.uv.u && v2.uv.v == v3.uv.v
+            {
+                1
+            } else {
+                0
+            };
 
-        let is_quad = if 
-            v0.pos.x == v3.pos.x &&
-            v1.pos.x == v2.pos.x && 
-            v0.pos.y == v1.pos.y &&
-            v2.pos.y == v3.pos.y { 2 } else { 0 };
+        let is_quad = if v0.pos.x == v3.pos.x
+            && v1.pos.x == v2.pos.x
+            && v0.pos.y == v1.pos.y
+            && v2.pos.y == v3.pos.y
+        {
+            2
+        } else {
+            0
+        };
 
-        let t = ((white_uv << NON_TEXTURED) 
-            | (same_color << HAS_SAME_COLOR) 
-            | (is_quad << IS_QUAD) 
+        let t = ((white_uv << NON_TEXTURED)
+            | (same_color << HAS_SAME_COLOR)
+            | (is_quad << IS_QUAD)
             | (index as u32)) as u32;
 
-        *output.get_unchecked_mut(write_index) = t; 
-        index += if is_quad == 2 { 6 } else { 3 }; 
+        *output.get_unchecked_mut(write_index) = t;
+        index += if is_quad == 2 { 6 } else { 3 };
         write_index += 1;
     }
 
@@ -179,7 +182,6 @@ unsafe fn bin_primitives(tile: &mut Tile, commands: &[CommandBuffer]) {
     tile.primitives.clear();
 
     for (i, command_buffer) in commands.iter().enumerate() {
-
         for i in 0..command_buffer.count {
             let vertices = command_buffer.vertices.unwrap_unchecked();
             let indices = command_buffer.index_buffer.unwrap_unchecked();
@@ -201,21 +203,22 @@ unsafe fn bin_primitives(tile: &mut Tile, commands: &[CommandBuffer]) {
             let v0 = vertices.get_unchecked(i0 as usize);
             let v3 = vertices.get_unchecked(i3 as usize);
             */
-            
+
             let i0 = indices[index + 0] as usize;
             let i3 = indices[index + 2] as usize;
 
             let v0 = vertices[i0];
             let v3 = vertices[i3];
 
-            let prim_pos_min = v0.pos; 
-            let prim_pos_max = v3.pos; 
+            let prim_pos_min = v0.pos;
+            let prim_pos_max = v3.pos;
 
             // skip if the primitive is fully outside the tile, but keep if it's partially inside
             // and fully inside
-            
-            if (prim_pos_max.x < tile_min_x || prim_pos_min.x > tile_max_x) || 
-                prim_pos_max.y < tile_min_y || prim_pos_min.y > tile_max_y 
+
+            if (prim_pos_max.x < tile_min_x || prim_pos_min.x > tile_max_x)
+                || prim_pos_max.y < tile_min_y
+                || prim_pos_min.y > tile_max_y
             {
                 continue;
             }
@@ -227,11 +230,10 @@ unsafe fn bin_primitives(tile: &mut Tile, commands: &[CommandBuffer]) {
                 });
 
                 tile.primitives.push(prim);
-            } 
-            else {
+            } else {
                 let prim = RenderPrimitive::QuadTextured(QuadTextured {
                     vertices: (prim_pos_min, prim_pos_max),
-                    uv: (v0.uv, v3.uv), 
+                    uv: (v0.uv, v3.uv),
                     texture: 0,
                     color: v0.color,
                 });
@@ -275,15 +277,22 @@ unsafe fn rasterizer_tile(_tile_buffer: &mut [u32], tile: &Tile, main_buffer: &m
 
 impl<'a> SwRasterizer<'a> {
     pub fn new(tile_width: usize, tile_height: usize) -> Self {
-        let mut tiles = Vec::with_capacity((RENDER_WIDTH / tile_width) * (RENDER_HEIGHT / tile_height));
+        let mut tiles =
+            Vec::with_capacity((RENDER_WIDTH / tile_width) * (RENDER_HEIGHT / tile_height));
         let mut tile_index = 0;
 
         for y in (0..RENDER_HEIGHT).step_by(tile_height) {
             for x in (0..RENDER_WIDTH).step_by(tile_width) {
                 tiles.push(Tile {
                     primitives: Vec::new(),
-                    min: TilePosition { x: x as i16, y: y as i16 },
-                    max: TilePosition { x: (x + tile_width) as i16, y: (y + tile_height) as i16 },
+                    min: TilePosition {
+                        x: x as i16,
+                        y: y as i16,
+                    },
+                    max: TilePosition {
+                        x: (x + tile_width) as i16,
+                        y: (y + tile_height) as i16,
+                    },
                     local_tile_index: tile_index & 0x3,
                 });
 
@@ -300,7 +309,7 @@ impl<'a> SwRasterizer<'a> {
         }
     }
 
-    /// Begin a new frame. vertex_lists is the number of vertex lists will be processed this frame 
+    /// Begin a new frame. vertex_lists is the number of vertex lists will be processed this frame
     pub fn begin(&mut self, vertex_lists: usize) {
         self.commands.clear();
         self.index = 0;
@@ -315,11 +324,11 @@ impl<'a> SwRasterizer<'a> {
         let command_buffer = &mut self.commands[index];
 
         // Ensure the command buffer is large enough to hold the new commands
-        if command_buffer.commands.len() < indices.len() { 
+        if command_buffer.commands.len() < indices.len() {
             command_buffer.commands.resize(indices.len(), 0);
         }
 
-        command_buffer.count = 0; 
+        command_buffer.count = 0;
         command_buffer.vertices = Some(vertices);
         command_buffer.index_buffer = Some(indices);
 
@@ -329,7 +338,7 @@ impl<'a> SwRasterizer<'a> {
     pub unsafe fn rasterize(&mut self, output: &mut [u32]) {
         // process the command buffers
         let mut tile_buffer = vec![0u32; self.tile_width * self.tile_height];
-        
+
         for i in 0..self.index {
             let command_buffer = &mut self.commands[i];
             let vertices = command_buffer.vertices.unwrap_unchecked();
@@ -351,9 +360,7 @@ impl<'a> SwRasterizer<'a> {
     fn get_tile_buffer(tile: &Tile, tile_buffers: *mut u32) -> &mut [u32] {
         let len = TILE_WIDTH * TILE_HEIGHT;
         let offset = tile.local_tile_index * len;
-        unsafe {
-            std::slice::from_raw_parts_mut(tile_buffers.add(offset), len)
-        }
+        unsafe { std::slice::from_raw_parts_mut(tile_buffers.add(offset), len) }
     }
 
     /*
@@ -384,8 +391,13 @@ impl<'a> SwRasterizer<'a> {
 
         // copy tile back to main buffer
         for y in 0..TILE_HEIGHT {
-            // get target output slice 
-            let output_line = unsafe { std::slice::from_raw_parts_mut(output.add(target_offset + y * RENDER_WIDTH), TILE_WIDTH) }; 
+            // get target output slice
+            let output_line = unsafe {
+                std::slice::from_raw_parts_mut(
+                    output.add(target_offset + y * RENDER_WIDTH),
+                    TILE_WIDTH,
+                )
+            };
             let tile_line = &tile_buffer[y * TILE_WIDTH..(y + 1) * TILE_WIDTH];
             output_line.copy_from_slice(tile_line);
         }
@@ -445,8 +457,8 @@ mod tests {
 
         assert_eq!(count, 1);
         assert_eq!((output[0] >> IS_QUAD) & 3, 2);
-        assert_eq!((output[0] >> NON_TEXTURED) & 1, 1); 
-        assert_eq!((output[0] >> HAS_SAME_COLOR) & 1, 1) 
+        assert_eq!((output[0] >> NON_TEXTURED) & 1, 1);
+        assert_eq!((output[0] >> HAS_SAME_COLOR) & 1, 1)
     }
 
     #[test]
@@ -468,8 +480,8 @@ mod tests {
 
         assert_eq!(count, 1);
         assert_eq!((output[0] >> IS_QUAD) & 3, 0);
-        assert_eq!((output[0] >> NON_TEXTURED) & 1, 1); 
-        assert_eq!((output[0] >> HAS_SAME_COLOR) & 1, 1) 
+        assert_eq!((output[0] >> NON_TEXTURED) & 1, 1);
+        assert_eq!((output[0] >> HAS_SAME_COLOR) & 1, 1)
     }
 
     #[test]
@@ -496,12 +508,12 @@ mod tests {
 
         assert_eq!(count, 2);
         assert_eq!((output[0] >> IS_QUAD) & 3, 2);
-        assert_eq!((output[0] >> NON_TEXTURED) & 1, 1); 
+        assert_eq!((output[0] >> NON_TEXTURED) & 1, 1);
         assert_eq!((output[0] >> HAS_SAME_COLOR) & 1, 1);
 
         assert_eq!((output[1] >> IS_QUAD) & 3, 0);
-        assert_eq!((output[1] >> NON_TEXTURED) & 1, 1); 
-        assert_eq!((output[1] >> HAS_SAME_COLOR) & 1, 1); 
+        assert_eq!((output[1] >> NON_TEXTURED) & 1, 1);
+        assert_eq!((output[1] >> HAS_SAME_COLOR) & 1, 1);
     }
     */
 }
