@@ -404,6 +404,58 @@ impl Fileorama {
 
         Self { main_send }
     }
+
+    /// Converts a `Box<T>` to a `Box<[u8]>` without any extra overhead.
+    ///
+    /// This function takes a boxed value of a type `T` and reinterprets the memory as a byte slice.
+    /// It ensures no additional copying or allocation is performed, thus maintaining performance.
+    ///
+    /// # Safety
+    ///
+    /// - The type `T` must have a well-defined memory layout, typically ensured by using `#[repr(C)]`.
+    /// - After conversion, the original `Box<T>` is no longer valid and must not be used.
+    /// - The function assumes the entire memory of `T` can be safely interpreted as a byte slice.
+    ///
+    /// # Parameters
+    ///
+    /// - `data`: A boxed value of type `T` that is to be converted to a boxed byte slice.
+    ///
+    /// # Returns
+    ///
+    /// A `Box<[u8]>` containing the raw bytes of the input boxed value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[repr(C)]
+    /// struct Example {
+    ///     a: u32,
+    ///     b: f64,
+    /// }
+    ///
+    /// let example = Example { a: 42, b: 3.14 };
+    /// let boxed_example = Box::new(example);
+    /// let boxed_bytes = convert_to_box_u8(boxed_example);
+    ///
+    /// assert_eq!(boxed_bytes.len(), std::mem::size_of::<Example>());
+    /// ```
+    ///
+    pub fn convert_to_box_u8<T>(data: Box<T>) -> Box<[u8]> 
+        where
+            T: Sized,
+    {
+        let raw_ptr: *mut T = Box::into_raw(data);
+        let size = std::mem::size_of::<T>();
+
+        let raw_slice: *mut [u8] = unsafe {
+            std::slice::from_raw_parts_mut(raw_ptr as *mut u8, size)
+        };
+
+        // Step 4: Convert the raw slice to a Box<[u8]>
+        let boxed_bytes: Box<[u8]> = unsafe { Box::from_raw(raw_slice) };
+
+        boxed_bytes
+    }
 }
 
 impl Default for Fileorama {

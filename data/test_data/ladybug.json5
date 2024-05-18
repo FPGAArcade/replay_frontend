@@ -1,0 +1,278 @@
+{
+    // Ladybug - base configuration
+    name: "Ladybug",
+    base: "Empty",
+    template: true,
+    metadata: {
+        shortname: "Ladybug",
+        fullname: "Ladybug '19 A.L.",
+        manufacturer: "",
+        year: "2019",
+        info: "
+            Replay/Ladybug '19 A.L.
+            ---- Joystick in Port A ----
+            Lady Bug control
+            ----- Keyboard cursors -----
+            5: coin             1: start
+        ",
+        tags: [
+            "Game",
+            "Replay",
+            "Arcade"
+        ],
+        icon: '' // base64 encoded png image
+    },
+
+    pll: {
+        sys: {
+            freq: 78.54545 // MHz
+        },
+        vid: {
+            freq: 25.175 // MHz
+        },
+        aux: {
+            freq: 49.152, // MHz
+            adjustable: true // adjustable from the OSD
+        }
+    },
+
+    coder: {
+        system: "NTSC_NOTRAP",
+        filter: {
+            dc: 0,
+            high: 0,
+            low: 3
+        }
+    },
+
+    interfaces: {
+        twi: true,
+        spi: {
+            cfg: true,
+            osd: true
+        },
+        button: "menu"
+    },
+
+    video: {
+        settings: [
+            0x00, 0x48, 0xC0, 0x80, 0x00, 0x01, 0x00, 0x80, 0x08, 0x16, 0x30, 0x60, 0x00, 0x18, 0xC0, 0x00
+        ]
+    },
+
+    memory: {
+        verify: true,
+        uploads: [
+            {
+                name: "lb1.cpu",
+                address: 0x80000000,
+                size: 4096
+            },
+            {
+                name: "lb2.cpu",
+                address: 0x80001000,
+                size: 4096
+            },
+            {
+                name: "lb3.cpu",
+                address: 0x80002000,
+                size: 4096
+            },
+            {
+                name: "lb4.cpu",
+                address: 0x80003000,
+                size: 4096
+            },
+            {
+                name: "lb5.cpu",
+                address: 0x80004000,
+                size: 4096
+            },
+            {
+                name: "lb6.cpu",
+                address: 0x80005000,
+                size: 4096
+            },
+            {
+                name: "lb10.vid",
+                address: 0x80008000,
+                size: 4096
+            },
+            {
+                name: "lb9.vid",
+                address: 0x80009000,
+                size: 4096
+            },
+            {
+                name: "lb7.cpu",
+                address: 0x8000A000,
+                size: 4096
+            },
+            {
+                name: "lb8.cpu",
+                address: 0x8000B000,
+                size: 4096
+            },
+            {
+                name: "10-1.vid",
+                address: 0x8000C000,
+                size: 4096
+            },
+            {
+                name: "10-3.vid",
+                address: 0x8000D000,
+                size: 4096
+            },
+            {
+                name: "10-2.vid",
+                address: 0x8000E000,
+                size: 4096
+            }
+        ]
+    },
+
+    config: {
+        default: 0x00060000,
+        options: [
+            {
+                name: "Audio level",
+                bits: "17,16",
+                options: [
+                    { name: "Max (3)", value: 0x00060000 },
+                    { name: "Med (2)", value: 0x00040000 },
+                    { name: "Med (1)", value: 0x00020000 },
+                    { name: "Min (0)", value: 0x00000000, default: true }
+                ],
+                menu: "Lady Bug Audio/Video"
+            },
+            {
+                name: "Scanlines",
+                bits: "21,20",
+                options: [
+                    { name: "Max (3)", value: 0x00300000 },
+                    { name: "Med (2)", value: 0x00200000 },
+                    { name: "Min (1)", value: 0x00100000, default: true },
+                    { name: "No (0)", value: 0x00000000 }
+                ],
+                menu: "Lady Bug Audio/Video"
+            },
+            {
+                name: "Doublescan",
+                bits: "0",
+                options: [
+                    { name: "on", value: 0x00000001, default: true },
+                    { name: "off", value: 0x00000000 }
+                ],
+                menu: "Lady Bug Audio/Video"
+            },
+            {
+                name: "CPU Decrypt",
+                bits: "1",
+                options: [
+                    { name: "Lady Bug", value: 0x00000000, default: true },
+                    { name: "Dorodon", value: 0x00000002 }
+                ],
+                menu: "Lady Bug Audio/Video"
+            },
+            {
+                name: "Lady Bugs per Game",
+                bits: "7",
+                options: [
+                    { name: "3 Lady Bugs", value: 0x00000080, default: true },
+                    { name: "5 Lady Bugs", value: 0x00000000 }
+                ],
+                menu: "Lady Bug DIP0"
+            },
+            {
+                name: "Free Play",
+                bits: "6",
+                options: [
+                    { name: "No Free Play", value: 0x00000040, default: true },
+                    { name: "Free Play", value: 0x00000000 }
+                ],
+                menu: "Lady Bug DIP0"
+            },
+            {
+                name: "Cabinet",
+                bits: "5",
+                options: [
+                    { name: "Upright", value: 0x00000000, default: true },
+                    { name: "Cocktail", value: 0x00000020 }
+                ],
+                menu: "Lady Bug DIP0"
+            },
+            {
+                name: "Screen Freeze",
+                bits: "4",
+                options: [
+                    { name: "No Freeze", value: 0x00000010, default: true },
+                    { name: "Freeze", value: 0x00000000 }
+                ],
+                menu: "Lady Bug DIP0"
+            },
+            {
+                name: "Rack Test (Cheat)",
+                bits: "3",
+                options: [
+                    { name: "Off", value: 0x00000008, default: true },
+                    { name: "On", value: 0x00000000 }
+                ],
+                menu: "Lady Bug DIP0"
+            },
+            {
+                name: "Score Initials",
+                bits: "2",
+                options: [
+                    { name: "10-Letter", value: 0x00000004, default: true },
+                    { name: "3-Letter", value: 0x00000000 }
+                ],
+                menu: "Lady Bug DIP0"
+            },
+            {
+                name: "Difficulty",
+                bits: "1,0",
+                options: [
+                    { name: "Easy", value: 0x00000003, default: true },
+                    { name: "Medium", value: 0x00000002 },
+                    { name: "Hard", value: 0x00000001 },
+                    { name: "Hardest", value: 0x00000000 }
+                ],
+                menu: "Lady Bug DIP0"
+            },
+            {
+                name: "Pricing P1",
+                bits: "11,10,9,8",
+                options: [
+                    { name: "1 Coin 1 Credit", value: 0x00000f00, default: true },
+                    { name: "1 Coin 2 Credits", value: 0x00000e00 },
+                    { name: "1 Coin 3 Credits", value: 0x00000d00 },
+                    { name: "1 Coin 4 Credits", value: 0x00000c00 },
+                    { name: "1 Coin 5 Credits", value: 0x00000b00 },
+                    { name: "2 Coins 1 Credit", value: 0x00000a00 },
+                    { name: "2 Coins 3 Credits", value: 0x00000900 },
+                    { name: "3 Coins 1 Credit", value: 0x00000800 },
+                    { name: "3 Coins 2 Credits", value: 0x00000700 },
+                    { name: "4 Coins 1 Credit", value: 0x00000600 }
+                ],
+                menu: "Lady Bug DIP1"
+            },
+            {
+                name: "Pricing P2",
+                bits: "15,14,13,12",
+                options: [
+                    { name: "1 Coin 1 Credit", value: 0x0000f000, default: true },
+                    { name: "1 Coin 2 Credits", value: 0x0000e000 },
+                    { name: "1 Coin 3 Credits", value: 0x0000d000 },
+                    { name: "1 Coin 4 Credits", value: 0x0000c000 },
+                    { name: "1 Coin 5 Credits", value: 0x0000b000 },
+                    { name: "2 Coins 1 Credit", value: 0x0000a000 },
+                    { name: "2 Coins 3 Credits", value: 0x00009000 },
+                    { name: "3 Coins 1 Credit", value: 0x00008000 },
+                    { name: "3 Coins 2 Credits", value: 0x00007000 },
+                    { name: "4 Coins 1 Credit", value: 0x00006000 }
+                ],
+                menu: "Lady Bug DIP1"
+            }
+        ]
+    }
+}

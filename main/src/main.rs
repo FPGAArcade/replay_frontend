@@ -3,6 +3,7 @@ use flowi::Application;
 
 mod left_side_menu;
 mod systems_view;
+mod config_loader;
 
 use left_side_menu::LeftSideMenu;
 use systems_view::SystemView;
