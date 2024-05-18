@@ -8,23 +8,8 @@
         fullname: "Commodore Amiga",
         manufacturer: "Commodre",
         year: "1985",
-        info: "
-            Amiga is a family of personal computers introduced
-            by Commodore in 1985. The original model is one of a
-            number of mid-1980s computers with 16- or 32-bit
-            processors, 256 KB or more of RAM, mouse-based GUIs,
-            and significantly improved graphics and audio compared
-            to previous 8-bit systems. This includes the Atari
-            ST—released earlier the same year—as well as the
-            Macintosh and Acorn Archimedes. Based on the Motorola
-            68000 microprocessor, the Amiga differs from its
-            contemporaries through the inclusion of custom hardware
-            to accelerate graphics and sound, including sprites and
-            a blitter, and a pre-emptive multitasking operating
-            system called AmigaOS. (Wikipedia)
-        ",
-        tags: [
-            "Computer",
+        info: "Amiga is a family of personal computers introduced by Commodore in 1985. The original model is one of a number of mid-1980s computers with 16- or 32-bit processors, 256 KB or more of RAM, mouse-based GUIs, and significantly improved graphics and audio compared to previous 8-bit systems. This includes the Atari ST—released earlier the same year—as well as the Macintosh and Acorn Archimedes. Based on the Motorola 68000 microprocessor, the Amiga differs from its contemporaries through the inclusion of custom hardware to accelerate graphics and sound, including sprites and a blitter, and a pre-emptive multitasking operating system called AmigaOS. (Wikipedia) ", 
+        tags: [ "Computer",
             "Commodore",
             "Motorola",
             "68000"
@@ -38,37 +23,6 @@
             adjustable: true    // adjustable from the OSD
         }
     },
-
-    variants: [
-        // variants are applied at root level in the config tree, and are always visible
-        "NTSC": {
-            pll: {
-                sys: {
-                    freq: 114.54545 // MHz
-                },
-                vid: {
-                    freq: 28.63636 // MHz, sys / 4
-                    // $TODO - need to figure how to depend on another pll source
-                }
-            },
-            config: {
-                default: 0x1234   // NTSC enabled
-            }
-        },
-        "PAL": {
-            pll: {
-                sys: {
-                    freq: 113.50064 // MHz
-                },
-                vid: {
-                    freq: 28.37516 // MHz, sys / 4
-                }
-            },
-            config: {
-                default: 0x1234   // PAL enabled
-            }
-        }
-    ],
 
     boards: [
         // board specific configurations; if matches, applies after (re)loading cfg
@@ -346,65 +300,3 @@
         ]
     }
 }
-
-// Amiga AGA - specialization
-{
-    name: "Amiga AGA",
-    base: "Amiga",
-    include: "amiga_template.yaml",  // include more config definitions;
-            // will always process all yaml's in the current dir
-    config: [
-        // SOFTCORE CPU OPTIONS
-        {
-            name: "CPU Type",
-            bits: "1,0",
-            options: [
-                { name: "68000" },
-                { name: "68010" },
-                { name: "68EC020" },
-                { name: "68020" }
-            ],
-            menu: "Amiga Chipset"
-        },
-        {
-            name: "CPU Speed",
-            bits: "9,8",
-            options: [
-                { name: "A500   ~7MHz" },
-                { name: "A1200 ~14MHz" },
-                { name: "FAST  ~28MHz" },
-                { name: "Turbo+Cache" }
-            ],
-            menu: "Amiga Chipset"
-        }
-    ]
-}
-
-// Amiga 060db - specialization
-{
-    name: "Amiga 060db",
-    base: "Amiga",
-    include: "amiga_template.yaml"  // include more config definitions;
-            // will always process all yaml's in the current dir
-}
-
-// Amiga fx68k - specialization
-{
-    name: "Amiga FX68K",
-    base: "Amiga",
-    include: "amiga_template.yaml",  // include more config definitions;
-            // will always process all yaml's in the current dir
-    config: [
-        // FX68k OPTIONS
-        {
-            name: "CPU Speed",
-            bits: "9,8",
-            options: [
-                { name: "A500   ~7MHz" },
-                { name: "A1200 ~14MHz" }
-            ],
-            menu: "Amiga Chipset"
-        }
-    ]
-}
-

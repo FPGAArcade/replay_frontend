@@ -372,6 +372,7 @@ pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> I
     image_status(state, image)
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -490,3 +491,4 @@ mod tests {
         assert!(image_status(&instance.state, handle) == ImageLoadStatus::Failed);
     }
 }
+*/

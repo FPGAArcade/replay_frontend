@@ -1,4 +1,5 @@
-use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
+use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, Progress};
+use flowi::IoHandler;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -148,8 +149,39 @@ impl MemoryDriver for ConfigLoader {
         };
 
         progress.step()?;
-        Ok(LoadStatus::Data(fileorama::Fileorama::convert_to_box_u8(
-            Box::new(config),
-        )))
+        Ok(LoadStatus::Data(Fileorama::convert_to_box_u8(Box::new(
+            config,
+        ))))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_amiga_config() {
+        let path = std::fs::canonicalize("../data/test_data/amiga_config.json5").unwrap();
+
+        dbg!(&path);
+
+        let vfs = Fileorama::new(1);
+        vfs.add_memory_driver(Box::<ConfigLoader>::default());
+
+        let mut io_handler = IoHandler::new(&vfs);
+        let handle = io_handler.load_with_driver(&path.to_string_lossy(), CONFIG_LOADER_NAME);
+
+        for _ in 0..100 {
+            io_handler.update();
+
+            if let Some(data) = io_handler.get_loaded_as::<Config>(handle) {
+                assert_eq!(data.name, "Amiga");
+                return;
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        panic!("Failed to load config");
     }
 }

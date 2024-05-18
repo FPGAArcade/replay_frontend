@@ -435,7 +435,7 @@ impl Fileorama {
     ///
     /// let example = Example { a: 42, b: 3.14 };
     /// let boxed_example = Box::new(example);
-    /// let boxed_bytes = convert_to_box_u8(boxed_example);
+    /// let boxed_bytes = fileorama::Fileorama::convert_to_box_u8(boxed_example);
     ///
     /// assert_eq!(boxed_bytes.len(), std::mem::size_of::<Example>());
     /// ```

@@ -9,7 +9,7 @@ pub(crate) enum LoadedData {
 
 pub type IoHandle = u64;
 
-pub(crate) struct IoHandler {
+pub struct IoHandler {
     vfs: fileorama::Fileorama,
     /// Images that are currently being loaded (i.e async)
     pub(crate) inflight: Vec<(u64, fileorama::Handle)>,
@@ -28,9 +28,19 @@ impl IoHandler {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn is_loaded(&self, id: u64) -> bool {
+    pub fn is_loaded(&self, id: u64) -> bool {
         self.loaded.contains_key(&id)
+    }
+
+    pub fn get_loaded_as<T: Sized>(&self, id: IoHandle) -> Option<&T> {
+        match self.loaded.get(&id) {
+            Some(LoadedData::Data(data)) => {
+                let data = data.as_ref();
+                let data = data.as_ptr() as *const T;
+                Some(unsafe { &*data })
+            }
+            _ => None,
+        }
     }
 
     pub fn update(&mut self) {

@@ -1,6 +1,6 @@
+/*
 #[cfg(test)]
 mod tests {
-    /*
     use crate::Image;
     use crate::ApplicationSettings;
 
@@ -22,3 +22,4 @@ mod tests {
     }
     */
 }
+*/

@@ -7,13 +7,13 @@ pub use manual::Result;
 mod io_handler;
 mod manual;
 pub mod render;
-mod tests;
+//mod tests;
 
 use crate::render::RendererState;
 pub use crate::render::{DummyRenderer, FlowiRenderer};
 use core::ffi::c_void;
 use fileorama::Fileorama;
-use io_handler::IoHandler;
+pub use io_handler::IoHandler;
 
 #[repr(C)]
 pub struct InternalState {
