@@ -16,6 +16,7 @@ sha2 = "0.10.6"
 thiserror = "1.0"
 zune-image = { version = "0.4", default-features = false, features = ["metadata", "jpeg", "png"] }
 zune-core = "0.4.12"
+arena-allocator = "0.1.0"
 resvg = { version = "0.36.0", features = [] }
 
 [build-dependencies]
