@@ -1,6 +1,6 @@
 use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus, ImageOptions};
 use crate::io_handler::LoadedData;
-use crate::manual::{FlData, FlString};
+use crate::primitives::FlData;
 use crate::InternalState;
 use resvg::{tiny_skia, usvg, usvg::TreeParsing};
 
@@ -335,42 +335,6 @@ struct WrapState<'a> {
     s: &'a mut crate::InternalState,
 }
 
-// FFI functions
-#[no_mangle]
-pub fn fl_image_load_impl(data: *mut core::ffi::c_void, url: FlString) -> u64 {
-    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    let name = url.as_str();
-    load(state, name)
-}
-
-#[no_mangle]
-pub fn fl_image_load_with_options_impl(
-    data: *const core::ffi::c_void,
-    url: FlString,
-    options: &ImageOptions,
-) -> u64 {
-    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    let name = url.as_str();
-    load_with_options(state, name, options)
-}
-
-#[no_mangle]
-pub fn fl_image_get_info_impl(data: *const core::ffi::c_void, image: u64) -> *const ImageInfo {
-    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    image_info(state, image)
-}
-
-#[no_mangle]
-pub fn fl_image_get_data_impl(data: *const core::ffi::c_void, image: u64) -> FlData {
-    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    image_data(state, image)
-}
-
-#[no_mangle]
-pub fn fl_image_get_status_impl(data: *const core::ffi::c_void, image: u64) -> ImageLoadStatus {
-    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-    image_status(state, image)
-}
 
 /*
 #[cfg(test)]

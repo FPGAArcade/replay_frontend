@@ -8,8 +8,8 @@ pub enum InternalError {
     Notify(#[from] notify::Error),
     #[error("Generic error {text})")]
     GenericError { text: String },
-    #[error("Png Error")]
-    PngError(#[from] png::DecodingError),
+    //#[error("Png Error")]
+    //PngError(#[from] png::DecodingError),
 }
 
 pub type InternalResult<T> = std::result::Result<T, InternalError>;
