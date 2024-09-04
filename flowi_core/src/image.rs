@@ -1,4 +1,4 @@
-use crate::primitives::{Vec2, IVec2, Color};
+use crate::primitives::{Color, IVec2, Vec2};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ImageFormat {
@@ -47,4 +47,3 @@ pub struct ImageOptions {
     /// Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based on the aspect ratio of the image.
     pub color: Color,
 }
-

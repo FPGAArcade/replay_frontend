@@ -335,7 +335,6 @@ struct WrapState<'a> {
     s: &'a mut crate::InternalState,
 }
 
-
 /*
 #[cfg(test)]
 mod tests {
