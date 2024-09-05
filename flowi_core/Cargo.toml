@@ -20,10 +20,11 @@ arena-allocator = { path = "../arena-allocator" }
 resvg = { version = "0.36.0", features = [] }
 smallvec = "1.13"
 bitflags = "2.6.0"
+tracing = { version = "0.1", features = ["log"] }
 
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
 
 [features]
-default = ["static"]
-static = []
+default = []
+tracing-instrument = []

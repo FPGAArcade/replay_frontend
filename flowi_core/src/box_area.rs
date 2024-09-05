@@ -115,11 +115,11 @@ pub(crate) struct BoxAreaInner {
 
 #[derive(Debug, Default)]
 pub(crate) struct BoxArea {
-    inner: UnsafeCell<BoxAreaInner>,
-    parent: Option<usize>,
-    first: Option<usize>,
-    last: Option<usize>,
-    next: Option<usize>,
+    pub(crate) inner: UnsafeCell<BoxAreaInner>,
+    pub(crate) parent: Option<usize>,
+    pub(crate) first: Option<usize>,
+    pub(crate) last: Option<usize>,
+    pub(crate) next: Option<usize>,
 }
 
 impl BoxAreaInner {
