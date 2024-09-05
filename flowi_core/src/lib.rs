@@ -6,6 +6,7 @@ mod box_area;
 pub mod layout;
 pub mod primitives;
 pub mod input;
+pub mod widgets;
 
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;

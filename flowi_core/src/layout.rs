@@ -216,7 +216,7 @@ fn solve_size_violations(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
     while let Some(p) = node {
         let pi = p.inner_borrow(); 
 
-        if !pi.is_floating_on(axis) {
+        if !pi.is_floating_on(axis as _) {
             non_floating_children.push(p);
         }
 
@@ -284,7 +284,7 @@ fn solve_size_violations(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
 
     for child in &children {
         let ci = child.inner_borrow_mut();
-        let parent_pos = if ci.is_floating_on(axis) {
+        let parent_pos = if ci.is_floating_on(axis as _) {
             0.0
         } else {
             inner.rect.min[axis]
@@ -312,7 +312,6 @@ impl Paint {
 }
 
 pub struct Layout {
-    // TODO: Arena
     owner: TypedArena<usize>,
     pref_width: TypedArena<Size>,
     pref_height: TypedArena<Size>,
