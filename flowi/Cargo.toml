@@ -7,7 +7,7 @@ edition = "2021"
 raw-window-handle = "0.5"
 glam = "0.24"
 bitflags = "2.0.0-rc.1"
-flowi_core = { path = "../flowi_core", features = ["static"] }
+flowi_core = { path = "../flowi_core" }
 
 [dependencies.sdl2]
 version = "0.36"
