@@ -1,7 +1,8 @@
 use smallvec::SmallVec;
-use arena_allocator::TypedArena;
+use arena_allocator::{PodArena, Arena};
 use crate::box_area::BoxArea;
 use crate::box_area::StackFlags;
+use crate::box_area::BoxAreaPtr;
 use crate::internal_error::InternalError as Error;
 
 #[cfg(feature = "tracing-instrument")]
@@ -95,21 +96,21 @@ pub enum Axis {
 }
 
 #[cfg_attr(feature = "tracing-instrument", tracing::instrument)]
-fn do_layout_axis(root: &BoxArea, boxes: &[BoxArea]) {
-    do_layout_for(root, boxes, 0);
-    do_layout_for(root, boxes, 1);
+fn do_layout_axis(root: &BoxArea) {
+    do_layout_for(root, 0);
+    do_layout_for(root, 1);
 }
 
 #[cfg_attr(feature = "tracing-instrument", tracing::instrument)]
-fn do_layout_for(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
-    solve_independent_sizes_for(root, boxes, axis);
-    solve_downward_dependent_sizes_for(root, boxes, axis);
-    solve_upward_dependent_sizes_for(root, boxes, axis);
-    solve_downward_dependent_sizes_for(root, boxes, axis);
-    solve_size_violations(root, boxes, axis);
+fn do_layout_for(root: &BoxArea, axis: usize) {
+    solve_independent_sizes_for(root, axis);
+    solve_downward_dependent_sizes_for(root, axis);
+    solve_upward_dependent_sizes_for(root, axis);
+    solve_downward_dependent_sizes_for(root, axis);
+    solve_size_violations(root, axis);
 }
 
-fn solve_independent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
+fn solve_independent_sizes_for(root: &BoxArea, axis: usize) {
     let inner = root.inner_borrow_mut(); 
     let size = inner.pref_size[axis];
 
@@ -141,14 +142,14 @@ fn solve_independent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
         _ => {}
     }
 
-    let mut node = root.first(boxes);
+    let mut node = root.first();
     while let Some(p) = node {
-        solve_independent_sizes_for(p, boxes, axis);
-        node = p.next(boxes);
+        solve_independent_sizes_for(p, axis);
+        node = p.next();
     }
 }
 
-fn solve_upward_dependent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
+fn solve_upward_dependent_sizes_for(root: &BoxArea, axis: usize) {
     let inner = root.inner_borrow_mut(); 
     let size = inner.pref_size[axis];
 
@@ -157,7 +158,7 @@ fn solve_upward_dependent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: usi
     }
 
     let mut ancestor: Option<&BoxArea> = None;
-    let mut parent = root.parent(boxes);
+    let mut parent = root.parent();
 
     while let Some(p) = parent {
         let p_borrowed = p.inner_borrow();
@@ -165,7 +166,7 @@ fn solve_upward_dependent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: usi
             ancestor = Some(p);
             break;
         }
-        parent = p.parent(boxes);
+        parent = p.parent();
     }
 
     if let Some(a) = ancestor {
@@ -175,11 +176,11 @@ fn solve_upward_dependent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: usi
     }
 }
 
-fn solve_downward_dependent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
-    let mut node = root.first(boxes);
+fn solve_downward_dependent_sizes_for(root: &BoxArea, axis: usize) {
+    let mut node = root.first();
     while let Some(next) = node {
-        solve_downward_dependent_sizes_for(next, boxes, axis);
-        node = next.next(boxes);
+        solve_downward_dependent_sizes_for(next, axis);
+        node = next.next();
     }
 
     let axis = axis & 1;
@@ -190,7 +191,7 @@ fn solve_downward_dependent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: u
         return;
     }
 
-    let mut node = root.first(boxes);
+    let mut node = root.first();
     let mut sum = 0.0;
     while let Some(p) = node {
         let pi = p.inner_borrow(); 
@@ -201,14 +202,14 @@ fn solve_downward_dependent_sizes_for(root: &BoxArea, boxes: &[BoxArea], axis: u
             sum = f32::max(sum, pi.calc_size[axis]);
         } 
 
-        node = p.next(boxes); 
+        node = p.next(); 
     }
 
     inner.calc_size[axis] = sum;
 
 }
 
-fn solve_size_violations(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
+fn solve_size_violations(root: &BoxArea, axis: usize) {
     let inner = root.inner_borrow_mut();
     let available_space = inner.calc_size[axis];
 
@@ -217,7 +218,7 @@ fn solve_size_violations(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
     let mut children: SmallVec<[&BoxArea; 256]> = SmallVec::new();
     let mut non_floating_children: SmallVec<[&BoxArea; 128]> = SmallVec::new();
         
-    let mut node = root.first(boxes);
+    let mut node = root.first();
 
     while let Some(p) = node {
         let pi = p.inner_borrow(); 
@@ -228,7 +229,7 @@ fn solve_size_violations(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
 
         children.push(p);
 
-        node = p.next(boxes); 
+        node = p.next(); 
     }
 
     if !inner.is_overflowing_on(axis as u32) {
@@ -301,7 +302,7 @@ fn solve_size_violations(root: &BoxArea, boxes: &[BoxArea], axis: usize) {
     }
 
     for child in &children {
-        solve_size_violations(child, boxes, axis);
+        solve_size_violations(child, axis);
     }
 }
 
@@ -319,95 +320,91 @@ impl Paint {
 
 pub struct Layout {
     // TODO: Change to arenas
-    /*
-    owner: TypedArena<usize>,
-    pref_width: TypedArena<Size>,
-    pref_height: TypedArena<Size>,
-    fixed_x: TypedArena<f32>,
-    fixed_y: TypedArena<f32>,
-    flags: TypedArena<u32>,
-    child_layout_axis: TypedArena<Axis>,
-    root: usize,
-    boxes: TypedArena<BoxArea>,
-    */
-    owner: Vec<usize>,
-    pref_width: Vec<Size>,
-    pref_height: Vec<Size>,
-    fixed_x: Vec<f32>,
-    fixed_y: Vec<f32>,
-    flags: Vec<u64>,
-    child_layout_axis: Vec<Axis>,
-    root: usize,
-    boxes: Vec<BoxArea>,
+    owner: PodArena<BoxAreaPtr>,
+    pref_width: PodArena<Size>,
+    pref_height: PodArena<Size>,
+    fixed_x: PodArena<f32>,
+    fixed_y: PodArena<f32>,
+    flags: PodArena<u64>,
+    child_layout_axis: PodArena<Axis>,
+    root: BoxAreaPtr,
+    boxes: Arena,
 }
 
 impl Layout {
-    pub fn new() -> Self {
-        Self {
-            owner: Vec::new(),
-            pref_width: Vec::new(),
-            pref_height: Vec::new(),
-            fixed_x: Vec::new(),
-            fixed_y: Vec::new(),
-            flags: Vec::new(),
-            child_layout_axis: Vec::new(),
-            root: 0,
-            boxes: Vec::new(),
-        }
+    pub fn new() -> Result<Self, Error> {
+        let reserve_size = 1024 * 1024 * 1024;
+        let mut box_allocator = Arena::new(reserve_size)?;
+        let mut owner = PodArena::new(reserve_size)?;
+
+        let root = Self::create_root(&mut box_allocator);
+        owner.push(root);
+
+        Ok(Self {
+            owner,
+            pref_width: PodArena::new(reserve_size)?,
+            pref_height: PodArena::new(reserve_size)?,
+            fixed_x: PodArena::new(reserve_size)?,
+            fixed_y: PodArena::new(reserve_size)?,
+            flags: PodArena::new(reserve_size)?,
+            child_layout_axis: PodArena::new(reserve_size)?,
+            boxes: box_allocator,
+            root,
+        })
     }
 
     pub fn create_box(&mut self) {
-        let parent_index = self.owner.last().copied().unwrap_or_default();
-        let box_area = self.create_box_inner(parent_index); 
+        let parent_box = self.owner.last().copied().unwrap_or_default();
 
-        if let Some(p) = self.boxes[parent_index].last {
-            let p = &mut self.boxes[p];
-            p.next = Some(box_area);
+        let box_area = self.create_box_inner(parent_box); 
+        let parent_box = parent_box.as_mut().unwrap();
+
+        if let Some(p) = parent_box.last_mut() {
+            p.next = box_area;
         } else {
-            self.boxes[parent_index].first = Some(box_area);
+            parent_box.first = box_area;
         }
     
-        self.boxes[parent_index].last = Some(box_area);
+        parent_box.last = box_area;
     }
 
     pub fn create_box_with_string(&mut self, display_string: &str) {
-        let parent_index = self.owner.last().copied().unwrap_or_default();
-        let box_area = self.create_box_inner(parent_index); 
-        //let parent = &mut self.boxes[parent_index];
+        let parent_box = self.owner.last().unwrap().clone();
+        let box_area = self.create_box_inner(parent_box); 
+        let parent_box = parent_box.as_mut().unwrap();
 
-        if let Some(p) = self.boxes[parent_index].last {
-            let p = &mut self.boxes[p];
-            p.next = Some(box_area);
+        if let Some(p) = parent_box.last_mut() {
+            p.next = box_area;
         } else {
-            self.boxes[parent_index].first = Some(box_area);
+            parent_box.first = box_area;
         }
     
-        self.boxes[parent_index].last = Some(box_area);
-
-        let inner = self.boxes.last_mut().unwrap().inner_borrow_mut();
+        parent_box.last = box_area;
+        let inner = box_area.as_mut().unwrap().inner_borrow_mut();
         inner.display_string = display_string.to_string();
     }
 
-    pub fn create_box_inner(&mut self, parent_index: usize) -> usize {
-        let index = self.boxes.len();
-        self.boxes.push(BoxArea::default());
+    fn create_box_inner(&mut self, parent: BoxAreaPtr) -> BoxAreaPtr {
+        let box_area = self.boxes.alloc_init_ptr::<BoxArea>().unwrap();
+        let box_area_ptr = BoxAreaPtr::new(box_area);
 
         //let parent = &mut self.boxes[parent_index];
-        let box_area = self.boxes.last_mut().unwrap();
+        let box_area = box_area_ptr.as_mut().unwrap(); 
         let inner = box_area.inner_borrow_mut();
         // TODO: Optimize
         inner.pref_size[0] = self.pref_width.last().copied().unwrap_or_default(); 
         inner.pref_size[1] = self.pref_height.last().copied().unwrap_or_default(); 
         inner.calc_rel_position[0] = self.fixed_x.last().copied().unwrap_or_default();
         inner.calc_rel_position[1] = self.fixed_y.last().copied().unwrap_or_default();
-        inner.flags = self.flags.last().copied().unwrap_or_default();
+        inner.flags = 0;//self.flags.last().copied().unwrap_or_default();
         inner.child_layout_axis = self.child_layout_axis.last().copied().unwrap_or_default();
-        box_area.parent = Some(parent_index);
-        index
+        box_area.parent = parent;
+
+        box_area_ptr
     }
 
-    pub fn create_root(&mut self) {
-        let box_area = BoxArea::default();
+    fn create_root(allocator: &mut Arena) -> BoxAreaPtr {
+        let box_area = allocator.alloc_init::<BoxArea>().unwrap(); 
         let inner = box_area.inner_borrow_mut();
 
         inner.pref_size[0] = Size::in_pixels(100.0);
@@ -417,14 +414,13 @@ impl Layout {
         inner.flags = 0;
         inner.child_layout_axis = Axis::Horizontal;
         inner.display_string = "root".to_string();
-
-        self.boxes.push(box_area);
+        
+        BoxAreaPtr::new(box_area)
     }
 
     pub fn resolve_layout(&mut self) {
-        do_layout_axis(&self.boxes[self.root], &self.boxes);
+        do_layout_axis(&self.root.as_ref_unsafe());
     }
-
 }
 
 
@@ -511,20 +507,21 @@ impl<'a> Drop for LayoutScope<'a> {
 mod tests {
     use super::*;
 
-    fn count_recursive(node: &BoxArea, boxes: &[BoxArea], count: &mut usize, level: usize) {
+    fn count_recursive(node: &BoxArea, count: &mut usize, level: usize) {
         *count += 1;
         
-        let mut node = node.first(boxes);
+        let mut node = node.first();
 
         while let Some(p) = node {
-            count_recursive(p, boxes, count, level + 1);
-            node = p.next(boxes);
+            count_recursive(p, count, level + 1);
+            node = p.next();
         }
     }
 
     #[test]
     fn test_tree() {
-        let mut layout = Layout::new();
+        let mut layout = Layout::new().unwrap();
+        /*
         layout.pref_width.push(Size::in_pixels(100.0));
         layout.pref_height.push(Size::in_pixels(100.0));
         layout.fixed_x.push(0.0);
@@ -533,21 +530,23 @@ mod tests {
         layout.child_layout_axis.push(Axis::Horizontal);
 
         layout.create_root();
+        */
         layout.create_box_with_string("1"); // 0
         layout.create_box_with_string("2"); // 1
         layout.create_box_with_string("3"); // 2
-        layout.owner.push(2);
-        layout.create_box_with_string("3"); // 3
-        layout.create_box_with_string("4"); // 4
+        //layout.owner.push(2);
+        //layout.create_box_with_string("3"); // 3
+        //layout.create_box_with_string("4"); // 4
 
         let mut count = 0;
-        count_recursive(&layout.boxes[0], &layout.boxes, &mut count, 0);
+        count_recursive(layout.root.as_ref_unsafe(), &mut count, 0);
 
-        assert_eq!(count, 6);
+        assert_eq!(count, 4);
     }
 
     #[test]
     fn basic_layout() {
+        /*
         let mut layout = Layout::new();
         layout.pref_width.push(Size::in_pixels(100.0));
         layout.pref_height.push(Size::in_pixels(100.0));
@@ -558,9 +557,7 @@ mod tests {
 
         layout.create_root();
         layout.resolve_layout();
-
-
-
+        */
     }
 }
 

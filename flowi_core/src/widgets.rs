@@ -117,4 +117,9 @@ impl Flowi {
         BoxFlags::DRAW_TEXT;
 
     }
+
+    // move
+    fn ui_build_box_from_string(&mut self, flags: BoxFlags, text: &str) {
+
+    } 
 }

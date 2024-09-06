@@ -113,13 +113,59 @@ pub(crate) struct BoxAreaInner {
     pub(crate) display_string: String,
 }
 
+use core::fmt::{Debug, Formatter};
+
+#[derive(Copy, Clone, Debug)]
+//#[derive(Copy, Clone)]
+pub(crate) struct BoxAreaPtr {
+    pub(crate) ptr: *mut BoxArea,
+}
+
+/*
+impl Debug for BoxAreaPtr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "BoxAreaPtr self ptr({:p})", &self).unwrap();
+        write!(f, "BoxAreaPtr({:018p})", self.ptr)
+    }
+}
+*/
+
+impl Default for BoxAreaPtr {
+    fn default() -> Self {
+        Self { ptr: core::ptr::null_mut() }
+    }
+}
+
+impl BoxAreaPtr {
+    pub(crate) fn new(ptr: *mut BoxArea) -> Self {
+        Self { ptr }
+    }
+
+    pub(crate) fn new_from_ref(ptr: &BoxArea) -> Self {
+        Self { ptr: ptr as *const _ as *mut _ }
+    }
+
+    pub(crate) fn as_ref_unsafe(&self) -> &BoxArea {
+        unsafe { &*self.ptr }
+    }
+
+    pub(crate) fn as_ref(&self) -> Option<&BoxArea> {
+        unsafe { self.ptr.as_ref() }
+    }
+
+    pub(crate) fn as_mut(&self) -> Option<&mut BoxArea> {
+        unsafe { self.ptr.as_mut() } 
+    }
+}
+
+#[repr(C)]
 #[derive(Debug, Default)]
 pub(crate) struct BoxArea {
     pub(crate) inner: UnsafeCell<BoxAreaInner>,
-    pub(crate) parent: Option<usize>,
-    pub(crate) first: Option<usize>,
-    pub(crate) last: Option<usize>,
-    pub(crate) next: Option<usize>,
+    pub(crate) parent: BoxAreaPtr,
+    pub(crate) first: BoxAreaPtr,
+    pub(crate) last: BoxAreaPtr,
+    pub(crate) next: BoxAreaPtr,
 }
 
 impl BoxAreaInner {
@@ -155,42 +201,42 @@ impl BoxArea {
     }
 
     #[inline]
-    pub(crate) fn parent<'a>(&self, boxes: &'a [BoxArea]) -> Option<&'a BoxArea> {
-        self.parent.map(|p| &boxes[p])
+    pub(crate) fn parent(&self) -> Option<&BoxArea> {
+        self.parent.as_ref()
     }
 
     #[inline]
-    pub(crate) fn parent_mut<'a>(&self, boxes: &'a mut [BoxArea]) -> Option<&'a mut BoxArea> {
-        self.parent.map(move |p| &mut boxes[p])
+    pub(crate) fn parent_mut(&self) -> Option<&mut BoxArea> {
+        self.parent.as_mut()
     }
 
     #[inline]
-    pub(crate) fn next<'a>(&self, boxes: &'a [BoxArea]) -> Option<&'a BoxArea> {
-        self.next.map(|n| &boxes[n])
+    pub(crate) fn next(&self) -> Option<&BoxArea> {
+        self.next.as_ref()
     }
 
     #[inline]
-    pub(crate) fn next_mut<'a>(&self, boxes: &'a mut [BoxArea]) -> Option<&'a mut BoxArea> {
-        self.next.map(move |n| &mut boxes[n])
+    pub(crate) fn next_mut(&self) -> Option<&mut BoxArea> {
+        self.next.as_mut()
     }
 
     #[inline]
-    pub(crate) fn first<'a>(&self, boxes: &'a [BoxArea]) -> Option<&'a BoxArea> {
-        self.first.map(|n| &boxes[n])
+    pub(crate) fn first(&self) -> Option<&BoxArea> {
+        self.first.as_ref()
     }
 
     #[inline]
-    pub(crate) fn first_mut<'a>(&self, boxes: &'a mut [BoxArea]) -> Option<&'a mut BoxArea> {
-        self.first.map(move |n| &mut boxes[n])
+    pub(crate) fn first_mut(&self) -> Option<&mut BoxArea> {
+        self.first.as_mut()
     }
 
     #[inline]
-    pub(crate) fn last<'a>(&self, boxes: &'a [BoxArea]) -> Option<&'a BoxArea> {
-        self.last.map(|n| &boxes[n])
+    pub(crate) fn last(&self) -> Option<&BoxArea> {
+        self.last.as_ref()
     }
 
     #[inline]
-    pub(crate) fn last_mut<'a>(&self, boxes: &'a mut [BoxArea]) -> Option<&'a mut BoxArea> {
-        self.last.map(move |n| &mut boxes[n])
+    pub(crate) fn last_mut(&self) -> Option<&mut BoxArea> {
+        self.last.as_mut()
     }
 }
