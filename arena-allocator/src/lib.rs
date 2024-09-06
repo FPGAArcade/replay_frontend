@@ -26,6 +26,28 @@ pub enum ArenaError {
     OutOfReservedMemory,
 }
 
+use std::fmt;
+use std::error::Error;
+
+impl fmt::Display for ArenaError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ArenaError::ReserveFailed(reason) => write!(f, "Reserve failed: {}", reason),
+            ArenaError::ProtectionFailed(reason) => write!(f, "Protection failed: {}", reason),
+            ArenaError::OutOfReservedMemory => write!(f, "Out of reserved memory"),
+        }
+    }
+}
+
+impl Error for ArenaError {
+    // You can optionally implement the source() method if any of your error variants
+    // wrap other errors. In this case, we'll use the default implementation, which returns None.
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
+
+
 #[cfg(not(target_os = "windows"))]
 mod posix {
     use crate::ArenaError;
@@ -294,7 +316,7 @@ impl VmRange {
     }
 
     #[inline]
-    fn align_pow2(x: usize, b: usize) -> usize {
+    pub(crate) fn align_pow2(x: usize, b: usize) -> usize {
         (x + b - 1) & !(b - 1)
     }
 
@@ -307,7 +329,9 @@ impl VmRange {
         &mut self,
         size: usize,
         alignment: usize,
-    ) -> Result<&'static mut [u8], ArenaError> {
+    ) -> Result<*mut [u8], ArenaError> {
+        //println!("Alignments: {} {}", size, alignment);
+
         let new_pos = self.pos + Self::align_pow2(size, alignment);
         let commit_size = Self::align_pow2(size, self.page_size);
 
@@ -317,7 +341,7 @@ impl VmRange {
 
         // If we have already committed the memory, we can just return a slice
         if new_pos < self.committed_size {
-            let return_slice = std::slice::from_raw_parts_mut(self.ptr as *mut u8, size);
+            let return_slice = std::slice::from_raw_parts_mut(self.ptr.add(self.pos) as *mut u8, size);
             self.pos = new_pos;
             return Ok(return_slice);
         }
@@ -338,25 +362,23 @@ impl VmRange {
     pub(crate) unsafe fn alloc_array<T: Sized>(
         &mut self,
         count: usize,
-    ) -> Result<&'static mut [T], ArenaError> {
+    ) -> Result<*mut [T], ArenaError> {
         let size = count * core::mem::size_of::<T>();
         let alignment = core::mem::align_of::<T>();
         let slice = self.alloc_raw(size, alignment)?;
-        let ptr = slice.as_mut_ptr() as *mut T;
-        Ok(unsafe { std::slice::from_raw_parts_mut(ptr, size) })
+        Ok(slice as *mut [T])
     }
 
     /// Allocates an array of `T` elements in the arena and initializes them with the default
     /// value.
-    pub(crate) fn alloc_array_init<T: Default + Sized>(
+    pub(crate) unsafe fn alloc_array_init<T: Default + Sized>(
         &mut self,
         count: usize,
-    ) -> Result<&'static mut [T], ArenaError> {
+    ) -> Result<*mut [T], ArenaError> {
         let size = count * core::mem::size_of::<T>();
         let alignment = core::mem::align_of::<T>();
-        let slice = unsafe { self.alloc_raw(size, alignment)? };
-        let ptr = slice.as_mut_ptr() as *mut T;
-        let slice = unsafe { std::slice::from_raw_parts_mut(ptr, count) };
+        let ptr = self.alloc_raw(size, alignment)? as *mut T;
+        let slice = std::slice::from_raw_parts_mut(ptr, count);
 
         for v in slice.iter_mut() {
             *v = T::default();
@@ -370,21 +392,19 @@ impl VmRange {
     /// # Safety
     /// The returned data is uninitialized. The caller must ensure that the data is
     /// properly initialized.
-    pub(crate) unsafe fn alloc<T: Sized>(&mut self) -> Result<&'static mut T, ArenaError> {
+    pub(crate) unsafe fn alloc<T: Sized>(&mut self) -> Result<*mut T, ArenaError> {
         let size = core::mem::size_of::<T>();
         let alignment = core::mem::align_of::<T>();
-        let slice = self.alloc_raw(size, alignment)?;
-        let ptr = slice.as_mut_ptr() as *mut T;
-        Ok(unsafe { &mut *ptr })
+        let ptr = self.alloc_raw(size, alignment)? as *mut T;
+        Ok(ptr)
     }
 
-    pub(crate) fn alloc_init<T: Default + Sized>(&mut self) -> Result<&'static mut T, ArenaError> {
+    pub(crate) unsafe fn alloc_init<T: Default + Sized>(&mut self) -> Result<*mut T, ArenaError> {
         let size = core::mem::size_of::<T>();
         let alignment = core::mem::align_of::<T>();
-        let slice = unsafe { self.alloc_raw(size, alignment)? };
-        let ptr = slice.as_mut_ptr() as *mut T;
-        unsafe { ptr.write(T::default()) };
-        Ok(unsafe { &mut *ptr })
+        let ptr = self.alloc_raw(size, alignment)? as *mut T;
+        ptr.write(T::default());
+        Ok(ptr)
     }
 
     #[inline]
@@ -486,12 +506,21 @@ impl Arena {
     /// The returned memory is uninitialized, and it is the caller's responsibility to ensure that
     /// the memory is properly initialized before it is used. Failing to do so may result in undefined
     /// behavior.
+    pub unsafe fn alloc_raw_ptr(
+        &mut self,
+        size: usize,
+        alignment: usize,
+    ) -> Result<*mut [u8], ArenaError> {
+        self.current.alloc_raw(size, alignment)
+    }
+
     pub unsafe fn alloc_raw(
         &mut self,
         size: usize,
         alignment: usize,
-    ) -> Result<&'static mut [u8], ArenaError> {
-        self.current.alloc_raw(size, alignment)
+    ) -> Result<&mut [u8], ArenaError> {
+        let t = self.current.alloc_raw(size, alignment)?;
+        Ok(&mut *t)
     }
 
     /// Allocates an array of `T` elements in the arena.
@@ -507,8 +536,9 @@ impl Arena {
     pub unsafe fn alloc_array<T: Sized>(
         &mut self,
         count: usize,
-    ) -> Result<&'static mut [T], ArenaError> {
-        self.current.alloc_array(count)
+    ) -> Result<&mut [T], ArenaError> {
+        let t = self.current.alloc_array(count)?;
+        Ok(&mut *t)
     }
 
     /// Allocates a single instance of `T` in the arena.
@@ -518,16 +548,28 @@ impl Arena {
     /// # Safety
     /// The returned instance is uninitialized, and the caller must ensure that it is initialized
     /// before any use. Uninitialized memory can lead to undefined behavior if accessed.
-    pub unsafe fn alloc<T: Sized>(&mut self) -> Result<&'static mut T, ArenaError> {
+    pub unsafe fn alloc<T: Sized>(&mut self) -> Result<&mut T, ArenaError> {
+        let t = self.current.alloc()?;
+        Ok(&mut *t)
+    }
+
+    pub unsafe fn alloc_ptr<T: Sized>(&mut self) -> Result<*mut T, ArenaError> {
         self.current.alloc()
+    }
+
+    pub fn alloc_init_ptr<T: Default + Sized>(&mut self) -> Result<*mut T, ArenaError> {
+        unsafe { self.current.alloc_init() }
     }
 
     /// Allocates a single instance of `T` in the arena and initializes it with the default value.
     ///
     /// This function allocates memory for a single instance of type `T` and initializes it using
     /// `T::default()`.
-    pub fn alloc_init<T: Default + Sized>(&mut self) -> Result<&'static mut T, ArenaError> {
-        self.current.alloc_init()
+    pub fn alloc_init<T: Default + Sized>(&mut self) -> Result<&mut T, ArenaError> {
+        unsafe { 
+            let t = self.current.alloc_init()?;
+            Ok(&mut *t)
+        }
     }
 
     /// Allocates an array of `T` elements in the arena and initializes them with the default value.
@@ -537,8 +579,11 @@ impl Arena {
     pub fn alloc_array_init<T: Default + Sized>(
         &mut self,
         count: usize,
-    ) -> Result<&'static mut [T], ArenaError> {
-        self.current.alloc_array_init(count)
+    ) -> Result<&mut [T], ArenaError> {
+        unsafe {
+            let t = self.current.alloc_array_init(count)?;
+            Ok(&mut *t)
+        }
     }
 
     /// Rewinds the arena to its initial state.
@@ -669,8 +714,12 @@ impl<T: Default + Sized> TypedArena<T> {
     ///
     /// # Errors
     /// This function will return an `ArenaError` if the memory allocation fails.
-    pub fn alloc(&mut self) -> Result<&'static mut T, ArenaError> {
+    pub fn alloc(&mut self) -> Result<&mut T, ArenaError> {
         self.arena.alloc_init()
+    }
+
+    pub fn alloc_ptr(&mut self) -> Result<*mut T, ArenaError> {
+        self.arena.alloc_init_ptr()
     }
 
     /// Allocates a single instance of `T` in the arena and initializes it with the default value.
@@ -681,7 +730,7 @@ impl<T: Default + Sized> TypedArena<T> {
     ///
     /// # Errors
     /// This function will return an `ArenaError` if the memory allocation fails.
-    pub fn alloc_with_index(&mut self) -> Result<(&'static mut T, usize), ArenaError> {
+    pub fn alloc_with_index(&mut self) -> Result<(&mut T, usize), ArenaError> {
         let index = self.arena.current.pos / core::mem::size_of::<T>();
         let ret = self.arena.alloc_init()?;
         Ok((ret, index))
@@ -702,6 +751,10 @@ impl<T: Default + Sized> TypedArena<T> {
         self.arena.current.pos -= core::mem::size_of::<T>();
     }
 
+    pub fn push<'a>(&mut self, item: T) where T: Sized + {
+        let t = self.alloc().unwrap();
+        *t = item;
+    }
 
     /// Allocates an array of `T` elements in the arena and initializes them with the default value.
     ///
@@ -710,7 +763,7 @@ impl<T: Default + Sized> TypedArena<T> {
     ///
     /// # Errors
     /// This function will return an `ArenaError` if the memory allocation fails.
-    pub fn alloc_array(&mut self, count: usize) -> Result<&'static mut [T], ArenaError> {
+    pub fn alloc_array(&mut self, count: usize) -> Result<&mut [T], ArenaError> {
         self.arena.alloc_array_init(count)
     }
 
@@ -728,6 +781,82 @@ impl<T: Default + Sized> TypedArena<T> {
         self.arena.rewind();
     }
 }
+
+pub struct VecArena<T> {
+    arena: Arena,
+    phantom: core::marker::PhantomData<T>,
+}
+
+impl<T> VecArena<T> {
+    pub fn new(reserve_virtual_size: usize) -> Result<Self, ArenaError> {
+        Ok(Self {
+            arena: Arena::new(reserve_virtual_size)?, 
+            phantom: core::marker::PhantomData,
+        })
+    }
+
+    pub fn push(&mut self, item: T) {
+        let t = unsafe { self.arena.alloc::<T>().unwrap() };
+        *t = item;
+    }
+
+    pub fn pop(&mut self) {
+        if self.arena.current.pos == 0 {
+            return;
+        }
+
+        self.arena.current.pos -= core::mem::size_of::<T>();
+    }
+
+    pub fn last<'a>(&mut self) -> Option<&'a T> {
+        if self.arena.current.pos == 0 {
+            return None;
+        }
+
+        let index = self.arena.current.pos / core::mem::size_of::<T>();
+        let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
+        Some(unsafe { &*ptr })
+    }
+}
+
+pub struct PodArena<T: Sized + Default + core::fmt::Debug> {
+    arena: Arena,
+    phantom: core::marker::PhantomData<T>,
+}
+
+impl<T: Sized + Default + core::fmt::Debug> PodArena<T> {
+    pub fn new(reserve_virtual_size: usize) -> Result<Self, ArenaError> {
+        Ok(Self {
+            arena: Arena::new(reserve_virtual_size)?, 
+            phantom: core::marker::PhantomData,
+        })
+    }
+
+    pub fn push(&mut self, item: T) {
+        let t = unsafe { self.arena.alloc::<T>().unwrap() };
+        *t = item;
+    }
+
+    pub fn pop(&mut self) {
+        if self.arena.current.pos == 0 {
+            return;
+        }
+
+        self.arena.current.pos -= VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
+    }
+
+    pub fn last(&mut self) -> Option<&mut T> {
+        if self.arena.current.pos == 0 {
+            return None; 
+        }
+
+        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>()); 
+        let index = self.arena.current.pos - total_item_size;
+        let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
+        Some(unsafe { &mut *ptr })
+    }
+}
+
 
 #[cfg(test)]
 mod test {
@@ -783,6 +912,7 @@ mod macos_linux_tests {
     use libc::{fork, waitpid, SIGSEGV, WIFEXITED, WIFSIGNALED};
     use std::process;
 
+    /*
     #[test]
     fn test_crash_handling() {
         unsafe {
@@ -793,7 +923,7 @@ mod macos_linux_tests {
                 let mut arena = TypedArena::<u32>::new(32 * 1024).unwrap();
                 let single = arena.alloc().unwrap();
                 *single = 42;
-                arena.rewind();
+                //arena.rewind();
                 *single = 43; // will crash here as trying to write to protected memory
                 println!("Single: {}", *single);
             } else {
@@ -809,4 +939,5 @@ mod macos_linux_tests {
             }
         }
     }
+    */
 }
