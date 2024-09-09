@@ -5,6 +5,15 @@ use crate::box_area::StackFlags;
 use crate::box_area::BoxAreaPtr;
 use crate::internal_error::InternalError as Error;
 
+pub struct Layout {
+    pub(crate) pref_width: PodArena<Size>,
+    pub(crate) pref_height: PodArena<Size>,
+    pub(crate) fixed_x: PodArena<f32>,
+    pub(crate) fixed_y: PodArena<f32>,
+    pub(crate) flags: PodArena<u64>,
+    pub(crate) child_layout_axis: PodArena<Axis>,
+}
+
 #[cfg(feature = "tracing-instrument")]
 use tracing::instrument;
 
@@ -318,113 +327,25 @@ impl Paint {
     }
 }
 
-pub struct Layout {
-    // TODO: Change to arenas
-    owner: PodArena<BoxAreaPtr>,
-    pref_width: PodArena<Size>,
-    pref_height: PodArena<Size>,
-    fixed_x: PodArena<f32>,
-    fixed_y: PodArena<f32>,
-    flags: PodArena<u64>,
-    child_layout_axis: PodArena<Axis>,
-    root: BoxAreaPtr,
-    boxes: Arena,
-}
-
 impl Layout {
     pub fn new() -> Result<Self, Error> {
         let reserve_size = 1024 * 1024 * 1024;
-        let mut box_allocator = Arena::new(reserve_size)?;
-        let mut owner = PodArena::new(reserve_size)?;
-
-        let root = Self::create_root(&mut box_allocator);
-        owner.push(root);
 
         Ok(Self {
-            owner,
             pref_width: PodArena::new(reserve_size)?,
             pref_height: PodArena::new(reserve_size)?,
             fixed_x: PodArena::new(reserve_size)?,
             fixed_y: PodArena::new(reserve_size)?,
             flags: PodArena::new(reserve_size)?,
             child_layout_axis: PodArena::new(reserve_size)?,
-            boxes: box_allocator,
-            root,
         })
     }
 
-    pub fn create_box(&mut self) {
-        let parent_box = self.owner.last().copied().unwrap_or_default();
 
-        let box_area = self.create_box_inner(parent_box); 
-        let parent_box = parent_box.as_mut().unwrap();
-
-        if let Some(p) = parent_box.last_mut() {
-            p.next = box_area;
-        } else {
-            parent_box.first = box_area;
-        }
-    
-        parent_box.last = box_area;
-    }
-
-    pub fn create_box_with_string(&mut self, display_string: &str) {
-        let parent_box = self.owner.last().unwrap().clone();
-        let box_area = self.create_box_inner(parent_box); 
-        let parent_box = parent_box.as_mut().unwrap();
-
-        if let Some(p) = parent_box.last_mut() {
-            p.next = box_area;
-        } else {
-            parent_box.first = box_area;
-        }
-    
-        parent_box.last = box_area;
-        let inner = box_area.as_mut().unwrap().inner_borrow_mut();
-        inner.display_string = display_string.to_string();
-    }
-
-    fn create_box_inner(&mut self, parent: BoxAreaPtr) -> BoxAreaPtr {
-        let box_area = self.boxes.alloc_init_ptr::<BoxArea>().unwrap();
-        let box_area_ptr = BoxAreaPtr::new(box_area);
-
-        //let parent = &mut self.boxes[parent_index];
-        let box_area = box_area_ptr.as_mut().unwrap(); 
-        let inner = box_area.inner_borrow_mut();
-        // TODO: Optimize
-        inner.pref_size[0] = self.pref_width.last().copied().unwrap_or_default(); 
-        inner.pref_size[1] = self.pref_height.last().copied().unwrap_or_default(); 
-        inner.calc_rel_position[0] = self.fixed_x.last().copied().unwrap_or_default();
-        inner.calc_rel_position[1] = self.fixed_y.last().copied().unwrap_or_default();
-        inner.flags = 0;//self.flags.last().copied().unwrap_or_default();
-        inner.child_layout_axis = self.child_layout_axis.last().copied().unwrap_or_default();
-        box_area.parent = parent;
-
-        box_area_ptr
-    }
-
-    fn create_root(allocator: &mut Arena) -> BoxAreaPtr {
-        let box_area = allocator.alloc_init::<BoxArea>().unwrap(); 
-        let inner = box_area.inner_borrow_mut();
-
-        inner.pref_size[0] = Size::in_pixels(100.0);
-        inner.pref_size[1] = Size::in_pixels(100.0);
-        inner.calc_rel_position[0] = 0.0;
-        inner.calc_rel_position[1] = 0.0;
-        inner.flags = 0;
-        inner.child_layout_axis = Axis::Horizontal;
-        inner.display_string = "root".to_string();
-        
-        BoxAreaPtr::new(box_area)
-    }
-
-    pub fn resolve_layout(&mut self) {
-        do_layout_axis(&self.root.as_ref_unsafe());
+    pub fn resolve_layout(&mut self, root: BoxAreaPtr) {
+        do_layout_axis(&root.as_ref_unsafe());
     }
 }
-
-
-
 
 pub struct LayoutScope<'a> {
     layout: &'a mut Layout,

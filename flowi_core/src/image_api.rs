@@ -1,7 +1,7 @@
 use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus, ImageOptions};
 use crate::io_handler::LoadedData;
 use crate::primitives::FlData;
-use crate::InternalState;
+//use crate::InternalState;
 use resvg::{tiny_skia, usvg, usvg::TreeParsing};
 
 use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
@@ -269,6 +269,7 @@ pub(crate) fn install_image_loader(vfs: &Fileorama) {
     vfs.add_memory_driver(Box::<ImageLoader>::default());
 }
 
+/*
 #[inline]
 fn load(state: &mut InternalState, filename: &str) -> u64 {
     state
@@ -315,7 +316,9 @@ fn image_data(state: &InternalState, id: u64) -> FlData {
         FlData::default()
     }
 }
+*/
 
+/*
 #[inline]
 fn image_info(state: &InternalState, image_id: u64) -> *const ImageInfo {
     if let Some(image_data) = state.io_handler.loaded.get(&image_id) {
@@ -330,10 +333,13 @@ fn image_info(state: &InternalState, image_id: u64) -> *const ImageInfo {
         std::ptr::null()
     }
 }
+*/
 
+/*
 struct WrapState<'a> {
     s: &'a mut crate::InternalState,
 }
+*/
 
 /*
 #[cfg(test)]

@@ -35,31 +35,3 @@ impl RendererState {
         }
     }
 }
-
-struct WrapState<'a> {
-    s: &'a mut crate::InternalState,
-}
-
-#[no_mangle]
-pub extern "C" fn fl_renderer_get_texture_impl(
-    data: *mut core::ffi::c_void,
-    image: Image,
-) -> Texture {
-    let state = &mut unsafe { &mut *(data as *mut WrapState) }.s;
-
-    // TODO: How to handle reload
-    /*
-    if let Some(texture_id) = state.renderer_state.image_texture_map.get(&image.handle) {
-        return Texture { handle: *texture_id };
-    }
-    */
-
-    // Check if image has been loaded yet
-    /*
-    if !state.io_handler.is_loaded(image.handle) {
-        return Texture { handle: 0 };
-    }
-    */
-
-    state.renderer.get_texture(image)
-}

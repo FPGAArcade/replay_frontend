@@ -118,8 +118,7 @@ impl Flowi {
 
     }
 
-    // move
-    fn ui_build_box_from_string(&mut self, flags: BoxFlags, text: &str) {
+    fn build_box_from_string(&mut self, flags: BoxFlags, text: &str) {
 
     } 
 }

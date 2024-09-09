@@ -113,22 +113,10 @@ pub(crate) struct BoxAreaInner {
     pub(crate) display_string: String,
 }
 
-use core::fmt::{Debug, Formatter};
-
 #[derive(Copy, Clone, Debug)]
-//#[derive(Copy, Clone)]
 pub(crate) struct BoxAreaPtr {
     pub(crate) ptr: *mut BoxArea,
 }
-
-/*
-impl Debug for BoxAreaPtr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "BoxAreaPtr self ptr({:p})", &self).unwrap();
-        write!(f, "BoxAreaPtr({:018p})", self.ptr)
-    }
-}
-*/
 
 impl Default for BoxAreaPtr {
     fn default() -> Self {
@@ -141,12 +129,12 @@ impl BoxAreaPtr {
         Self { ptr }
     }
 
-    pub(crate) fn new_from_ref(ptr: &BoxArea) -> Self {
-        Self { ptr: ptr as *const _ as *mut _ }
-    }
-
     pub(crate) fn as_ref_unsafe(&self) -> &BoxArea {
         unsafe { &*self.ptr }
+    }
+
+    pub(crate) fn as_mut_unchecked(&self) -> &mut BoxArea {
+        unsafe { &mut *self.ptr }
     }
 
     pub(crate) fn as_ref(&self) -> Option<&BoxArea> {
@@ -162,6 +150,7 @@ impl BoxAreaPtr {
 #[derive(Debug, Default)]
 pub(crate) struct BoxArea {
     pub(crate) inner: UnsafeCell<BoxAreaInner>,
+    pub(crate) hash_key: u64,
     pub(crate) parent: BoxAreaPtr,
     pub(crate) first: BoxAreaPtr,
     pub(crate) last: BoxAreaPtr,
