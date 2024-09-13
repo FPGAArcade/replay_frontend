@@ -87,7 +87,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Rect {
     pub min: [f32; 2],
     pub max: [f32; 2],
@@ -155,6 +155,7 @@ pub(crate) struct BoxArea {
     pub(crate) first: BoxAreaPtr,
     pub(crate) last: BoxAreaPtr,
     pub(crate) next: BoxAreaPtr,
+    pub(crate) current_frame: u64,
 }
 
 impl BoxAreaInner {

@@ -11,8 +11,10 @@ pub mod widgets;
 use arena_allocator::{PodArena, Arena};
 use layout::{Layout, Size, Axis};
 use box_area::{BoxArea, BoxAreaPtr};
+use std::collections::HashMap;
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;
+use primitives::{Primitive, Color};
 
 pub struct Flowi {
     pub(crate) vfs: Fileorama,
@@ -21,9 +23,45 @@ pub struct Flowi {
     pub(crate) root: BoxAreaPtr,
     pub(crate) boxes: Arena,
     pub(crate) owner: PodArena<BoxAreaPtr>,
+    pub(crate) primitives: Arena,
+    // Used to look up if we have a box created for a given hash key
+    // TODO: Rewrite with custom hash map to get rid of std dependency
+    box_lookup: HashMap<u64, BoxAreaPtr>,
+    current_frame: u64,
 }
 
 impl Flowi {
+    pub fn begin(&mut self, _delta_time: f32) {
+        self.io_handler.update();
+        self.primitives.rewind();
+    }
+
+    pub fn end(&mut self) {
+        // Calculate the layout of all boxes
+        self.layout.resolve_layout(self.root);
+
+        // Only retain boxes that were created/updated in the current frame
+        self.box_lookup.retain(|_, box_area| {
+            let box_area = box_area.as_ref_unsafe();
+            box_area.current_frame == self.current_frame
+        });
+
+        // Generate primitives from all boxes
+        self.current_frame += 1;
+    }
+
+    fn generate_primitives(&mut self, box_area: BoxAreaPtr) {
+        // TODO: We should prune the tree of boxes that wasn't created the current frame
+
+        for box_area in self.boxes.get_array_by_type::<BoxArea>() {
+            let primitive = unsafe { self.primitives.alloc::<Primitive>().unwrap() };
+            let inner = box_area.inner_borrow();
+            let rect = inner.rect;
+            let color = Color::new(1.0, 1.0, 1.0, 1.0);
+            *primitive = Primitive::new(rect, color);
+        }
+    }
+
     pub fn new() -> Box<Self> {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
@@ -42,6 +80,9 @@ impl Flowi {
             io_handler,
             layout: Layout::new().unwrap(),
             boxes: box_allocator, 
+            box_lookup: HashMap::new(),
+            current_frame: 0,
+            primitives: Arena::new(reserve_size).unwrap(),
             root,
         })
     }
@@ -97,8 +138,15 @@ impl Flowi {
     }
 
     pub fn create_box_with_string(&mut self, display_string: &str) {
-        let parent_box = self.owner.last().unwrap().clone();
-        let box_area = self.create_box_inner(parent_box); 
+        let parent_box = self.owner.last_or_default();
+        let hash = Self::hash_from_string(parent_box.as_ref_unsafe().hash_key, display_string);
+
+        let (box_area, first_frame) = if let Some(box_area) = self.box_lookup.get(&hash) {
+            (*box_area, false)
+        } else {
+            (self.create_box_inner(parent_box), true)
+        };
+
         let parent_box = parent_box.as_mut().unwrap();
 
         if let Some(p) = parent_box.last_mut() {
@@ -110,6 +158,16 @@ impl Flowi {
         parent_box.last = box_area;
 
         let box_area = box_area.as_mut_unchecked();
+
+        // clear out the per-frame data
+        box_area.parent = BoxAreaPtr::new(parent_box);
+        box_area.first = BoxAreaPtr::default();
+        box_area.last = BoxAreaPtr::default();
+        box_area.next = BoxAreaPtr::default();
+
+        if first_frame {
+            self.box_lookup.insert(hash, BoxAreaPtr::new(box_area));
+        }
 
         let inner = box_area.inner_borrow_mut();
         inner.display_string = display_string.to_string();

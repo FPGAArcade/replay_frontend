@@ -1,4 +1,5 @@
 use arena_allocator::TypedArena;
+use crate::box_area::Rect;
 
 #[repr(C)]
 pub struct FlData {
@@ -51,41 +52,50 @@ impl Color {
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
     }
-
 }
 
-#[derive(Debug, Default)]
-struct DrawText {
-    //codepoints: &'a [u32],
-    position: Vec2,
-    size: f32,
-    font_id: usize,
-    color: Color,
+/*
+pub struct Rect {
+    pub min: Vec2,
+    pub max: Vec2,
 }
 
-#[derive(Debug)]
-pub enum DrawCorner {
-    TopLeft(Vec2, f32, Color),
-    TopRight(Vec2, f32, Color),
-    BottomLeft(Vec2, f32, Color),
-    BottomRight(Vec2, f32, Color),
+impl Rect {
+    pub fn new(min: Vec2, max: Vec2) -> Self {
+        Self { min, max }
+    }
+
+    pub fn from_xywh(x: f32, y: f32, w: f32, h: f32) -> Self {
+        Self {
+            min: Vec2::new(x, y),
+            max: Vec2::new(x + w, y + h),
+        }
+    }
+
+    pub fn from_x0y0x1y1(x0: f32, y0: f32, x1: f32, y1: f32) -> Self {
+        Self {
+            min: Vec2::new(x0, y0),
+            max: Vec2::new(x1, y1),
+        }
+    }
+}
+*/
+
+pub struct Primitive {
+    pub rect: Rect,
+    pub colors: [Color; 4],
+    pub _corners: [f32; 4],
+    pub _texture_handle: u64,
 }
 
-impl Default for DrawCorner {
-    fn default() -> Self {
-        DrawCorner::TopLeft(Vec2::default(), 0.0, Color::default())
+impl Primitive {
+    pub fn new(rect: Rect, color: Color) -> Self {
+        Self {
+            rect,
+            colors: [color; 4],
+            _corners: [0.0; 4],
+            _texture_handle: 0,
+        }
     }
 }
 
-#[derive(Debug, Default)]
-struct DrawRect {
-    position: Vec2,
-    size: Vec2,
-    color: Color,
-}
-
-struct Primitives {
-    pub(crate) draw_text: TypedArena<DrawText>,
-    pub(crate) draw_rect: TypedArena<DrawRect>,
-    pub(crate) draw_corners: TypedArena<DrawCorner>,
-}
