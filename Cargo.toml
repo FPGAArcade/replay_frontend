@@ -5,8 +5,8 @@ members = [
     "flowi_core",
     "flowi",
     "main",
-    "sw_rasterizer",
-    # "sw_raster_test",
+    "test_bed", 
+    "flowi_sw_renderer",
 ]
 exclude = [
     "tools/api_gen", 
