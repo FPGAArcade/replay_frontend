@@ -86,7 +86,7 @@ mod posix {
     }
 
     pub(crate) fn commit_memory(ptr: *mut c_void, size: usize) -> Result<(), ArenaError> {
-        let result = unsafe { mprotect(ptr, size, PROT_READ | PROT_WRITE) };
+        let result = unsafe { mprotect(ptr, size, PROT_READ | PROT_WRITE ) };
         if result != 0 {
             return Err(ArenaError::ProtectionFailed(get_last_error_message()));
         }
@@ -572,6 +572,15 @@ impl Arena {
         }
     }
 
+    pub fn get_array_by_type<T: Sized>(&self) -> &[T] {
+        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>()); 
+        let count = self.current.committed_size / total_item_size;
+
+        unsafe {
+            core::slice::from_raw_parts(self.current.ptr as *const T, count)
+        }
+    }
+
     /// Allocates an array of `T` elements in the arena and initializes them with the default value.
     ///
     /// This function allocates memory for an array of elements of type `T`, and initializes each
@@ -819,12 +828,12 @@ impl<T> VecArena<T> {
     }
 }
 
-pub struct PodArena<T: Sized + Default + core::fmt::Debug> {
+pub struct PodArena<T: Sized + Default + Clone> {
     arena: Arena,
     phantom: core::marker::PhantomData<T>,
 }
 
-impl<T: Sized + Default + core::fmt::Debug> PodArena<T> {
+impl<T: Sized + Default + Clone> PodArena<T> {
     pub fn new(reserve_virtual_size: usize) -> Result<Self, ArenaError> {
         Ok(Self {
             arena: Arena::new(reserve_virtual_size)?, 
@@ -855,8 +864,18 @@ impl<T: Sized + Default + core::fmt::Debug> PodArena<T> {
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
         Some(unsafe { &mut *ptr })
     }
-}
 
+    pub fn last_or_default(&mut self) -> T {
+        if self.arena.current.pos == 0 {
+            return T::default(); 
+        }
+
+        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>()); 
+        let index = self.arena.current.pos - total_item_size;
+        let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
+        unsafe { (*ptr).clone() }
+    }
+}
 
 #[cfg(test)]
 mod test {
