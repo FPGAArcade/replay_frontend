@@ -93,6 +93,15 @@ pub struct Rect {
     pub max: [f32; 2],
 }
 
+impl Rect {
+    pub fn new(min_x: f32, min_y: f32, max_x: f32, max_y: f32) -> Self {
+        Self {
+            min: [min_x, min_y],
+            max: [max_x, max_y],
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct TextData {
     pub(crate) display_text: String,

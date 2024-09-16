@@ -14,7 +14,8 @@ use box_area::{BoxArea, BoxAreaPtr};
 use std::collections::HashMap;
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;
-use primitives::{Primitive, Color};
+use primitives::{Primitive, Color32};
+use crate::box_area::Rect;
 
 pub struct Flowi {
     pub(crate) vfs: Fileorama,
@@ -31,7 +32,11 @@ pub struct Flowi {
 }
 
 impl Flowi {
-    pub fn begin(&mut self, _delta_time: f32) {
+    pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
+        // Set the root box to the size of the window
+        let root = self.root.as_mut_unchecked();
+        root.inner_borrow_mut().rect = Rect::new(0.0, 0.0, width as f32, height as f32);
+
         self.io_handler.update();
         self.primitives.rewind();
     }
@@ -57,7 +62,7 @@ impl Flowi {
             let primitive = unsafe { self.primitives.alloc::<Primitive>().unwrap() };
             let inner = box_area.inner_borrow();
             let rect = inner.rect;
-            let color = Color::new(1.0, 1.0, 1.0, 1.0);
+            let color = Color32::new(0xff, 0xff, 0xff, 0xff);
             *primitive = Primitive::new(rect, color);
         }
     }

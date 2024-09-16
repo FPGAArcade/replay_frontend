@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     "fileorama",
     "flowi_core",
-    "flowi",
+    # "flowi",
     "main",
     "test_bed", 
     "flowi_sw_renderer",

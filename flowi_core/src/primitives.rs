@@ -48,6 +48,29 @@ pub struct Color {
     pub a: f32,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Color32 {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+impl Color32 {
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
+    }
+
+    pub fn from_color(color: Color) -> Self {
+        Self {
+            r: (color.r * 255.0) as u8,
+            g: (color.g * 255.0) as u8,
+            b: (color.b * 255.0) as u8,
+            a: (color.a * 255.0) as u8,
+        }
+    }
+}
+
 impl Color {
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
@@ -83,13 +106,13 @@ impl Rect {
 
 pub struct Primitive {
     pub rect: Rect,
-    pub colors: [Color; 4],
+    pub colors: [Color32; 4],
     pub _corners: [f32; 4],
     pub _texture_handle: u64,
 }
 
 impl Primitive {
-    pub fn new(rect: Rect, color: Color) -> Self {
+    pub fn new(rect: Rect, color: Color32) -> Self {
         Self {
             rect,
             colors: [color; 4],

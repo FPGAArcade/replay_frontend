@@ -1,14 +1,108 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use flowi_core::primitives::Primitive;
+
+// Number of bits to repserent a color channel in sRGB color space. We use 16-bit colors to allow
+// for high range of colors. Most input images are in 8-bit sRGB color space, but as we convert
+// thesee to linear color space, we need to use higher bit depth to avoid banding artifacts.
+
+const SRGB_BIT_COUNT: u32 = 12;
+const LINEAR_BIT_COUNT: u32 = 15;
+
+struct SwRenderer {
+    _dummy: u32,
+    linear_to_srgb: [u8; 1 << SRGB_BIT_COUNT],
+    srgb_to_linear: [u16; 1 << 8],
+    temp_rand_colors: [u32; 256],
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn linear_to_srgb(x: f32) -> f32 {
+    if x <= 0.0031308 {
+        x * 12.92
+    } else {
+        1.055 * x.powf(1.0 / 2.4) - 0.055
+    }
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+fn srgb_to_linear(x: f32) -> f32 {
+    if x <= 0.04045 {
+        x / 12.92
+    } else {
+        ((x + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
+    let mut table = [0; 1 << 8];
+
+    for i in 0..(1 << 8) {
+        let srgb = i as f32 / (1 << 8) as f32;
+        let linear = srgb_to_linear(srgb);
+        table[i] = (linear * (1 << LINEAR_BIT_COUNT) as f32) as u16;
+    }
+
+    table
+}
+
+fn build_temp_rand_colors() -> [u32; 256] {
+    let mut table = [0u32; 256];
+
+    for i in 0..256 {
+        let mut x = i as u32;
+        x = (x ^ (x << 13)) & 0xff;
+        x = (x ^ (x >> 17)) & 0xff;
+        x = (x ^ (x << 5)) & 0xff;
+        table[i] = x;
+    }
+
+    table
+}
+
+fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
+    let mut table = [0; 1 << SRGB_BIT_COUNT];
+
+    for i in 0..(1 << SRGB_BIT_COUNT) {
+        let linear = i as f32 / (1 << SRGB_BIT_COUNT) as f32;
+        let srgb = linear_to_srgb(linear);
+        table[i] = (srgb * (1 << 8) as f32) as u8;
+    }
+
+    table
+}
+
+impl SwRenderer {
+    pub(crate) fn new() -> Self {
+        let linear_to_srgb = build_linear_to_srgb_table();
+        let srgb_to_linear = build_srgb_to_linear_table();
+        let temp_rand_colors = build_temp_rand_colors();
+        Self {
+            _dummy: 0,
+            linear_to_srgb,
+            srgb_to_linear,
+            temp_rand_colors,
+        }
+    }
+
+    pub fn render(&mut self, dest: &mut [u32], width: usize, height: usize, primitives: &[Primitive]) {
+        let mut color_index = 0;
+
+        for prim in primitives {
+            let min_x = prim.rect.min[0] as usize;
+            let min_y = prim.rect.min[1] as usize;
+            let max_x = prim.rect.max[0] as usize;
+            let max_y = prim.rect.max[1] as usize;
+
+            let max_x = max_x.min(width);
+            let max_y = max_y.min(height);
+            let min_x = min_x.max(0);
+            let min_y = min_y.max(0);
+
+            for y in min_y..max_y {
+                for x in min_x..max_x {
+                    let color = self.temp_rand_colors[color_index & 0xff]; 
+                    dest[y * width + x] = color;
+                }
+            }
+
+            color_index += 1;
+        }
     }
 }
