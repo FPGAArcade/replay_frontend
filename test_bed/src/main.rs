@@ -1,10 +1,14 @@
 use minifb::{Key, Window, WindowOptions};
+use flowi_core::Flowi;
+use flowi_sw_renderer::SwRenderer;
 
 const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
+    let mut flowi_core = Flowi::new();
+    let mut sw_renderer = SwRenderer::new();
 
     let mut window = Window::new(
         "Test - ESC to exit",
@@ -23,6 +27,13 @@ fn main() {
         for i in buffer.iter_mut() {
             *i = 0; // write something more funny here!
         }
+
+        flowi_core.begin(0.0, WIDTH, HEIGHT);
+        flowi_core.end();
+
+        let primitives = flowi_core.primitives();
+
+        sw_renderer.render(&mut buffer, WIDTH, HEIGHT, primitives);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window
