@@ -574,7 +574,7 @@ impl Arena {
 
     pub fn get_array_by_type<T: Sized>(&self) -> &[T] {
         let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>()); 
-        let count = self.current.committed_size / total_item_size;
+        let count = self.current.pos / total_item_size;
 
         unsafe {
             core::slice::from_raw_parts(self.current.ptr as *const T, count)

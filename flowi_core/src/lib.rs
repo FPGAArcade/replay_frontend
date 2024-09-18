@@ -32,41 +32,6 @@ pub struct Flowi {
 }
 
 impl Flowi {
-    pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
-        // Set the root box to the size of the window
-        let root = self.root.as_mut_unchecked();
-        root.inner_borrow_mut().rect = Rect::new(0.0, 0.0, width as f32, height as f32);
-
-        self.io_handler.update();
-        self.primitives.rewind();
-    }
-
-    pub fn end(&mut self) {
-        // Calculate the layout of all boxes
-        self.layout.resolve_layout(self.root);
-
-        // Only retain boxes that were created/updated in the current frame
-        self.box_lookup.retain(|_, box_area| {
-            let box_area = box_area.as_ref_unsafe();
-            box_area.current_frame == self.current_frame
-        });
-
-        // Generate primitives from all boxes
-        self.current_frame += 1;
-    }
-
-    fn generate_primitives(&mut self, box_area: BoxAreaPtr) {
-        // TODO: We should prune the tree of boxes that wasn't created the current frame
-
-        for box_area in self.boxes.get_array_by_type::<BoxArea>() {
-            let primitive = unsafe { self.primitives.alloc::<Primitive>().unwrap() };
-            let inner = box_area.inner_borrow();
-            let rect = inner.rect;
-            let color = Color32::new(0xff, 0xff, 0xff, 0xff);
-            *primitive = Primitive::new(rect, color);
-        }
-    }
-
     pub fn new() -> Box<Self> {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
@@ -90,6 +55,41 @@ impl Flowi {
             primitives: Arena::new(reserve_size).unwrap(),
             root,
         })
+    }
+
+    pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
+        // Set the root box to the size of the window
+        let root = self.root.as_mut_unchecked();
+        root.inner_borrow_mut().rect = Rect::new(0.0, 0.0, width as f32, height as f32);
+
+        self.io_handler.update();
+        self.primitives.rewind();
+    }
+
+    pub fn end(&mut self) {
+        // Calculate the layout of all boxes
+        self.layout.resolve_layout(self.root);
+
+        // Only retain boxes that were created/updated in the current frame
+        self.box_lookup.retain(|_, box_area| {
+            let box_area = box_area.as_ref_unsafe();
+            box_area.current_frame == self.current_frame
+        });
+
+        // Generate primitives from all boxes
+        self.generate_primitives();
+        self.current_frame += 1;
+    }
+
+    fn generate_primitives(&mut self) {
+        // TODO: We should prune the tree of boxes that wasn't created the current frame
+        for box_area in self.boxes.get_array_by_type::<BoxArea>() {
+            let primitive = unsafe { self.primitives.alloc::<Primitive>().unwrap() };
+            let inner = box_area.inner_borrow();
+            let rect = inner.rect;
+            let color = Color32::new(0xff, 0xff, 0xff, 0xff);
+            *primitive = Primitive::new(rect, color);
+        }
     }
 
     fn create_box_inner(&mut self, parent: BoxAreaPtr) -> BoxAreaPtr {
@@ -176,6 +176,10 @@ impl Flowi {
 
         let inner = box_area.inner_borrow_mut();
         inner.display_string = display_string.to_string();
+    }
+
+    pub fn primitives(&self) -> &[Primitive] {
+        self.primitives.get_array_by_type::<Primitive>()
     }
 
     fn hash_from_string(seed: u64, string: &str) -> u64 {
