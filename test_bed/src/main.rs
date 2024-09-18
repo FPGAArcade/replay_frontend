@@ -29,6 +29,10 @@ fn main() {
         }
 
         flowi_core.begin(0.0, WIDTH, HEIGHT);
+
+        flowi_core.create_box_with_string("Hello, World!");
+        flowi_core.create_box_with_string("Hello, World! 2");
+
         flowi_core.end();
 
         let primitives = flowi_core.primitives();
