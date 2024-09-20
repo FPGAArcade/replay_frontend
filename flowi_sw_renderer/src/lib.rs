@@ -76,6 +76,7 @@ impl SwRenderer {
     pub fn new() -> Self {
         let linear_to_srgb = build_linear_to_srgb_table();
         let srgb_to_linear = build_srgb_to_linear_table();
+
         Self {
             _dummy: 0,
             linear_to_srgb,
@@ -86,23 +87,17 @@ impl SwRenderer {
     pub fn render(&mut self, dest: &mut [u32], width: usize, height: usize, primitives: &[Primitive]) {
         let mut color_index = 0;
 
-        println!("Rendering {} primitives", primitives.len());
-
         for prim in primitives {
             let min_x = prim.rect.min[0] as usize;
             let min_y = prim.rect.min[1] as usize;
             let max_x = prim.rect.max[0] as usize;
             let max_y = prim.rect.max[1] as usize;
 
-            dbg!(min_x, min_y, max_x, max_y);
-
             let max_x = max_x.min(width);
             let max_y = max_y.min(height);
             let min_x = min_x.max(0);
             let min_y = min_y.max(0);
             let color = COLORS[color_index & 0xf]; 
-
-            dbg!(color);
 
             for y in min_y..max_y {
                 for x in min_x..max_x {

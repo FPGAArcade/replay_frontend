@@ -360,35 +360,40 @@ impl<'a> LayoutScope<'a> {
         }
     }
 
-    pub fn set_pref_width(&mut self, size: Size) -> &mut Self {
+    pub fn set_pref_width(mut self, size: Size) -> Self {
         self.layout.pref_width.push(size);
         self.used_stacks |= StackFlags::PREF_WIDTH;
         self
     }
 
-    pub fn set_pref_height(&mut self, size: Size) {
+    pub fn set_pref_height(mut self, size: Size) -> Self {
         self.layout.pref_height.push(size);
         self.used_stacks |= StackFlags::PREF_HEIGHT;
+        self
     }
 
-    pub fn set_fixed_x(&mut self, value: f32) {
+    pub fn set_fixed_x(mut self, value: f32) -> Self {
         self.layout.fixed_x.push(value);
         self.used_stacks |= StackFlags::FIXED_WIDTH;
+        self
     }
 
-    pub fn set_fixed_y(&mut self, value: f32) {
+    pub fn set_fixed_y(mut self, value: f32) -> Self {
         self.layout.fixed_y.push(value);
         self.used_stacks |= StackFlags::FIXED_HEIGHT;
+        self
     }
 
-    pub fn set_flags(&mut self, flags: u64) {
+    pub fn set_flags(mut self, flags: u64) -> Self {
         self.layout.flags.push(flags);
         self.used_stacks |= StackFlags::FLAGS;
+        self
     }
 
-    pub fn set_child_layout_axis(&mut self, axis: Axis) {
+    pub fn set_child_layout_axis(mut self, axis: Axis) -> Self {
         self.layout.child_layout_axis.push(axis);
         self.used_stacks |= StackFlags::CHILD_LAYOUT_AXIS;
+        self
     }
 
     pub fn end_box(&mut self) {

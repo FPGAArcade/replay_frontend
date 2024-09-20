@@ -60,7 +60,10 @@ impl Flowi {
     pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
         // Set the root box to the size of the window
         let root = self.root.as_mut_unchecked();
-        root.inner_borrow_mut().rect = Rect::new(0.0, 0.0, width as f32, height as f32);
+        let inner = root.inner_borrow_mut();
+
+        inner.pref_size[0] = Size::in_pixels(width as f32);
+        inner.pref_size[1] = Size::in_pixels(height as f32);
 
         self.io_handler.update();
         self.primitives.rewind();
@@ -71,10 +74,12 @@ impl Flowi {
         self.layout.resolve_layout(self.root);
 
         // Only retain boxes that were created/updated in the current frame
+        /*
         self.box_lookup.retain(|_, box_area| {
             let box_area = box_area.as_ref_unsafe();
             box_area.current_frame == self.current_frame
         });
+        */
 
         // Generate primitives from all boxes
         self.generate_primitives();
@@ -100,8 +105,12 @@ impl Flowi {
         let box_area = box_area_ptr.as_mut_unchecked();  
 
         let inner = box_area.inner_borrow_mut();
+        /*
         inner.pref_size[0] = self.layout.pref_width.last_or_default();
         inner.pref_size[1] = self.layout.pref_height.last_or_default(); 
+        */
+        inner.pref_size[0] = Size::in_pixels(100.0);
+        inner.pref_size[1] = Size::in_pixels(100.0);
         inner.calc_rel_position[0] = self.layout.fixed_x.last_or_default();
         inner.calc_rel_position[1] = self.layout.fixed_y.last_or_default();
         inner.flags = self.layout.flags.last_or_default();
@@ -146,10 +155,12 @@ impl Flowi {
         let parent_box = self.owner.last_or_default();
         let hash = Self::hash_from_string(parent_box.as_ref_unsafe().hash_key, display_string);
 
-        let (box_area, first_frame) = if let Some(box_area) = self.box_lookup.get(&hash) {
-            (*box_area, false)
+        let box_area = if let Some(box_area) = self.box_lookup.get(&hash) {
+            *box_area
         } else {
-            (self.create_box_inner(parent_box), true)
+            let box_area = self.create_box_inner(parent_box);
+            self.box_lookup.insert(hash, box_area);
+            box_area
         };
 
         let parent_box = parent_box.as_mut().unwrap();
@@ -170,10 +181,6 @@ impl Flowi {
         box_area.last = BoxAreaPtr::default();
         box_area.next = BoxAreaPtr::default();
 
-        if first_frame {
-            self.box_lookup.insert(hash, BoxAreaPtr::new(box_area));
-        }
-
         let inner = box_area.inner_borrow_mut();
         inner.display_string = display_string.to_string();
     }
@@ -184,7 +191,7 @@ impl Flowi {
 
     fn hash_from_string(seed: u64, string: &str) -> u64 {
         string.bytes().fold(seed, |result, byte| {
-            (result << 5) + result + byte as u64
+            (result << 5).wrapping_add(result + byte as u64)
         })
     }
 }
