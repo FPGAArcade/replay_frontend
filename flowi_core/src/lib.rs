@@ -9,7 +9,7 @@ pub mod input;
 pub mod widgets;
 
 use arena_allocator::{PodArena, Arena};
-use layout::{Layout, Size, Axis};
+use layout::{Layout, LayoutScope, Size, Axis};
 use box_area::{BoxArea, BoxAreaPtr};
 use std::collections::HashMap;
 use fileorama::Fileorama;
@@ -62,6 +62,9 @@ impl Flowi {
         let root = self.root.as_mut_unchecked();
         let inner = root.inner_borrow_mut();
 
+        self.layout.pref_width.push(Size::in_pixels(width as f32));
+        self.layout.pref_height.push(Size::in_pixels(height as f32));
+
         inner.pref_size[0] = Size::in_pixels(width as f32);
         inner.pref_size[1] = Size::in_pixels(height as f32);
 
@@ -86,6 +89,10 @@ impl Flowi {
         self.current_frame += 1;
     }
 
+    pub fn with_layout(&mut self) -> LayoutScope { 
+        LayoutScope::new(self)
+    }
+
     fn generate_primitives(&mut self) {
         // TODO: We should prune the tree of boxes that wasn't created the current frame
         for box_area in self.boxes.get_array_by_type::<BoxArea>() {
@@ -105,12 +112,12 @@ impl Flowi {
         let box_area = box_area_ptr.as_mut_unchecked();  
 
         let inner = box_area.inner_borrow_mut();
-        /*
         inner.pref_size[0] = self.layout.pref_width.last_or_default();
         inner.pref_size[1] = self.layout.pref_height.last_or_default(); 
-        */
-        inner.pref_size[0] = Size::in_pixels(100.0);
-        inner.pref_size[1] = Size::in_pixels(100.0);
+        dbg!(inner.pref_size[0]);
+        dbg!(inner.pref_size[1]);
+        //inner.pref_size[0] = Size::in_pixels(100.0);
+        //inner.pref_size[1] = Size::in_pixels(100.0);
         inner.calc_rel_position[0] = self.layout.fixed_x.last_or_default();
         inner.calc_rel_position[1] = self.layout.fixed_y.last_or_default();
         inner.flags = self.layout.flags.last_or_default();
