@@ -123,7 +123,7 @@ pub(crate) struct BoxAreaInner {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct BoxAreaPtr {
+pub struct BoxAreaPtr {
     pub(crate) ptr: *mut BoxArea,
 }
 

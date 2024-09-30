@@ -6,12 +6,13 @@ use crate::box_area::BoxAreaPtr;
 use crate::internal_error::InternalError as Error;
 
 pub struct Layout {
-    pub(crate) pref_width: PodArena<Size>,
-    pub(crate) pref_height: PodArena<Size>,
-    pub(crate) fixed_x: PodArena<f32>,
-    pub(crate) fixed_y: PodArena<f32>,
-    pub(crate) flags: PodArena<u64>,
-    pub(crate) child_layout_axis: PodArena<Axis>,
+    pub owner: PodArena<BoxAreaPtr>,
+    pub pref_width: PodArena<Size>,
+    pub pref_height: PodArena<Size>,
+    pub fixed_x: PodArena<f32>,
+    pub fixed_y: PodArena<f32>,
+    pub flags: PodArena<u64>,
+    pub child_layout_axis: PodArena<Axis>,
 }
 
 #[cfg(feature = "tracing-instrument")]
@@ -332,6 +333,7 @@ impl Layout {
         let reserve_size = 1024 * 1024 * 1024;
 
         Ok(Self {
+            owner: PodArena::new(reserve_size)?,
             pref_width: PodArena::new(reserve_size)?,
             pref_height: PodArena::new(reserve_size)?,
             fixed_x: PodArena::new(reserve_size)?,
@@ -340,7 +342,6 @@ impl Layout {
             child_layout_axis: PodArena::new(reserve_size)?,
         })
     }
-
 
     pub fn resolve_layout(&mut self, root: BoxAreaPtr) {
         do_layout_axis(&root.as_ref_unsafe());

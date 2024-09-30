@@ -15,15 +15,13 @@ use std::collections::HashMap;
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;
 use primitives::{Primitive, Color32};
-use crate::box_area::Rect;
 
 pub struct Flowi {
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
-    pub(crate) layout: Layout,
+    pub layout: Layout,
     pub(crate) root: BoxAreaPtr,
     pub(crate) boxes: Arena,
-    pub(crate) owner: PodArena<BoxAreaPtr>,
     pub(crate) primitives: Arena,
     // Used to look up if we have a box created for a given hash key
     // TODO: Rewrite with custom hash map to get rid of std dependency
@@ -39,16 +37,16 @@ impl Flowi {
 
         let reserve_size = 1024 * 1024 * 1024;
 
-        let mut owner = PodArena::new(reserve_size).unwrap();
+        let mut layout = Layout::new().unwrap();
         let mut box_allocator = Arena::new(reserve_size).unwrap();
+
         let root = Self::create_root(&mut box_allocator);
-        owner.push(root);
+        layout.owner.push(root);
 
         Box::new(Flowi {
             vfs,
-            owner,
             io_handler,
-            layout: Layout::new().unwrap(),
+            layout,
             boxes: box_allocator, 
             box_lookup: HashMap::new(),
             current_frame: 0,
@@ -137,7 +135,7 @@ impl Flowi {
     }
 
     pub fn create_box(&mut self) {
-        let parent_box = self.owner.last().copied().unwrap_or_default();
+        let parent_box = self.layout.owner.last().copied().unwrap_or_default();
 
         let box_area = self.create_box_inner(parent_box); 
         let parent_box = parent_box.as_mut().unwrap();
@@ -151,8 +149,8 @@ impl Flowi {
         parent_box.last = box_area;
     }
 
-    pub fn create_box_with_string(&mut self, display_string: &str) {
-        let parent_box = self.owner.last_or_default();
+    pub fn create_box_with_string(&mut self, display_string: &str) -> BoxAreaPtr {
+        let parent_box = self.layout.owner.last_or_default();
         let hash = Self::hash_from_string(parent_box.as_ref_unsafe().hash_key, display_string);
 
         let box_area = if let Some(box_area) = self.box_lookup.get(&hash) {
@@ -173,6 +171,7 @@ impl Flowi {
 
         parent_box.last = box_area;
 
+        let b = box_area;
         let box_area = box_area.as_mut_unchecked();
 
         // clear out the per-frame data
@@ -183,6 +182,8 @@ impl Flowi {
 
         let inner = box_area.inner_borrow_mut();
         inner.display_string = display_string.to_string();
+
+        b
     }
 
     pub fn primitives(&self) -> &[Primitive] {

@@ -1,5 +1,6 @@
 use minifb::{Key, Window, WindowOptions};
 use flowi_core::Flowi;
+use flowi_core::layout::Axis;
 use flowi_sw_renderer::SwRenderer;
 
 const WIDTH: usize = 1280;
@@ -32,6 +33,17 @@ fn main() {
 
         flowi_core.create_box_with_string("Hello, World!");
         flowi_core.create_box_with_string("Hello, World! 2");
+        flowi_core.create_box_with_string("Hello, World! 3");
+
+        flowi_core.layout.child_layout_axis.push(Axis::Vertical);
+        let b = flowi_core.create_box_with_string("Hello, World! 4");
+        flowi_core.layout.owner.push(b);
+        
+        flowi_core.create_box_with_string("Hello, World! 5");
+        flowi_core.create_box_with_string("Hello, World! 6");
+
+        flowi_core.layout.child_layout_axis.pop();
+        flowi_core.layout.owner.pop();
 
         flowi_core.end();
 
