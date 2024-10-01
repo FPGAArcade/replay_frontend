@@ -16,17 +16,21 @@ use fileorama::Fileorama;
 pub use io_handler::IoHandler;
 use primitives::{Primitive, Color32};
 
-pub struct Flowi {
+pub(crate) struct Flowi {
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
-    pub layout: Layout,
+    pub(crate) layout: Layout,
     pub(crate) root: BoxAreaPtr,
     pub(crate) boxes: Arena,
     pub(crate) primitives: Arena,
     // Used to look up if we have a box created for a given hash key
     // TODO: Rewrite with custom hash map to get rid of std dependency
-    box_lookup: HashMap<u64, BoxAreaPtr>,
-    current_frame: u64,
+    pub(crate) box_lookup: HashMap<u64, BoxAreaPtr>,
+    pub(crate) current_frame: u64,
+    // If we build in debug and don't have the instance_thread_local feature enabled we 
+    // so we can validate that the instance is only accessed from the main thread
+    #[cfg(all(debug_assertions, not(feature = "instance_thread_local")))]
+    pub(crate) thread_id: std::thread::ThreadId,
 }
 
 impl Flowi {
@@ -52,6 +56,8 @@ impl Flowi {
             current_frame: 0,
             primitives: Arena::new(reserve_size).unwrap(),
             root,
+            #[cfg(all(debug_assertions, not(feature = "instance_thread_local")))]
+            thread_id: std::thread::current().id(),
         })
     }
 
@@ -112,10 +118,10 @@ impl Flowi {
         let inner = box_area.inner_borrow_mut();
         inner.pref_size[0] = self.layout.pref_width.last_or_default();
         inner.pref_size[1] = self.layout.pref_height.last_or_default(); 
-        dbg!(inner.pref_size[0]);
-        dbg!(inner.pref_size[1]);
-        //inner.pref_size[0] = Size::in_pixels(100.0);
-        //inner.pref_size[1] = Size::in_pixels(100.0);
+        //dbg!(inner.pref_size[0]);
+        //dbg!(inner.pref_size[1]);
+        inner.pref_size[0] = Size::in_pixels(100.0);
+        inner.pref_size[1] = Size::in_pixels(100.0);
         inner.calc_rel_position[0] = self.layout.fixed_x.last_or_default();
         inner.calc_rel_position[1] = self.layout.fixed_y.last_or_default();
         inner.flags = self.layout.flags.last_or_default();
@@ -201,5 +207,76 @@ impl Flowi {
         string.bytes().fold(seed, |result, byte| {
             (result << 5).wrapping_add(result + byte as u64)
         })
+    }
+}
+
+#[cfg(feature = "instance_thread_local")]
+thread_local! {
+    pub static UI_INSTANCE: UnsafeCell<Flowi> = UnsafeCell::new(Flowi::new()); 
+}   
+
+#[cfg(not(feature = "instance_thread_local"))]
+static mut UI_INSTANCE: *mut Flowi = core::ptr::null_mut(); 
+
+#[cfg(feature = "instance_thread_local")]
+fn ui_instance() -> &mut Flowi {
+    UI_INSTANCE.with(|ui| unsafe { &mut *ui.get() })
+}
+
+#[cfg(not(feature = "instance_thread_local"))]
+fn ui_instance<'a>() -> &'a mut Flowi {
+    #[cfg(debug_assertions)]
+    if unsafe { UI_INSTANCE.is_null() } {
+        panic!("UI instance accessed before it was created");
+    }
+
+    let instance = unsafe { &mut *UI_INSTANCE };
+
+    // If we debug without thread_local we make sure that the instance is only accessed from the main thread 
+    #[cfg(debug_assertions)]
+    if !instance.thread_id.eq(&std::thread::current().id()) {
+        panic!("UI instance accessed from a different thread than the one it was created on");
+    }
+
+    instance
+}
+
+
+pub struct Ui;
+
+impl Ui {
+    #[cfg(not(feature = "instance_thread_local"))]
+    pub fn create() {
+        unsafe {
+            UI_INSTANCE = Box::into_raw(Flowi::new());
+        }
+    }
+
+    #[cfg(feature = "instance_thread_local")]
+    pub fn create() {
+    }
+
+    pub fn begin(delta_time: f32, width: usize, height: usize) {
+        ui_instance().begin(delta_time, width, height);
+    }
+
+    pub fn end() {
+        ui_instance().end();
+    }
+
+    pub fn with_layout<'a>() -> LayoutScope<'a> {
+        ui_instance().with_layout()
+    }
+
+    pub fn create_box() {
+        ui_instance().create_box();
+    }
+
+    pub fn create_box_with_string(display_string: &str) -> BoxAreaPtr {
+        ui_instance().create_box_with_string(display_string)
+    }
+
+    pub fn primitives<'a>() -> &'a [Primitive] {
+        ui_instance().primitives()
     }
 }

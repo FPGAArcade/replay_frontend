@@ -1,14 +1,15 @@
 use minifb::{Key, Window, WindowOptions};
-use flowi_core::Flowi;
-use flowi_core::layout::Size;
+use flowi_core::layout::Axis;
+use flowi_core::Ui;
 use flowi_sw_renderer::SwRenderer;
 
 const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;
 
 fn main() {
+    Ui::create();
+
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
-    let mut flowi_core = Flowi::new();
     let mut sw_renderer = SwRenderer::new();
 
     let mut window = Window::new(
@@ -29,29 +30,27 @@ fn main() {
             *i = 0; // write something more funny here!
         }
 
-        flowi_core.begin(0.0, WIDTH, HEIGHT);
+        Ui::begin(0.0, WIDTH, HEIGHT);
+
+        Ui::create_box_with_string("Hello, World!");
+        Ui::create_box_with_string("Hello, World! 2");
+        Ui::create_box_with_string("Hello, World! 3");
+
+        /*
+        Ui::layout.child_layout_axis.push(Axis::Vertical);
+        let b = Ui::create_box_with_string("Hello, World! 4");
+        Ui::layout.owner.push(b);
         
+        Ui::create_box_with_string("Hello, World! 5");
+        Ui::create_box_with_string("Hello, World! 6");
 
-        flowi_core.with_layout()
-            .set_pref_width(Size::in_pixels(200.0))
-            .set_pref_height(Size::in_pixels(200.0))
-            .apply(|ui| 
-        {
-            ui.create_box_with_string("Hello, World! 2");
-        });
+        Ui::layout.child_layout_axis.pop();
+        Ui::layout.owner.pop();
+        */
+        
+        Ui::end();
 
-        flowi_core.with_layout()
-            .set_pref_width(Size::in_pixels(100.0))
-            .set_pref_height(Size::in_pixels(100.0))
-            .apply(|ui| 
-        {
-            ui.create_box_with_string("Hello, World!");
-        });
-        //flowi_core.create_box_with_string("Hello, World! 3");
-
-        flowi_core.end();
-
-        let primitives = flowi_core.primitives();
+        let primitives = Ui::primitives();
 
         sw_renderer.render(&mut buffer, WIDTH, HEIGHT, primitives);
 
