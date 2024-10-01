@@ -4,6 +4,7 @@ use crate::box_area::BoxArea;
 use crate::box_area::StackFlags;
 use crate::box_area::BoxAreaPtr;
 use crate::internal_error::InternalError as Error;
+use crate::Flowi;
 
 pub struct Layout {
     pub owner: PodArena<BoxAreaPtr>,
@@ -349,83 +350,87 @@ impl Layout {
 }
 
 pub struct LayoutScope<'a> {
-    layout: &'a mut Layout,
+    core: &'a mut Flowi,
     used_stacks: StackFlags,
 }
 
 impl<'a> LayoutScope<'a> {
-    pub fn new(layout: &'a mut Layout) -> Self {
+    pub fn new(core: &'a mut Flowi) -> Self {
         Self {
-            layout,
+            core,
             used_stacks: StackFlags::empty(),
         }
     }
 
     pub fn set_pref_width(mut self, size: Size) -> Self {
-        self.layout.pref_width.push(size);
+        self.core.layout.pref_width.push(size);
         self.used_stacks |= StackFlags::PREF_WIDTH;
         self
     }
 
     pub fn set_pref_height(mut self, size: Size) -> Self {
-        self.layout.pref_height.push(size);
+        self.core.layout.pref_height.push(size);
         self.used_stacks |= StackFlags::PREF_HEIGHT;
         self
     }
 
     pub fn set_fixed_x(mut self, value: f32) -> Self {
-        self.layout.fixed_x.push(value);
+        self.core.layout.fixed_x.push(value);
         self.used_stacks |= StackFlags::FIXED_WIDTH;
         self
     }
 
     pub fn set_fixed_y(mut self, value: f32) -> Self {
-        self.layout.fixed_y.push(value);
+        self.core.layout.fixed_y.push(value);
         self.used_stacks |= StackFlags::FIXED_HEIGHT;
         self
     }
 
     pub fn set_flags(mut self, flags: u64) -> Self {
-        self.layout.flags.push(flags);
+        self.core.layout.flags.push(flags);
         self.used_stacks |= StackFlags::FLAGS;
         self
     }
 
     pub fn set_child_layout_axis(mut self, axis: Axis) -> Self {
-        self.layout.child_layout_axis.push(axis);
+        self.core.layout.child_layout_axis.push(axis);
         self.used_stacks |= StackFlags::CHILD_LAYOUT_AXIS;
         self
     }
 
-    pub fn end_box(&mut self) {
-        self.used_stacks = StackFlags::empty();
+    // The `appyl` method takes a closure, runs it, and ensures the layout state is restored after
+    pub fn apply<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut Flowi),
+    {
+        f(self.core);
     }
 }
 
 impl<'a> Drop for LayoutScope<'a> {
     fn drop(&mut self) {
         if self.used_stacks.contains(StackFlags::PREF_WIDTH) {
-            self.layout.pref_width.pop();
+            self.core.layout.pref_width.pop();
         }
 
         if self.used_stacks.contains(StackFlags::PREF_HEIGHT) {
-            self.layout.pref_height.pop();
+            self.core.layout.pref_height.pop();
         }
 
         if self.used_stacks.contains(StackFlags::FIXED_WIDTH) {
-            self.layout.fixed_x.pop();
+            self.core.layout.fixed_x.pop();
         }
 
         if self.used_stacks.contains(StackFlags::FIXED_HEIGHT) {
-            self.layout.fixed_y.pop();
+            self.core.layout.fixed_y.pop();
         }
 
         if self.used_stacks.contains(StackFlags::FLAGS) {
-            self.layout.flags.pop();
+            self.core.layout.flags.pop();
         }
 
         if self.used_stacks.contains(StackFlags::CHILD_LAYOUT_AXIS) {
-            self.layout.child_layout_axis.pop();
+            self.core.layout.child_layout_axis.pop();
         }
     }
 }
