@@ -184,13 +184,14 @@ fn solve_upward_dependent_sizes_for(root: &mut BoxArea, axis: usize) {
 }
 
 fn solve_downward_dependent_sizes_for(root: &mut BoxArea, axis: usize) {
+    let axis = axis & 1;
+
     let mut node = root.first_mut();
     while let Some(next) = node {
         solve_downward_dependent_sizes_for(next, axis);
         node = next.next_mut();
     }
 
-    let axis = axis & 1;
     let size = root.pref_size[axis];
 
     if size.kind != SizeKind::ChildrenSum {

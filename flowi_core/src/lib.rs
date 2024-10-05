@@ -23,6 +23,7 @@ type FlowiKey = u64;
 pub(crate) struct Flowi {
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
+    pub(crate) input: input::Input,
     pub(crate) layout: Layout,
     pub(crate) root: BoxAreaPtr,
     pub(crate) boxes: Arena,
@@ -57,6 +58,7 @@ impl Flowi {
             io_handler,
             layout,
             hot_item: 0,
+            input: input::Input::new(),
             boxes: box_allocator,
             box_lookup: HashMap::new(),
             current_frame: 0,
@@ -204,9 +206,20 @@ impl Flowi {
     }
 
     fn signal(&mut self, box_area: BoxAreaPtr) -> Signal {
-        let signal = Signal::new();
-        let _box_area = box_area.as_mut_unsafe();
+        let mut signal = Signal::new();
+        let box_area = box_area.as_mut_unsafe();
+
+        dbg!(&box_area.rect);
+
+        if box_area.rect.contains(self.input.mouse_position) {
+            signal.flags.insert(signal::SignalFlags::HOVERING);
+        }
+
         signal
+    }
+
+    pub fn input(&mut self) -> &mut input::Input {
+        &mut self.input
     }
 
     pub fn primitives(&self) -> &[Primitive] {
@@ -278,6 +291,14 @@ impl Ui {
 
     pub fn create_box() {
         ui_instance().create_box();
+    }
+
+    pub fn button(text: &str) -> Signal {
+        ui_instance().button(text)
+    }
+
+    pub fn input<'a>() -> &'a mut input::Input {
+        ui_instance().input()
     }
 
     pub fn create_box_with_string(display_string: &str) -> BoxAreaPtr {

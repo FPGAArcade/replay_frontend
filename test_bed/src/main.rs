@@ -30,9 +30,23 @@ fn main() {
             *i = 0; // write something more funny here!
         }
 
-        Ui::begin(0.0, WIDTH, HEIGHT);
+        let input = Ui::input();
 
+        // Update the input state for the frame
+        window.get_mouse_pos(minifb::MouseMode::Clamp).map(|mouse| {
+            input.set_mouse_position(mouse.0 as f32, mouse.1 as f32);
+        });
+
+        Ui::begin(0.0, WIDTH, HEIGHT);
+        
         Ui::create_box_with_string("Hello, World!");
+
+        if Ui::button("MyButtont").hovering() {
+            println!("Button hovered!");
+        } else {
+            println!("Button not hovered!");
+        }
+
         Ui::create_box_with_string("Hello, World! 2");
         Ui::create_box_with_string("Hello, World! 3");
 

@@ -1,5 +1,6 @@
 use crate::layout::{Axis, Size};
 use bitflags::bitflags;
+use crate::primitives::Vec2;
 
 bitflags! {
     pub struct BoxFlags: u64 {
@@ -98,6 +99,10 @@ impl Rect {
             min: [min_x, min_y],
             max: [max_x, max_y],
         }
+    }
+
+    pub fn contains(&self, pos: Vec2) -> bool {
+        pos.x >= self.min[0] && pos.x <= self.max[0] && pos.y >= self.min[1] && pos.y <= self.max[1]
     }
 }
 

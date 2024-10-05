@@ -172,12 +172,19 @@ struct MouseState {
     down_duration: f32,
 }
 
-struct Input {
-    mouse_position: Vec2,
-    mouse_buttons: [MouseState; 5],
+pub struct Input {
+    pub(crate) mouse_position: Vec2,
+    pub(crate) mouse_buttons: [MouseState; 5],
 }
 
 impl Input {
+    pub fn new() -> Self {
+        Self {
+            mouse_position: Vec2::default(),
+            mouse_buttons: Default::default(),
+        }
+    }
+
     /// Queue a new key down/up event.
     /// Key should be "translated" (as in, generally [Key::A] matches the key end-user would use to emit an 'A' character)
     pub fn add_key_event(_key: Key, _down: bool) {}
@@ -191,6 +198,10 @@ impl Input {
         if let Some((x, y)) = pos {
             self.mouse_position = Vec2::new(x, y);
         }
+    }
+
+    pub fn set_mouse_position(&mut self, x: f32, y: f32) {
+        self.mouse_position = Vec2::new(x, y);
     }
 
     /// Queue a mouse button change
