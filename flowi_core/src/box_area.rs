@@ -1,6 +1,5 @@
+use crate::layout::{Axis, Size};
 use bitflags::bitflags;
-use core::cell::UnsafeCell;
-use crate::layout::{Size, Axis};
 
 bitflags! {
     pub struct BoxFlags: u64 {
@@ -111,15 +110,6 @@ pub(crate) struct TextData {
 
 #[derive(Debug, Default)]
 pub(crate) struct BoxAreaInner {
-    pub(crate) pref_size: [Size; 2],
-    pub(crate) calc_size: [f32; 2],
-    pub(crate) text_data: Option<TextData>,
-    pub(crate) child_layout_axis: Axis,
-    pub(crate) calc_rel_position: [f32; 2],
-    pub(crate) flags: u64,
-    pub(crate) rect: Rect,
-    pub(crate) view_off: [f32; 2],
-    pub(crate) display_string: String,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -129,7 +119,9 @@ pub struct BoxAreaPtr {
 
 impl Default for BoxAreaPtr {
     fn default() -> Self {
-        Self { ptr: core::ptr::null_mut() }
+        Self {
+            ptr: core::ptr::null_mut(),
+        }
     }
 }
 
@@ -142,7 +134,7 @@ impl BoxAreaPtr {
         unsafe { &*self.ptr }
     }
 
-    pub(crate) fn as_mut_unchecked(&self) -> &mut BoxArea {
+    pub(crate) fn as_mut_unsafe(&self) -> &mut BoxArea {
         unsafe { &mut *self.ptr }
     }
 
@@ -151,14 +143,22 @@ impl BoxAreaPtr {
     }
 
     pub(crate) fn as_mut(&self) -> Option<&mut BoxArea> {
-        unsafe { self.ptr.as_mut() } 
+        unsafe { self.ptr.as_mut() }
     }
 }
 
 #[repr(C)]
 #[derive(Debug, Default)]
 pub(crate) struct BoxArea {
-    pub(crate) inner: UnsafeCell<BoxAreaInner>,
+    pub(crate) pref_size: [Size; 2],
+    pub(crate) calc_size: [f32; 2],
+    pub(crate) text_data: Option<TextData>,
+    pub(crate) child_layout_axis: Axis,
+    pub(crate) calc_rel_position: [f32; 2],
+    pub(crate) flags: u64,
+    pub(crate) rect: Rect,
+    pub(crate) view_off: [f32; 2],
+    pub(crate) display_string: String, // TODO: Use a string view
     pub(crate) hash_key: u64,
     pub(crate) parent: BoxAreaPtr,
     pub(crate) first: BoxAreaPtr,
@@ -167,7 +167,7 @@ pub(crate) struct BoxArea {
     pub(crate) current_frame: u64,
 }
 
-impl BoxAreaInner {
+impl BoxArea {
     #[inline]
     pub(crate) fn has_flag(&self, flag: u64) -> bool {
         (self.flags & flag) == flag
@@ -181,22 +181,6 @@ impl BoxAreaInner {
     #[inline]
     pub(crate) fn is_overflowing_on(&self, axis: u32) -> bool {
         self.has_flag(BoxFlags::ALLOW_OVERFLOW_X.bits() << (axis as u64))
-    }
-}
-
-impl BoxArea {
-    #[inline]
-    pub(crate) fn inner_borrow(&self) -> &BoxAreaInner {
-        unsafe {
-            &*self.inner.get()
-        }
-    }
-
-    #[inline]
-    pub(crate) fn inner_borrow_mut(&self) -> &mut BoxAreaInner {
-        unsafe {
-            &mut *self.inner.get()
-        }
     }
 
     #[inline]

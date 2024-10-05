@@ -1,5 +1,5 @@
-use arena_allocator::TypedArena;
 use crate::box_area::Rect;
+use arena_allocator::TypedArena;
 
 #[repr(C)]
 pub struct FlData {
@@ -121,4 +121,3 @@ impl Primitive {
         }
     }
 }
-

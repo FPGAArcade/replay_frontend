@@ -1,10 +1,10 @@
-use smallvec::SmallVec;
-use arena_allocator::{PodArena, Arena};
 use crate::box_area::BoxArea;
-use crate::box_area::StackFlags;
 use crate::box_area::BoxAreaPtr;
+use crate::box_area::StackFlags;
 use crate::internal_error::InternalError as Error;
 use crate::Flowi;
+use arena_allocator::{Arena, PodArena};
+use smallvec::SmallVec;
 
 pub struct Layout {
     pub owner: PodArena<BoxAreaPtr>,
@@ -85,7 +85,6 @@ impl Size {
             strictness,
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -107,13 +106,13 @@ pub enum Axis {
 }
 
 #[cfg_attr(feature = "tracing-instrument", tracing::instrument)]
-fn do_layout_axis(root: &BoxArea) {
+fn do_layout_axis(root: &mut BoxArea) {
     do_layout_for(root, 0);
     do_layout_for(root, 1);
 }
 
 #[cfg_attr(feature = "tracing-instrument", tracing::instrument)]
-fn do_layout_for(root: &BoxArea, axis: usize) {
+fn do_layout_for(root: &mut BoxArea, axis: usize) {
     solve_independent_sizes_for(root, axis);
     solve_downward_dependent_sizes_for(root, axis);
     solve_upward_dependent_sizes_for(root, axis);
@@ -121,30 +120,29 @@ fn do_layout_for(root: &BoxArea, axis: usize) {
     solve_size_violations(root, axis);
 }
 
-fn solve_independent_sizes_for(root: &BoxArea, axis: usize) {
-    let inner = root.inner_borrow_mut(); 
-    let size = inner.pref_size[axis];
+fn solve_independent_sizes_for(root: &mut BoxArea, axis: usize) {
+    let size = root.pref_size[axis];
 
     match size.kind {
         SizeKind::Pixels => {
-            inner.calc_size[axis] = size.value;
+            root.calc_size[axis] = size.value;
         }
         SizeKind::Em => {
-            inner.calc_size[axis] = (size.value * top_font_size()).floor();
+            root.calc_size[axis] = (size.value * top_font_size()).floor();
         }
         SizeKind::TextContent => {
-            if let Some(text_data) = &inner.text_data {
+            if let Some(text_data) = &root.text_data {
                 //let paint = &text_data.paint;
                 if axis == 0 {
                     // TODO: fix me
-                    let text_width = 64.0;//paint.measure_text(&text_data.display_text);
+                    let text_width = 64.0; //paint.measure_text(&text_data.display_text);
                     let text_padding = text_data.text_edge_padding;
-                    inner.calc_size[axis] = (text_width + 2.0 * text_padding).floor();
+                    root.calc_size[axis] = (text_width + 2.0 * text_padding).floor();
                 } else {
                     // TODO: fix me
                     //let metrics = &paint.font_metrics;
-                    let line_height = 40.0f32;//metrics.descent - metrics.top;
-                    inner.calc_size[axis] = line_height.floor();
+                    let line_height = 40.0f32; //metrics.descent - metrics.top;
+                    root.calc_size[axis] = line_height.floor();
                 }
             } else {
                 panic!("box.text_data should not be None");
@@ -153,16 +151,15 @@ fn solve_independent_sizes_for(root: &BoxArea, axis: usize) {
         _ => {}
     }
 
-    let mut node = root.first();
+    let mut node = root.first_mut();
     while let Some(p) = node {
         solve_independent_sizes_for(p, axis);
-        node = p.next();
+        node = p.next_mut();
     }
 }
 
-fn solve_upward_dependent_sizes_for(root: &BoxArea, axis: usize) {
-    let inner = root.inner_borrow_mut(); 
-    let size = inner.pref_size[axis];
+fn solve_upward_dependent_sizes_for(root: &mut BoxArea, axis: usize) {
+    let size = root.pref_size[axis];
 
     if size.kind != SizeKind::PercentOfAncestor {
         return;
@@ -172,8 +169,7 @@ fn solve_upward_dependent_sizes_for(root: &BoxArea, axis: usize) {
     let mut parent = root.parent();
 
     while let Some(p) = parent {
-        let p_borrowed = p.inner_borrow();
-        if p_borrowed.pref_size[axis].kind != SizeKind::ChildrenSum {
+        if p.pref_size[axis].kind != SizeKind::ChildrenSum {
             ancestor = Some(p);
             break;
         }
@@ -181,22 +177,21 @@ fn solve_upward_dependent_sizes_for(root: &BoxArea, axis: usize) {
     }
 
     if let Some(a) = ancestor {
-        inner.calc_size[axis] = a.inner_borrow().calc_size[axis] * size.value;
+        root.calc_size[axis] = a.calc_size[axis] * size.value;
     } else {
-        println!("{} is left out of size calculations!", inner.display_string);
+        println!("{} is left out of size calculations!", root.display_string);
     }
 }
 
-fn solve_downward_dependent_sizes_for(root: &BoxArea, axis: usize) {
-    let mut node = root.first();
+fn solve_downward_dependent_sizes_for(root: &mut BoxArea, axis: usize) {
+    let mut node = root.first_mut();
     while let Some(next) = node {
         solve_downward_dependent_sizes_for(next, axis);
-        node = next.next();
+        node = next.next_mut();
     }
 
     let axis = axis & 1;
-    let inner = root.inner_borrow_mut(); 
-    let size = inner.pref_size[axis];
+    let size = root.pref_size[axis];
 
     if size.kind != SizeKind::ChildrenSum {
         return;
@@ -205,94 +200,87 @@ fn solve_downward_dependent_sizes_for(root: &BoxArea, axis: usize) {
     let mut node = root.first();
     let mut sum = 0.0;
     while let Some(p) = node {
-        let pi = p.inner_borrow(); 
-
-        if axis == inner.child_layout_axis as usize {
-            sum += pi.calc_size[axis];
+        if axis == root.child_layout_axis as usize {
+            sum += p.calc_size[axis];
         } else {
-            sum = f32::max(sum, pi.calc_size[axis]);
-        } 
+            sum = f32::max(sum, p.calc_size[axis]);
+        }
 
-        node = p.next(); 
+        node = p.next();
     }
 
-    inner.calc_size[axis] = sum;
-
+    root.calc_size[axis] = sum;
 }
 
-fn solve_size_violations(root: &BoxArea, axis: usize) {
-    let inner = root.inner_borrow_mut();
-    let available_space = inner.calc_size[axis];
+fn solve_size_violations(root: &mut BoxArea, axis: usize) {
+    let available_space = root.calc_size[axis];
 
     let mut taken_space = 0.0;
     let mut total_fixup_budget = 0.0;
-    let mut children: SmallVec<[&BoxArea; 256]> = SmallVec::new();
-    let mut non_floating_children: SmallVec<[&BoxArea; 128]> = SmallVec::new();
-        
-    let mut node = root.first();
+    let mut children: SmallVec<[BoxAreaPtr; 256]> = SmallVec::new();
+    let mut non_floating_children: SmallVec<[BoxAreaPtr; 128]> = SmallVec::new();
+
+    let mut node = root.first_mut();
 
     while let Some(p) = node {
-        let pi = p.inner_borrow(); 
-
-        if !pi.is_floating_on(axis as _) {
-            non_floating_children.push(p);
+        if !p.is_floating_on(axis as _) {
+            non_floating_children.push(BoxAreaPtr::new(p));
         }
 
-        children.push(p);
+        children.push(BoxAreaPtr::new(p));
 
-        node = p.next(); 
+        node = p.next_mut();
     }
 
-    if !inner.is_overflowing_on(axis as u32) {
+    if !root.is_overflowing_on(axis as u32) {
         for p in &non_floating_children {
-            let pi = p.inner_borrow(); 
-
-            let child_axis_size = pi.calc_size[axis];
-            if pi.child_layout_axis as usize == axis {
+            let p = p.as_ref_unsafe();
+            let child_axis_size = p.calc_size[axis];
+            if p.child_layout_axis as usize == axis {
                 taken_space += child_axis_size;
             } else {
                 taken_space = f32::max(taken_space, child_axis_size);
             }
 
-            let fixup_budget_this_child = child_axis_size * (1.0 - pi.pref_size[axis].strictness);
+            let fixup_budget_this_child = child_axis_size * (1.0 - p.pref_size[axis].strictness);
             total_fixup_budget += fixup_budget_this_child;
         }
     }
 
-    if !inner.is_overflowing_on(axis as u32) {
+    if !root.is_overflowing_on(axis as u32) {
         let violation = taken_space - available_space;
         if violation > 0.0 && total_fixup_budget > 0.0 {
             for p in &non_floating_children {
-                let pi = p.inner_borrow_mut(); 
+                let p = p.as_mut_unsafe();
+                let fixup_budget_this_child =
+                    p.calc_size[axis] * (1.0 - p.pref_size[axis].strictness);
 
-                let fixup_budget_this_child = pi.calc_size[axis] * (1.0 - pi.pref_size[axis].strictness);
-
-                let fixup_size_this_child = if inner.child_layout_axis as usize == axis {
+                let fixup_size_this_child = if root.child_layout_axis as usize == axis {
                     fixup_budget_this_child * (violation / total_fixup_budget)
                 } else {
-                    pi.calc_size[axis] - available_space
+                    p.calc_size[axis] - available_space
                 }
                 .clamp(0.0, fixup_budget_this_child);
 
-                pi.calc_size[axis] -= fixup_size_this_child;
+                p.calc_size[axis] -= fixup_size_this_child;
             }
         }
     }
 
-    if inner.child_layout_axis as usize == axis {
+    if root.child_layout_axis as usize == axis {
         let mut cur_pos = 0.0;
         for child in &non_floating_children {
-            let ci = child.inner_borrow_mut();
-            ci.calc_rel_position[axis] = cur_pos;
-            cur_pos += ci.calc_size[axis];
+            let child = child.as_mut_unsafe();
+            child.calc_rel_position[axis] = cur_pos;
+            cur_pos += child.calc_size[axis];
         }
     } else {
         for child in &non_floating_children {
+            let child = child.as_mut_unsafe();
             // TODO: Validate
-            let ci = child.inner_borrow_mut();
-            ci.calc_rel_position[axis] = 0.0;
+            child.calc_rel_position[axis] = 0.0;
 
-            /* 
+            /*
             if ci.fill_implicit_layout_axis {
                 ci.calc_size[axis] = inner.calc_size[axis];
             }
@@ -301,18 +289,19 @@ fn solve_size_violations(root: &BoxArea, axis: usize) {
     }
 
     for child in &children {
-        let ci = child.inner_borrow_mut();
-        let parent_pos = if ci.is_floating_on(axis as _) {
+        let child = child.as_mut_unsafe();
+        let parent_pos = if child.is_floating_on(axis as _) {
             0.0
         } else {
-            inner.rect.min[axis]
+            root.rect.min[axis]
         };
 
-        ci.rect.min[axis] = parent_pos + ci.calc_rel_position[axis] - inner.view_off[axis];
-        ci.rect.max[axis] = ci.rect.min[axis] + ci.calc_size[axis];
+        child.rect.min[axis] = parent_pos + child.calc_rel_position[axis] - root.view_off[axis];
+        child.rect.max[axis] = child.rect.min[axis] + child.calc_size[axis];
     }
 
     for child in &children {
+        let child = child.as_mut_unsafe();
         solve_size_violations(child, axis);
     }
 }
@@ -345,7 +334,7 @@ impl Layout {
     }
 
     pub fn resolve_layout(&mut self, root: BoxAreaPtr) {
-        do_layout_axis(&root.as_ref_unsafe());
+        do_layout_axis(root.as_mut_unsafe());
     }
 }
 
@@ -401,9 +390,9 @@ impl<'a> LayoutScope<'a> {
     // The `appyl` method takes a closure, runs it, and ensures the layout state is restored after
     pub fn apply<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut Flowi),
+        F: FnOnce(),
     {
-        f(self.core);
+        f();
     }
 }
 
@@ -441,7 +430,7 @@ mod tests {
 
     fn count_recursive(node: &BoxArea, count: &mut usize, level: usize) {
         *count += 1;
-        
+
         let mut node = node.first();
 
         while let Some(p) = node {
@@ -466,9 +455,9 @@ mod tests {
         layout.create_box_with_string("1"); // 0
         layout.create_box_with_string("2"); // 1
         layout.create_box_with_string("3"); // 2
-        //layout.owner.push(2);
-        //layout.create_box_with_string("3"); // 3
-        //layout.create_box_with_string("4"); // 4
+                                            //layout.owner.push(2);
+                                            //layout.create_box_with_string("3"); // 3
+                                            //layout.create_box_with_string("4"); // 4
 
         let mut count = 0;
         count_recursive(layout.root.as_ref_unsafe(), &mut count, 0);
@@ -492,5 +481,3 @@ mod tests {
         */
     }
 }
-
-

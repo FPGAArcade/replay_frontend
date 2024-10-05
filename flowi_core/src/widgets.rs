@@ -1,6 +1,6 @@
-use bitflags::bitflags;
 use crate::box_area::BoxFlags;
 use crate::Flowi;
+use bitflags::bitflags;
 
 bitflags! {
     pub(crate) struct SignalFlags: u32 {
@@ -81,22 +81,22 @@ impl Signals {
     pub fn is_right_pressed(&self) -> bool {
         self.flags.contains(SignalFlags::RIGHT_PRESSED)
     }
-/*
-    #[inline]
-    pub fn is_left_dragging(&self) -> bool {
-        self.flags.contains(SignalFlags::LEFT_DRAGGING)
-    }
+    /*
+        #[inline]
+        pub fn is_left_dragging(&self) -> bool {
+            self.flags.contains(SignalFlags::LEFT_DRAGGING)
+        }
 
-    #[inline]
-    pub fn is_middle_dragging(&self) -> bool {
-        self.flags.contains(SignalFlags::MIDDLE_DRAGGING)
-    }
+        #[inline]
+        pub fn is_middle_dragging(&self) -> bool {
+            self.flags.contains(SignalFlags::MIDDLE_DRAGGING)
+        }
 
-    #[inline]
-    pub fn is_right_dragging(&self) -> bool {
-        self.flags.contains(SignalFlags::RIGHT_DRAGGING)
-    }
-*/
+        #[inline]
+        pub fn is_right_dragging(&self) -> bool {
+            self.flags.contains(SignalFlags::RIGHT_DRAGGING)
+        }
+    */
 
     #[inline]
     pub fn is_left_clicked(&self) -> bool {
@@ -110,15 +110,12 @@ impl Signals {
 }
 
 impl Flowi {
+    /*
     pub fn button(&mut self, text: &str) {
         //let box = build_box_from_string(
-        let b = BoxFlags::DRAW_BACKGROUND |
-        BoxFlags::DRAW_BORDER |
-        BoxFlags::DRAW_TEXT;
-
+        let b = BoxFlags::DRAW_BACKGROUND | BoxFlags::DRAW_BORDER | BoxFlags::DRAW_TEXT;
     }
+    */  
 
-    fn build_box_from_string(&mut self, flags: BoxFlags, text: &str) {
-
-    } 
+    fn build_box_from_string(&mut self, flags: BoxFlags, text: &str) {}
 }
