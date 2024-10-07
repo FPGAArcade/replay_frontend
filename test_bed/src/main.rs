@@ -6,6 +6,41 @@ use flowi_sw_renderer::SwRenderer;
 const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;
 
+fn render_circle(buffer: &mut [u32], pos: (f32, f32), offset: f32, radius: f32) { 
+    let height = radius.floor() as usize;
+    let width = height * 2; 
+
+    // Loop through each pixel
+    for y in 0..height {
+        for x in 0..width {
+            // Calculate pixel position in buffer
+            let idx = (y * WIDTH) + x;
+
+            // Calculate the distance from the pixel center to the circle's center
+            let px = (x as f32 + 0.5) + offset; // Pixel center X (floating point)
+            let py = y as f32 + 0.5; // Pixel center Y (floating point)
+            let distance = ((px - pos.0).powi(2) + (py - pos.1).powi(2)).sqrt();
+
+            // Calculate how close the pixel is to the boundary of the circle
+            let dist_to_edge = (distance - radius).abs();
+
+            // Use the distance to determine the alpha value (anti-aliasing)
+            let alpha = if distance < radius {
+                255 // Fully inside the circle
+            } else if dist_to_edge < 1.0 {
+                // Smooth edge using a simple linear interpolation based on distance
+                ((1.0 - dist_to_edge) * 255.0) as u8
+            } else {
+                0 // Outside the circle
+            };
+
+            let alpha = alpha as u32;
+            let color = (alpha << 16) | (alpha << 8) | alpha;
+            buffer[idx] = color; // Red
+        }
+    }
+}
+
 fn main() {
     Ui::create();
 
@@ -24,6 +59,7 @@ fn main() {
 
     // Limit to max ~60 fps update rate
     window.set_target_fps(60);
+    let mut offset = 0.0;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
@@ -50,6 +86,7 @@ fn main() {
         Ui::create_box_with_string("Hello, World! 2");
         Ui::create_box_with_string("Hello, World! 3");
 
+
         /*
         Ui::layout.child_layout_axis.push(Axis::Vertical);
         let b = Ui::create_box_with_string("Hello, World! 4");
@@ -67,6 +104,10 @@ fn main() {
         let primitives = Ui::primitives();
 
         sw_renderer.render(&mut buffer, WIDTH, HEIGHT, primitives);
+
+        render_circle(&mut buffer, (0 as f32, 0 as f32), offset, 160.0);
+
+        offset -= 0.1;
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window
