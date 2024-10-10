@@ -1,4 +1,4 @@
-mod box_area;
+pub mod box_area;
 mod image;
 mod image_api;
 pub mod input;

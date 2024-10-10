@@ -29,6 +29,25 @@ impl Vec2 {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
+pub struct Uv {
+    pub u: f32,
+    pub v: f32,
+}
+
+impl Uv {
+    pub fn new(u: f32, v: f32) -> Self {
+        Self { u, v }
+    }
+
+    pub fn interpolate(a: Uv, b: Uv, t: f32) -> Uv {
+        Uv {
+            u: a.u + (b.u - a.u) * t,
+            v: a.v + (b.v - a.v) * t,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
 pub struct IVec2 {
     pub x: i32,
     pub y: i32,
@@ -77,6 +96,21 @@ impl Color {
     }
 }
 
+#[derive(Debug, Default, Copy, Clone)]
+pub struct IRect {
+    pub min: [i32; 2],
+    pub max: [i32; 2],
+}
+
+impl IRect {
+    pub fn new(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Self {
+        Self {
+            min: [min_x, min_y],
+            max: [max_x, max_y],
+        }
+    }
+}
+
 /*
 pub struct Rect {
     pub min: Vec2,
@@ -106,6 +140,7 @@ impl Rect {
 
 pub struct Primitive {
     pub rect: Rect,
+    pub uvs: [Uv; 4],
     pub colors: [Color32; 4],
     pub _corners: [f32; 4],
     pub _texture_handle: u64,
@@ -115,6 +150,7 @@ impl Primitive {
     pub fn new(rect: Rect, color: Color32) -> Self {
         Self {
             rect,
+            uvs: [Uv::new(0.0, 0.0); 4],
             colors: [color; 4],
             _corners: [0.0; 4],
             _texture_handle: 0,
