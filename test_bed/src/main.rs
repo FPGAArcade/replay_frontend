@@ -119,14 +119,20 @@ fn main() {
         let c3 = Color32::new(0xff, 0, 0, 0xff); 
 
         let primitive = Primitive {
-            rect: Rect::new(10.0, 10.0, 100.0, 100.0),
+            rect: Rect::new(20.0 - offset, 10.0, 100.0 - offset, 100.0),
             uvs: [Uv::new(0.0, 0.0); 4],
             colors: [c0, c1, c2, c3],
             _corners: [0.0; 4],
             _texture_handle: 0,
         };
 
+        dbg!(&primitive.rect);
+
+        offset -= 0.1;
+
         let tile = sw_renderer.tiles[0];
+
+        sw_renderer.clear_tile();
         sw_renderer.quad_ref_renderer(&tile, &primitive);
         
         //sw_renderer.test_render_in_tile();
