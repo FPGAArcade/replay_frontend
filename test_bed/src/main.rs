@@ -113,20 +113,16 @@ fn main() {
         offset -= 0.1;
         */
 
-        let c0 = Color32::new(0x0, 0, 0, 0xff); 
-        let c1 = Color32::new(0x0, 0, 0, 0xff); 
-        let c2 = Color32::new(0x0, 0xff, 0, 0xff); 
-        let c3 = Color32::new(0xff, 0, 0, 0xff); 
+        let c0 = Color32::new(0xff,  0xff, 0, 0xff); 
+        let c1 = Color32::new(0xff, 0x00, 0xff, 0x8f); 
 
         let primitive = Primitive {
-            rect: Rect::new(20.0 - offset, 10.0, 100.0 - offset, 100.0),
+            rect: Rect::new(20.0, 10.0, 100.0, 100.0),
             uvs: [Uv::new(0.0, 0.0); 4],
-            colors: [c0, c1, c2, c3],
+            colors: [c0, c1, c1, c0],
             _corners: [0.0; 4],
             _texture_handle: 0,
         };
-
-        dbg!(&primitive.rect);
 
         offset -= 0.1;
 
