@@ -55,7 +55,6 @@ fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
         let srgb = i as f32 / (1 << 8) as f32;
         let linear = srgb_to_linear(srgb);
         table[i] = (linear * (1 << LINEAR_BIT_COUNT) as f32) as u16;
-        dbg!(table[i]);
     }
 
     table
@@ -95,50 +94,90 @@ pub struct Tile {
 }
 
 impl ColorF32_16 {
-    fn new_from_color32_srgb(color: Color32) -> Self {
+    fn premul_interpolate(c1: Self, c2: Self, t: f32) -> Self {
+        let a = (1.0 - t) * c1.a + t * c2.a;
+        let r = (1.0 - t) * c1.r + t * c2.r;
+        let g = (1.0 - t) * c1.g + t * c2.g;
+        let b = (1.0 - t) * c1.b + t * c2.b;
+        let a = a.clamp(0.0, 1.0);
+
+        // Apply pre-multiplied alpha
+        let r_pre = r * a;
+        let g_pre = g * a;
+        let b_pre = b * a;
+
+        // Return the color with pre-multiplied alpha
         Self {
-            r: srgb_to_linear(color.r as f32 / 255.0),
-            g: srgb_to_linear(color.g as f32 / 255.0),
-            b: srgb_to_linear(color.b as f32 / 255.0),
-            a: color.a as f32 / 255.0,
+            r: r_pre,
+            g: g_pre,
+            b: b_pre,
+            a,
         }
     }
 
-    fn interpolate(a: Self, b: Self, t: f32) -> Self {
+    fn interpolate(c1: Self, c2: Self, t: f32) -> Self {
         Self {
-            r: a.r * (1.0 - t) + b.r * t,
-            g: a.g * (1.0 - t) + b.g * t,
-            b: a.b * (1.0 - t) + b.b * t,
-            a: a.a * (1.0 - t) + b.a * t,
+            r: (1.0 - t) * c1.r + t * c2.r,
+            g: (1.0 - t) * c1.g + t * c2.g,
+            b: (1.0 - t) * c1.b + t * c2.b,
+            a: (1.0 - t) * c1.a + t * c2.a,
         }
     }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
-struct Color16 {
-    r: u16,
-    g: u16,
-    b: u16,
-    a: u16,
+pub struct Color16 {
+    pub r: u16,
+    pub g: u16,
+    pub b: u16,
+    pub a: u16,
 }
 
 pub struct SwRenderer {
     linear_to_srgb: [u8; 1 << SRGB_BIT_COUNT],
     srgb_to_linear: [u16; 1 << 8],
     pub tiles: Vec<Tile>,
-    tile_buffer: Vec<Color16>,
+    pub tile_buffer: Vec<Color16>,
+    dummy_texture: Vec<Color16>,
     tile_width: usize,
     tile_height: usize,
     screen_width: usize,
     screen_height: usize,
 }
 
+fn mul_16_fixed(a: u16, b: u16) -> u16 {
+    let a = a as u32;
+    let b = b as u32;
+    let res = b * a;
+    (res >> 16) as u16
+}
+
 impl SwRenderer {
     pub fn new(screen_width: usize, screen_height: usize, tile_width: usize, tile_height: usize) -> Self {
+        let srgb_to_linear = build_srgb_to_linear_table();
+
         // TODO: Make sure to clamp against borders if not even divide
         let mut tiles =
             Vec::with_capacity((screen_width / tile_width) * (screen_height / tile_height));
         let mut tile_index = 0;
+
+        // generate a temp texture
+        let mut dummy_texture = Vec::with_capacity(tile_width * tile_height);
+
+        for y in 0..tile_height {
+            for x in 0..tile_height {
+                let c = ((x ^ y) & 0xff) as usize;
+                let c = srgb_to_linear[c]; 
+                let c = Color16 {
+                    r: c,
+                    g: c,
+                    b: c,
+                    a: (1 << LINEAR_BIT_COUNT) - 1, 
+                };
+
+                dummy_texture.push(c);
+            }
+        }
 
         for y in (0..screen_height).step_by(tile_height) {
             for x in (0..screen_width).step_by(tile_width) {
@@ -162,11 +201,12 @@ impl SwRenderer {
             tiles,
             tile_buffer: vec![Color16::default(); tile_width * tile_height],
             linear_to_srgb: build_linear_to_srgb_table(),
-            srgb_to_linear: build_srgb_to_linear_table(),
+            srgb_to_linear,
             tile_width,
             tile_height,
             screen_width,
             screen_height,
+            dummy_texture,
         }
     }
 
@@ -205,10 +245,10 @@ impl SwRenderer {
     fn color32_16_from_color32_srgb(&self, color: Color32) -> ColorF32_16 {
         let a = color.a as f32 * 1.0/255.0;
         ColorF32_16 {
-            r: (self.srgb_to_linear[color.r as usize] as f32) * a,
-            g: (self.srgb_to_linear[color.g as usize] as f32) * a,
-            b: (self.srgb_to_linear[color.b as usize] as f32) * a,
-            a: a * (1 << LINEAR_BIT_COUNT) as f32,
+            r: (self.srgb_to_linear[color.r as usize] as f32),
+            g: (self.srgb_to_linear[color.g as usize] as f32),
+            b: (self.srgb_to_linear[color.b as usize] as f32),
+            a,
         }
     }
 
@@ -239,9 +279,6 @@ impl SwRenderer {
         let clipped_max_x = max_xf.floor().min(tile.max.x as f32);
         let clipped_max_y = max_yf.floor().min(tile.max.y as f32);
 
-        //let x_length = clipped_max_x - clipped_min_x;
-        //let y_length = clipped_max_y - clipped_min_y;
-
         let y_delta = 1.0 / (max_yf - min_yf);
         let x_delta = 1.0 / (max_xf - min_xf);
 
@@ -257,10 +294,6 @@ impl SwRenderer {
         let c_br_color = self.color32_16_from_color32_srgb(primitive.colors[CORNER_BOTTOM_RIGHT]);
         let c_bl_color = self.color32_16_from_color32_srgb(primitive.colors[CORNER_BOTTOM_LEFT]);
 
-        dbg!(c_tl_color, c_tr_color);
-        dbg!(x_min_step, x_max_step);
-        dbg!(y_min_step, y_max_step);
-
         // Interpolate horizontally first between top-left and top-right (for top side)
         let color_top_left = ColorF32_16::interpolate(c_tl_color, c_tr_color, y_min_step);
         let color_top_right = ColorF32_16::interpolate(c_tl_color, c_tr_color, y_max_step);
@@ -270,22 +303,22 @@ impl SwRenderer {
         let color_bottom_right = ColorF32_16::interpolate(c_br_color, c_br_color, x_max_step);
 
         // Interpolate vertically between bottom and top sides
-        let uv_bottom_left = Uv::interpolate(primitive.uvs[0], primitive.uvs[1], x_min_step);
-        let uv_bottom_right = Uv::interpolate(primitive.uvs[0], primitive.uvs[1], x_max_step);
+        let uv_top_left = Uv::interpolate(primitive.uvs[CORNER_TOP_LEFT], primitive.uvs[CORNER_TOP_RIGHT], y_min_step);
+        let uv_top_right = Uv::interpolate(primitive.uvs[CORNER_TOP_LEFT], primitive.uvs[CORNER_TOP_RIGHT], y_max_step);
 
         // Interpolate vertically between bottom and top sides
-        let uv_top_left = Uv::interpolate(primitive.uvs[3], primitive.uvs[2], y_min_step);
-        let uv_top_right = Uv::interpolate(primitive.uvs[3], primitive.uvs[2], y_max_step);
+        let uv_bottom_left = Uv::interpolate(primitive.uvs[CORNER_BOTTOM_LEFT], primitive.uvs[CORNER_BOTTOM_RIGHT], x_min_step);
+        let uv_bottom_right = Uv::interpolate(primitive.uvs[CORNER_BOTTOM_LEFT], primitive.uvs[CORNER_BOTTOM_RIGHT], x_max_step);
 
         let y_start = clipped_min_y as usize;
         let y_end = clipped_max_y as usize;
         let x_start = clipped_min_x as usize;
         let x_end = clipped_max_x as usize;
         let mut yc = 0.0;
-        let one_shifted = (1 << LINEAR_BIT_COUNT) as f32;
+        let linear_bits_float = ((1 << LINEAR_BIT_COUNT) - 1) as f32;
 
-        dbg!(color_top_left, color_bottom_left);
-        dbg!(color_top_right, color_bottom_right);
+        let texture_width = self.tile_width;
+        let texture_height = self.tile_height;
 
         for y in y_start..y_end { 
             let mut xc = 0.0;
@@ -299,11 +332,23 @@ impl SwRenderer {
             let dest_row = &mut self.tile_buffer[(y * tile.max.x as usize)..]; 
 
             for x in x_start..x_end {
-                let color = ColorF32_16::interpolate(c0, c1, xc);
+                let color = ColorF32_16::premul_interpolate(c0, c1, xc);
                 let uv = Uv::interpolate(uv0, uv1, xc);
 
+                // Convert UV to texture space (assuming uv is in [0, 1] range)
+                let u = uv.u * (texture_width as f32 - 1.0);
+                let v = uv.v * (texture_height as f32 - 1.0);
+
+                // Get the integer part and the fractional part of the coordinates
+                let x0 = u.floor() as usize;
+                let x1 = (x0 + 1).min(texture_width - 1);  // Clamp to texture bounds
+                let y0 = v.floor() as usize;
+                let y1 = (y0 + 1).min(texture_height - 1); // Clamp to texture bounds
+                let tx = u.fract();  // Fractional part for x (0 to 1)
+                let ty = v.fract();  // Fractional part for y (0 to 1)
+            
                 let dest_pixel = &mut dest_row[x]; 
-                let one_minus_a = one_shifted - color.a;
+                let one_minus_a = 1.0 - color.a;
 
                 // in the ref renderer we use floats, but we still use 16-bit colors so we convert
                 // to floats here to keep it easier
@@ -311,7 +356,7 @@ impl SwRenderer {
                 let bg_r = dest_pixel.r as f32;
                 let bg_g = dest_pixel.g as f32;
                 let bg_b = dest_pixel.b as f32;
-                let bg_a = dest_pixel.a as f32;
+                let bg_a = (dest_pixel.a as f32) * (1.0 / linear_bits_float); // Alpha in 0 - 1
 
                 let r = color.r + (bg_r * one_minus_a); 
                 let g = color.g + (bg_g * one_minus_a); 
@@ -321,7 +366,7 @@ impl SwRenderer {
                 dest_pixel.r = r as u16;
                 dest_pixel.g = g as u16;
                 dest_pixel.b = b as u16;
-                dest_pixel.a = 0;//a as u16;
+                dest_pixel.a = (a * linear_bits_float) as u16;
 
                 xc += x_delta;
             }
@@ -379,6 +424,19 @@ impl SwRenderer {
             unsafe {
                 self.copy_tile_to_output(output, self.screen_width, &tile);
             }
+        }
+    }
+
+    pub fn clear_tile(&mut self) {
+        let clear_color = Color16 {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: (1 << LINEAR_BIT_COUNT) - 1, 
+        };
+
+        for c in &mut self.tile_buffer {
+            *c = clear_color;
         }
     }
 }

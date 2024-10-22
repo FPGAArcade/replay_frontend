@@ -2,6 +2,16 @@
 name = "flowi_sw_renderer"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 flowi_core = { path = "../flowi_core" }
+ispc_rt = "2"
+
+[build-dependencies]
+ispc_compile = { version = "2.0.1", optional = true }
+cc = { version = "1" }
+ispc_rt = "2"
+
+[features]
+ispc = ["ispc_compile"]
