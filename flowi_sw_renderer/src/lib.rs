@@ -1,4 +1,12 @@
+#[allow(deref_nullptr)]
+pub mod bindings {
+    use ispc_rt::ispc_module;
+    ispc_module!(kernel);
+}
+
 use flowi_core::primitives::{Color32, Uv, IRect, Primitive};
+use flowi_core::box_area::Rect;
+use crate::bindings::kernel;
 
 // Number of bits to repserent a color channel in sRGB color space. We use 16-bit colors to allow
 // for high range of colors. Most input images are in 8-bit sRGB color space, but as we convert
@@ -136,9 +144,9 @@ pub struct Color16 {
 pub struct SwRenderer {
     linear_to_srgb: [u8; 1 << SRGB_BIT_COUNT],
     srgb_to_linear: [u16; 1 << 8],
-    pub tiles: Vec<Tile>,
-    pub tile_buffer: Vec<Color16>,
-    dummy_texture: Vec<Color16>,
+    pub tiles: Vec<Tile>, // TODO: Arena
+    pub tile_buffers: [Vec<Color16>; 4], // TODO: Arena
+    dummy_texture: Vec<Color16>, // TODO: Arena
     tile_width: usize,
     tile_height: usize,
     screen_width: usize,
@@ -150,6 +158,13 @@ fn mul_16_fixed(a: u16, b: u16) -> u16 {
     let b = b as u32;
     let res = b * a;
     (res >> 16) as u16
+}
+
+#[derive(Debug, Copy, Clone)]
+enum IntersectResult {
+    Inside,
+    Outside,
+    Partial,
 }
 
 impl SwRenderer {
@@ -197,9 +212,14 @@ impl SwRenderer {
             }
         }
 
+        let t0 = vec![Color16::default(); tile_width * tile_height];
+        let t1 = vec![Color16::default(); tile_width * tile_height];
+        let t2 = vec![Color16::default(); tile_width * tile_height];
+        let t3 = vec![Color16::default(); tile_width * tile_height];
+
         Self {
             tiles,
-            tile_buffer: vec![Color16::default(); tile_width * tile_height],
+            tile_buffers: [t0, t1, t2, t3], 
             linear_to_srgb: build_linear_to_srgb_table(),
             srgb_to_linear,
             tile_width,
@@ -210,34 +230,85 @@ impl SwRenderer {
         }
     }
 
+    fn intersect_tile_and_rect(tile: &Tile, rect: Rect) -> IntersectResult {
+        let tile_min_x = tile.min.x as f32;
+        let tile_min_y = tile.min.y as f32;
+        let tile_max_x = tile.max.x as f32;
+        let tile_max_y = tile.max.y as f32;
+
+        let min_x = rect.min[0];
+        let min_y = rect.min[1];
+        let max_x = rect.max[0];
+        let max_y = rect.max[1];
+
+        // TODO: Optimize
+
+        if min_x >= tile_max_x || max_x <= tile_min_x || min_y >= tile_max_y || max_y <= tile_min_y {
+            return IntersectResult::Outside;
+        }
+
+        if min_x >= tile_min_x && max_x <= tile_max_x && min_y >= tile_min_y && max_y <= tile_max_y {
+            return IntersectResult::Inside;
+        }
+
+        IntersectResult::Partial
+    }
+
+    
+
     pub fn render(
         &mut self,
-        dest: &mut [u32],
-        width: usize,
-        height: usize,
+        _dest: &mut [u32],
+        _width: usize,
+        _height: usize,
         primitives: &[Primitive],
     ) {
-        let mut color_index = 0;
+        for tile in &self.tiles {
+            let tile_buffer = &mut self.tile_buffers[tile.local_tile_index & 3];
 
-        for prim in primitives {
-            let min_x = prim.rect.min[0] as usize;
-            let min_y = prim.rect.min[1] as usize;
-            let max_x = prim.rect.max[0] as usize;
-            let max_y = prim.rect.max[1] as usize;
+            Self::clear_tile(tile_buffer);
 
-            let max_x = max_x.min(width);
-            let max_y = max_y.min(height);
-            let min_x = min_x.max(0);
-            let min_y = min_y.max(0);
-            let color = COLORS[color_index & 0xf];
+            for prim in primitives {
+                let intersect = Self::intersect_tile_and_rect(tile, prim.rect);
 
-            for y in min_y..max_y {
-                for x in min_x..max_x {
-                    dest[y * width + x] = color;
+                match intersect {
+                    IntersectResult::Inside => {
+                        unsafe {
+                            let prim = &primitives[0];
+                            let rect_min_x = [prim.rect.min[0], 0.0, 0.0, 0.0];
+                            let rect_min_y = [prim.rect.min[1], 0.0, 0.0, 0.0];
+                            let rect_max_x = [prim.rect.max[0], 0.0, 0.0, 0.0];
+                            let rect_max_y = [prim.rect.max[1], 0.0, 0.0, 0.0];
+
+                            kernel::draw_rects(
+                                tile_buffer.as_mut_ptr() as *mut i16,
+                                self.tile_width as i32,
+                                self.tile_height as i32,
+                                tile.min.x as f32,
+                                tile.min.y as f32,
+                                rect_min_x.as_ptr() as *mut f32,
+                                rect_min_y.as_ptr() as *mut f32,
+                                rect_max_x.as_ptr() as *mut f32,
+                                rect_max_y.as_ptr() as *mut f32,
+                                1,
+                            );
+                        }
+                        //self.quad_ref_renderer(tile_buffer, tile, prim);
+                    }
+
+                    IntersectResult::Partial => {
+                        //self.quad_ref_renderer(tile_buffer, tile, prim);
+                    }
+
+                    IntersectResult::Outside => {
+                        continue;
+                    }
                 }
             }
 
-            color_index += 1;
+            unsafe {
+                self.copy_tile_to_output(_dest.as_mut_ptr(), _width, tile);
+            }
         }
     }
 
@@ -265,7 +336,8 @@ impl SwRenderer {
     // * Color interpolation between the corners and blending with the texture.
     // * Clipping to the screen/tile bounds
     //
-    pub fn quad_ref_renderer(&mut self, tile: &Tile, primitive: &Primitive) {
+    /*
+    pub fn quad_ref_renderer(tile_buffer: &mut [Color16], tile: &Tile, primitive: &Primitive) {
         // pixel center at (0.5, 0.5)
         let min_xf = (primitive.rect.min[0] - tile.min.x as f32) + 0.5;
         let min_yf = (primitive.rect.min[1] - tile.min.y as f32) + 0.5;
@@ -329,7 +401,7 @@ impl SwRenderer {
             let uv0 = Uv::interpolate(uv_bottom_left, uv_bottom_right, yc);
             let uv1 = Uv::interpolate(uv_top_left, uv_top_right, yc);
 
-            let dest_row = &mut self.tile_buffer[(y * tile.max.x as usize)..]; 
+            let dest_row = &mut tile_buffer[(y * tile.max.x as usize)..]; 
 
             for x in x_start..x_end {
                 let color = ColorF32_16::premul_interpolate(c0, c1, xc);
@@ -374,12 +446,14 @@ impl SwRenderer {
             yc += y_delta;
         }
     }
+    */
 
     unsafe fn copy_tile_to_output(&self, output: *mut u32, render_width: usize, tile: &Tile) {
         let tile_min_x = tile.min.x as usize;
         let tile_min_y = tile.min.y as usize;
 
         let target_offset = (tile_min_y * render_width) + tile_min_x;
+        let tile_buffer = &self.tile_buffers[tile.local_tile_index];
 
         // copy tile back to main buffer
         for y in 0..self.tile_height {
@@ -390,8 +464,8 @@ impl SwRenderer {
                     self.tile_width,
                 )
             };
-            
-            let tile_line = &self.tile_buffer[y * self.tile_width..(y + 1) * self.tile_width];
+
+            let tile_line = &tile_buffer[y * self.tile_width..(y + 1) * self.tile_width];
 
             // Convert back to sRGB
             for (src_pixel, dst_pixel) in tile_line.iter().zip(output_line.iter_mut()) {
@@ -404,6 +478,7 @@ impl SwRenderer {
         }
     }
 
+    /*
     pub fn test_render_in_tile(&mut self) {
         for y in 0..self.tile_height {
             for x in 0..self.tile_width {
@@ -418,6 +493,7 @@ impl SwRenderer {
             }
         }
     }
+    */
 
     pub fn copy_tile_buffer_to_output(&self, output: *mut u32) {
         for tile in &self.tiles {
@@ -427,7 +503,7 @@ impl SwRenderer {
         }
     }
 
-    pub fn clear_tile(&mut self) {
+    fn clear_tile(tile_buffer: &mut [Color16]) {
         let clear_color = Color16 {
             r: 0,
             g: 0,
@@ -435,7 +511,7 @@ impl SwRenderer {
             a: (1 << LINEAR_BIT_COUNT) - 1, 
         };
 
-        for c in &mut self.tile_buffer {
+        for c in tile_buffer {
             *c = clear_color;
         }
     }

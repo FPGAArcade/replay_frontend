@@ -331,14 +331,21 @@ fn main() {
             _texture_handle: 0,
         };
 
+        let primitives = [primitive];
+
+        /*
         offset -= 0.02;
         let offset = offset.max(1.0);
 
         let tile = sw_renderer.tiles[0];
+        */
+
+        sw_renderer.render(&mut buffer, WIDTH, HEIGHT, &primitives);
 
         //sw_renderer.clear_tile();
         //sw_renderer.quad_ref_renderer(&tile, &primitive);
         
+        /*
         unsafe {
             render_corner_with_border(
                 sw_renderer.tile_buffer.as_mut_ptr(),
@@ -348,9 +355,10 @@ fn main() {
                 Vec2::new(0.0, 0.0),
                 Corner::TopLeft);
         }
+        */
 
         //sw_renderer.test_render_in_tile();
-        sw_renderer.copy_tile_buffer_to_output(buffer.as_mut_ptr());
+        //sw_renderer.copy_tile_buffer_to_output(buffer.as_mut_ptr());
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window
