@@ -263,6 +263,9 @@ impl SwRenderer {
         _height: usize,
         primitives: &[Primitive],
     ) {
+        let c = Color32::new(0, 255, 0, 255);
+        let color = self.color32_16_from_color32_srgb(c);
+
         for tile in &self.tiles {
             let tile_buffer = &mut self.tile_buffers[tile.local_tile_index & 3];
 
@@ -280,6 +283,12 @@ impl SwRenderer {
                             let rect_max_x = [prim.rect.max[0], 0.0, 0.0, 0.0];
                             let rect_max_y = [prim.rect.max[1], 0.0, 0.0, 0.0];
 
+                            let colors = [
+                                color.r, color.g, color.b, color.a,
+                                color.r, color.g, color.b, color.a,
+                                color.r, color.g, color.b, color.a,
+                                color.r, color.g, color.b, color.a];
+
                             kernel::draw_rects(
                                 tile_buffer.as_mut_ptr() as *mut i16,
                                 self.tile_width as i32,
@@ -290,6 +299,7 @@ impl SwRenderer {
                                 rect_min_y.as_ptr() as *mut f32,
                                 rect_max_x.as_ptr() as *mut f32,
                                 rect_max_y.as_ptr() as *mut f32,
+                                colors.as_ptr() as *mut f32,
                                 1,
                             );
                         }
