@@ -199,8 +199,12 @@ unsafe fn render_corner_with_border(
             let dist_inner = _mm_sub_ps(dist_to_center, inner_radius_ps);
             let dist_inner = _mm_sub_ps(one_const, _mm_max_ps(zero_const, _mm_min_ps(dist_inner, one_const)));
 
+            // dist_border = 1.0 - clamp((dist_to_center - border_radius), 0.0, 1.0)
+
             let dist_border = _mm_sub_ps(dist_to_center, border_radius_ps);
             let dist_border = _mm_sub_ps(one_const, _mm_max_ps(zero_const, _mm_min_ps(dist_border, one_const)));
+
+            // dist_border = 1.0 - clamp((dist_to_center - border_radius), 0.0, 1.0)
 
             // Calculate the difference between border color and inner color: (border_color - inner_color)
             let color_diff = _mm_sub_ps(border_color_ps, inner_color_ps);
