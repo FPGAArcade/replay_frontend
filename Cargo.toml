@@ -6,6 +6,7 @@ members = [
     # "flowi",
     "main",
     "test_bed", 
+    "ui_raster", 
     "flowi_sw_renderer",
 ]
 exclude = [

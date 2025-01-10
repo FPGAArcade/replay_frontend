@@ -5,9 +5,8 @@ edition = "2021"
 
 [dependencies]
 minifb = "0.27"
-flowi_core = { path = "../flowi_core" }
-flowi_sw_renderer = { path = "../flowi_sw_renderer" }
+clay-layout = { git = "https://github.com/clay-ui-rs/clay" }
+ui_raster = { path = "../ui_raster" }
 
 [features]
 default = []
-ispc = ["flowi_sw_renderer/ispc"]
