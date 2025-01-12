@@ -1,15 +1,5 @@
 use crate::simd::*;
-
-pub struct Raster {
-    scissor_rect: i32x4,
-    scissor_org: i32x4,
-}
-
-pub struct TileInfo {
-    pub offsets: f32x4,
-    pub width: i32,
-    pub height: i32,
-}
+use crate::TileInfo;
 
 const TEXTURE_MODE_NONE: usize = 0;
 const TEXTURE_MODE_ALIGNED: usize = 1;
@@ -51,6 +41,10 @@ pub enum BlendMode {
     WithBackground = BLEND_MODE_BG_COLOR as _,
     WithTexture = BLEND_MODE_TEXTURE_COLOR as _,
     WithBackgroundAndTexture = BLEND_MODE_BG_TEXTURE_COLOR as _,
+}
+
+pub(crate) struct Raster {
+    pub(crate) scissor_rect: i32x4,
 }
 
 /// Calculates the blending factor for rounded corners in vectorized form.
@@ -115,12 +109,28 @@ fn blend_color(source: i16x8, dest: i16x8) -> i16x8 {
     i16x8::lerp(source, dest, one_minus_alpha)
 }
 
+/// Adjusts the color values based on the alpha value using pre-multiplied alpha.
+///
+/// This function takes an `i16x8` vector representing color values and adjusts
+/// the color components based on the alpha value. The resulting vector will
+/// have the same alpha value while the color components are modified.
+///
+/// # Arguments
+///
+/// * `color` - An `i16x8` vector representing the color values.
+///
+/// # Returns
+///
+/// An `i16x8` vector with adjusted color values based on the alpha value.
+///
+/// # Example
+///
+/// ```
+/// let color = i16x8::new(255, 128, 64, 32, 255, 128, 64, 32);
+/// let result = premultiply_alpha(color);
+/// ```
 #[inline(always)]
 fn premultiply_alpha(color: i16x8) -> i16x8 {
-    // As we use pre-multiplied alpha we need to adjust the color based on the alpha value
-    // This will generate a value that looks like:
-    // A0 A0 A0 0x7fff A1 A1 A1 0x7fff
-    // so the alpha value will stay the same while the color is changed
     let alpha = color.shuffle_333_0x7fff_777_0x7fff();
     i16x8::mul_high(color, alpha)
 }
@@ -256,7 +266,7 @@ fn process_pixels<
 }
 
 #[allow(clippy::too_many_arguments)]
-fn render_internal<
+pub(crate) fn render_internal<
     const COLOR_MODE: usize,
     const TEXTURE_MODE: usize,
     const ROUND_MODE: usize,
@@ -304,7 +314,6 @@ fn render_internal<
 
     let mut texture_ptr = texture_data; //.as_ptr();
     let mut texture_width = 0;
-
 
     // Calculate the difference between the scissor rect and the current rect
     // if diff is > 0 we return back a positive value to use for clipping
@@ -544,20 +553,10 @@ fn render_internal<
 }
 
 impl Raster {
-    pub fn new(scissor_rect: i32x4) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            scissor_rect,
-            scissor_org: i32x4::new_splat(0),
+            scissor_rect: i32x4::new_splat(0),
         }
-    }
-
-    pub fn set_scissor_rect(&mut self, rect: i32x4) {
-        self.scissor_org = self.scissor_rect;
-        self.scissor_rect = rect;
-    }
-
-    pub fn scissor_disable(&mut self) {
-        self.scissor_rect = self.scissor_org;
     }
 
     #[inline(never)]
@@ -855,3 +854,4 @@ impl Raster {
         );
     }
 }
+

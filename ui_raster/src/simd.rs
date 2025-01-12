@@ -65,6 +65,20 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    pub fn store_unaligned(self, data: &mut [f32]) {
+        unsafe {
+            vst1q_f32(data.as_mut_ptr(), self.v);
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub fn store_unaligned(self, data: &mut [f32]) {
+        unsafe {
+            _mm_storeu_ps(data.as_mut_ptr(), self.v);
+        }
+    }
+
+    #[cfg(target_arch = "aarch64")]
     pub fn new_splat(a: f32) -> Self {
         Self {
             v: unsafe { vdupq_n_f32(a) },
@@ -525,6 +539,13 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    pub fn shift_right<LANE: i32>(self) -> Self {
+        Self {
+            v: unsafe { vshrq_n_s16(self.v, self.v, LANE) },
+        }
+    }
+
+    #[cfg(target_arch = "aarch64")]
     pub fn shuffle_0123_0123(self) -> Self {
         Self {
             v: unsafe { vcombine_s16(vget_low_s16(self.v), vget_low_s16(self.v)) },
@@ -641,15 +662,6 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub fn shuffle_5555_7777(self) -> Self {
-        let data = [
-            16, 17, 18, 19, 24, 25, 26, 27, 20, 21, 22, 23, 28, 29, 30, 31,
-        ];
-
-        Self::tablebased_shuffle(self, self, data)
-    }
-
-    #[cfg(target_arch = "aarch64")]
     pub fn shuffle_0000_2222(self) -> Self {
         let data = [
             0, 1, 0, 1, 0, 1, 0, 1, // Duplicate 0th element
@@ -687,6 +699,15 @@ impl i16x8 {
         }
     }
 
+    #[cfg(target_arch = "aarch64")]
+    pub fn shuffle_5555_7777(self) -> Self {
+        let data = [
+            16, 17, 18, 19, 24, 25, 26, 27, 20, 21, 22, 23, 28, 29, 30, 31,
+        ];
+
+        Self::tablebased_shuffle(self, self, data)
+    }
+
     #[cfg(target_arch = "x86_64")]
     pub fn shuffle_5555_7777(self) -> Self {
         unsafe {
@@ -715,6 +736,45 @@ impl i16x8 {
         }
     }
 
+    #[cfg(target_arch = "aarch64")]
+    pub fn pack_bytes(self) -> Self {
+        Self {
+            v: unsafe { vqmovn_s16(self.v) },
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub fn pack_bytes(self) -> Self {
+        let zero = i16x8::new_splat(0);
+        i16x8 {
+            v: unsafe { _mm_packs_epi16(self.v, zero.v) },
+        }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub fn shift_right<LANE: i32>(self) -> Self {
+        Self {
+            v: unsafe { vshrq_n_s16(self.v, self.v, LANE) },
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub fn shift_right<const LANE: i32>(self) -> Self {
+        Self {
+            v: unsafe { _mm_srai_epi16(self.v, LANE) },
+        }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub fn extract<const LANE: i32>(self) -> i16 {
+        unsafe { vgetq_lane_s16(self.v, LANE) }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub fn extract<const LANE: i32>(self) -> i32 {
+        unsafe { _mm_extract_epi16(self.v, LANE) }
+    }
+
     #[cfg(any(test, debug_assertions))]
     pub fn to_array(self) -> [i16; 8] {
         #[cfg(target_arch = "aarch64")]
@@ -734,6 +794,24 @@ impl i16x8 {
         #[cfg(target_arch = "x86_64")]
         unsafe {
             let mut arr = [0; 8];
+            _mm_storeu_si128(arr.as_mut_ptr() as *mut __m128i, self.v);
+            arr
+        }
+    }
+
+    #[cfg(any(test, debug_assertions))]
+    pub fn to_array_u8(self) -> [u8; 16] {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            let mut arr = [0; 16];
+            let v = vreinterpretq_u8_s16(self.v);
+            vst1q_u8(arr.as_mut_ptr(), v);
+            arr
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            let mut arr = [0; 16];
             _mm_storeu_si128(arr.as_mut_ptr() as *mut __m128i, self.v);
             arr
         }
@@ -1746,4 +1824,13 @@ mod simd_tests {
         let result = vec.shuffle_3333_7777().to_array();
         assert_eq!(result, [4, 4, 4, 4, 8, 8, 8, 8]);
     }
+
+    #[test]
+    fn test_i16x8_pack_bytes() {
+        let a = i16x8::new(0x02, 0x01, 0x04, 0x03, 0x06, 0x05, 0x08, 0x07);
+
+        let result = a.pack_bytes().to_array_u8(); 
+        assert_eq!(result, [0x02,0x01,0x04,0x03,0x6,0x5,0x08,0x07, 0,0,0,0,0,0,0,0]);
+    }
+
 }
