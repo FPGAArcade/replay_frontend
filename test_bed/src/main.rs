@@ -1,15 +1,22 @@
-use minifb::{Key, Window, WindowOptions, Scale, ScaleMode};
 use clay_layout::{
+    color::Color,
     elements::{rectangle::Rectangle, CornerRadius},
-    fixed,
-    render_commands::*,
-    math::Dimensions,
+    fixed, grow,
+    id::Id,
     layout::Layout,
-    Clay, grow,
+    layout::LayoutDirection,
+    layout::{
+        alignment::Alignment, alignment::LayoutAlignmentX, alignment::LayoutAlignmentY,
+        padding::Padding,
+    },
+    math::Dimensions,
+    render_commands::*,
+    Clay,
 };
+use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 
-use ui_raster::{ColorSpace, Renderer, RenderPrimitive};
-use ui_raster::simd::{i32x4, f32x4};
+use ui_raster::simd::{f32x4, i32x4};
+use ui_raster::{ColorSpace, RenderPrimitive, Renderer};
 
 const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
@@ -31,7 +38,7 @@ fn main() {
     });
 
     let clay = Clay::new(Dimensions::new(WIDTH as f32, HEIGHT as f32));
-    let mut renderer = Renderer::new(ColorSpace::Linear, (WIDTH, HEIGHT), (10, 12)); 
+    let mut renderer = Renderer::new(ColorSpace::Linear, (WIDTH, HEIGHT), (10, 12));
 
     // Limit to max ~60 fps update rate
     window.set_target_fps(60);
@@ -41,6 +48,11 @@ fn main() {
             *i = 0; // write something more funny here!
         }
 
+        let content_background_config = Rectangle::new()
+            .color(Color::u_rgb(90, 90, 90))
+            .corner_radius(CornerRadius::All(8.))
+            .end();
+
         // Begin the layout
         clay.begin();
 
@@ -48,14 +60,72 @@ fn main() {
         // The Layout makes the rectangle have a width and height of 50.
         clay.with(
             [
-                //Layout::new().width(fixed!(50.)).height(fixed!(50.)).end(),
-                Layout::new().width(grow!()).height(grow!()).end(),
+                Id::new("OuterContainer"),
+                Layout::new()
+                    .width(grow!())
+                    .height(grow!())
+                    .direction(LayoutDirection::TopToBottom)
+                    .padding(Padding::new(16, 16))
+                    .child_gap(16)
+                    .end(),
                 Rectangle::new()
-                    .color((0xFF, 0x00, 0x00).into())
+                    .color(Color::u_rgb(43, 41, 51))
                     .corner_radius(CornerRadius::All(5.))
-                    .end("Red Rectangle".into()),
-            ],
-            |_| {},
+                    .end(),
+            ], |clay| {
+                clay.with(
+                    [
+                        Id::new("HeaderBar"),
+                        Layout::new()
+                            .width(grow!())
+                            .height(fixed!(60.))
+                            .padding(Padding::new(16, 16))
+                            .child_gap(16)
+                            .child_alignment(Alignment::new(
+                                LayoutAlignmentX::Left,
+                                LayoutAlignmentY::Center,
+                            ))
+                            .end(),
+                        content_background_config,
+                    ],
+                    |_| {},
+                );
+
+                clay.with([
+                        Id::new("LowerContent"),
+                        Layout::new()
+                            .width(grow!())
+                            .height(grow!())
+                            .child_gap(16)
+                            .end(),
+                    ], |clay| {
+                        clay.with([ 
+                                Id::new("Sidebar"),
+                                Layout::new()
+                                    .width(fixed!(250.))
+                                    .height(grow!())
+                                    .direction(LayoutDirection::TopToBottom)
+                                    .padding(Padding::new(16, 16))
+                                    .end(),
+                                content_background_config,
+                            ],
+                            |_| {},
+                        );
+
+                        clay.with([
+                                Id::new("MainContent"),
+                                Layout::new()
+                                    .width(grow!())
+                                    .height(grow!())
+                                    .direction(LayoutDirection::TopToBottom)
+                                    .end(),
+                                content_background_config,
+                            ],
+                            |_| {},
+                        );
+                    },
+                );
+            },
         );
 
         // Return the list of render commands of your layout
@@ -76,19 +146,21 @@ fn main() {
             match &command.config {
                 RenderCommandConfig::Rectangle(rectangle) => {
                     let color = renderer.get_color_from_floats_0_255(
-                        rectangle.color.r, 
-                        rectangle.color.g, 
-                        rectangle.color.b, 
-                        rectangle.color.a);
+                        rectangle.color.r,
+                        rectangle.color.g,
+                        rectangle.color.b,
+                        rectangle.color.a,
+                    );
 
                     let corner_radius = match rectangle.corner_radius {
-                        CornerRadius::All(radius) => {
-                            f32x4::new(radius, radius, radius, radius)
-                        },
+                        CornerRadius::All(radius) => f32x4::new(radius, radius, radius, radius),
 
-                        CornerRadius::Individual { top_left, top_right, bottom_left, bottom_right } => {
-                            f32x4::new(top_left, top_right, bottom_left, bottom_right)
-                        },
+                        CornerRadius::Individual {
+                            top_left,
+                            top_right,
+                            bottom_left,
+                            bottom_right,
+                        } => f32x4::new(top_left, top_right, bottom_left, bottom_right),
                     };
 
                     let primitive = RenderPrimitive {
@@ -100,15 +172,13 @@ fn main() {
                     renderer.add_primitive(primitive);
                 }
 
-                _ => {},
+                _ => {}
             }
         }
 
         renderer.flush_frame(&mut buffer);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        window
-            .update_with_buffer(&buffer, WIDTH, HEIGHT)
-            .unwrap();
+        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }

@@ -108,16 +108,8 @@ impl Renderer {
             }
         }
 
-        let mut t0 = vec![i16::default(); tile_full_size * 8]; 
-        let mut t1 = vec![i16::default(); tile_full_size * 8]; 
-
-        for t in t0.iter_mut() {
-            *t = 0x5000;
-        }
-
-        for t in t1.iter_mut() {
-            *t = 0x5000;
-        }
+        let t0 = vec![i16::default(); tile_full_size * 8]; 
+        let t1 = vec![i16::default(); tile_full_size * 8]; 
 
         Self {
             linear_to_srgb_table: build_linear_to_srgb_table(),
@@ -150,7 +142,7 @@ impl Renderer {
 
         self.raster.scissor_rect = i32x4::new(0, 0, 192, 90);
 
-        //let tile = &self.tiles[16];
+        //let tile = &self.tiles[0];
 
         for tile in self.tiles.iter_mut() {
             let mut coords = [0f32; 4];
@@ -158,7 +150,7 @@ impl Renderer {
             let tile_buffer = &mut self.tile_buffers[tile.tile_index];
 
             for t in tile_buffer.iter_mut() {
-                *t = 0x1000;
+                *t = 0;
             }
 
             // TODO: Correct clearing of of the buffer
@@ -180,11 +172,21 @@ impl Renderer {
                 // TODO: Fix this 
                 coords_vec.store_unaligned(&mut coords);
 
+                /*
                 self.raster.render_solid_quad(
                     tile_buffer, 
                     &tile_info, 
                     &coords, 
                     color, 
+                    raster::BlendMode::None);
+                */
+
+                self.raster.render_solid_quad_rounded(
+                    tile_buffer, 
+                    &tile_info, 
+                    &coords, 
+                    color, 
+                    16.0,
                     raster::BlendMode::None);
             }
 

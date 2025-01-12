@@ -217,7 +217,6 @@ dependencies = [
 [[package]]
 name = "clay-layout"
 version = "0.1.0"
-source = "git+https://github.com/clay-ui-rs/clay#f2be4720b9d73aa6d4935f0d88087caa8f5203da"
 dependencies = [
  "cc",
 ]

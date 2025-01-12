@@ -237,7 +237,7 @@ fn process_pixels<
     }
 
     // Blend between color and the background
-    if BLEND_MODE == BLEND_MODE_BG_COLOR {
+    if BLEND_MODE == BLEND_MODE_BG_COLOR || ROUND_MODE == ROUND_MODE_ENABLED {
         if COUNT >= PIXEL_COUNT_3 {
             let bg_color_0 = i16x8::load_unaligned_ptr(output);
             let bg_color_1 = i16x8::load_unaligned_ptr(unsafe { output.add(8) });
