@@ -148,9 +148,12 @@ impl Renderer {
             height: 90,
         };
 
+        self.raster.scissor_rect = i32x4::new(0, 0, 192, 90);
+
+        //let tile = &self.tiles[16];
+
         for tile in self.tiles.iter_mut() {
             let mut coords = [0f32; 4];
-
 
             let tile_buffer = &mut self.tile_buffers[tile.tile_index];
 
@@ -165,7 +168,7 @@ impl Renderer {
             let tile_buffer = &mut self.tile_buffers[tile.tile_index];
             tile_info.offsets = tile_aabb.as_f32x4().shuffle_0101();
 
-            self.raster.scissor_rect = tile_aabb;
+            //self.raster.scissor_rect = tile_aabb;
 
             for primitive_index in tile.data.iter() {
                 let primitive = self.primitives[*primitive_index];

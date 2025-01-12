@@ -5,7 +5,7 @@ use clay_layout::{
     render_commands::*,
     math::Dimensions,
     layout::Layout,
-    Clay,
+    Clay, grow,
 };
 
 use ui_raster::{ColorSpace, Renderer, RenderPrimitive};
@@ -48,7 +48,8 @@ fn main() {
         // The Layout makes the rectangle have a width and height of 50.
         clay.with(
             [
-                Layout::new().width(fixed!(50.)).height(fixed!(50.)).end(),
+                //Layout::new().width(fixed!(50.)).height(fixed!(50.)).end(),
+                Layout::new().width(grow!()).height(grow!()).end(),
                 Rectangle::new()
                     .color((0xFF, 0x00, 0x00).into())
                     .corner_radius(CornerRadius::All(5.))
@@ -69,6 +70,8 @@ fn main() {
                 (command.bounding_box.x + command.bounding_box.width) as i32,
                 (command.bounding_box.y + command.bounding_box.height) as i32,
             );
+
+            //println!("{:?}", aabb.to_array());
 
             match &command.config {
                 RenderCommandConfig::Rectangle(rectangle) => {
