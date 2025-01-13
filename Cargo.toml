@@ -1,16 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-    "fileorama",
-    "flowi_core",
-    # "flowi",
+    "crates/arena-allocator",
+    "crates/fileorama",
+    "crates/flowi_core",
+    "crates/ui_raster",
     "main",
     "test_bed", 
-    "ui_raster", 
-    "flowi_sw_renderer",
-]
-exclude = [
-    "tools/api_gen", 
 ]
 
 [profile.dev.package.zune-png]
@@ -24,4 +20,3 @@ opt-level = 3
 
 [profile.release]
 opt-level = 2
-
