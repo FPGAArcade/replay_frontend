@@ -539,7 +539,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub fn shift_right<LANE: i32>(self) -> Self {
+    pub fn shift_right<const LANE: i32>(self) -> Self {
         Self {
             v: unsafe { vshrq_n_s16(self.v, self.v, LANE) },
         }
@@ -752,7 +752,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub fn shift_right<LANE: i32>(self) -> Self {
+    pub fn shift_right<const LANE: i32>(self) -> Self {
         Self {
             v: unsafe { vshrq_n_s16(self.v, self.v, LANE) },
         }
