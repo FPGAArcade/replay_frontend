@@ -18,9 +18,9 @@ maintained = { status = "actively-developed" }
 
 [dependencies]
 crossbeam-channel = "0.5"
-thiserror = "1.0"
+thiserror = "2.0"
 log = "0.4"
 walkdir = "2"
-zip = "0.6.2"
+zip = "2.2"
 ftp = "3.0.1"
 bytemuck = "1.14.0"
