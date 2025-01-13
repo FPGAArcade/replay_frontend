@@ -22,5 +22,5 @@ thiserror = "2.0"
 log = "0.4"
 walkdir = "2"
 zip = "2.2"
-ftp = "3.0.1"
+suppaftp = { version = "^6", features = ["native-tls"] }
 bytemuck = "1.14.0"

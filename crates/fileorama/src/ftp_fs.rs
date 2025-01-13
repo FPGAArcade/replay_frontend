@@ -1,7 +1,8 @@
 use crate::{Error, FilesDirs, IoDriver, IoDriverType, LoadStatus, Progress};
-use ftp::{FtpError, FtpStream};
+use suppaftp::{FtpError, FtpStream};
 use log::error;
 use std::path::MAIN_SEPARATOR;
+use std::fmt::{Debug, Formatter};
 
 // This is kinda ugly, but better than testing non-supported paths on a remote server
 #[cfg(target_os = "windows")]
@@ -10,9 +11,14 @@ pub const FTP_URL: &str = "ftp:\\";
 #[cfg(not(target_os = "windows"))]
 pub const FTP_URL: &str = "ftp:/";
 
-#[derive(Debug)]
 pub struct FtpFs {
     data: Option<FtpStream>,
+}
+
+impl Debug for FtpFs {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FtpFs").finish()
+    }
 }
 
 impl FtpFs {
@@ -102,7 +108,7 @@ impl IoDriver for FtpFs {
             };
 
             stream.login("anonymous", "anonymous").unwrap();
-            stream.transfer_type(ftp::types::FileType::Binary).unwrap();
+            stream.transfer_type(suppaftp::types::FileType::Binary).unwrap();
 
             return Some(Box::new(FtpFs { data: Some(stream) }));
         }
@@ -140,7 +146,7 @@ impl IoDriver for FtpFs {
                         .read_exact(&mut output_data[block_offset..block_offset + read_amount])
                         .map_err(FtpError::ConnectionError)?;
                     pro.step()
-                        .map_err(|op| FtpError::InvalidResponse(op.to_string()))?;
+                        .map_err(|op| FtpError::SecureError(op.to_string()))?;
                 }
 
                 Ok(output_data)
