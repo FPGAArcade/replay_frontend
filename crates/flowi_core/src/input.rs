@@ -14,6 +14,7 @@ pub enum MouseSource {
 /// A key identifier
 #[allow(missing_docs)] // Self-describing
 #[non_exhaustive]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Key {
     Tab,
     LeftArrow,

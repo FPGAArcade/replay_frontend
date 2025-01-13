@@ -13,7 +13,7 @@ use clay_layout::{
     render_commands::*,
     Clay,
 };
-use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
+//use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 
 use ui_raster::simd::{f32x4, i32x4};
 use ui_raster::{ColorSpace, RenderPrimitive, Renderer};
@@ -24,6 +24,7 @@ const HEIGHT: usize = 1080;
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT * 2];
 
+    /*
     let mut window = Window::new(
         "Test - ESC to exit",
         WIDTH,
@@ -36,14 +37,16 @@ fn main() {
     .unwrap_or_else(|e| {
         panic!("{}", e);
     });
+    */
 
     let clay = Clay::new(Dimensions::new(WIDTH as f32, HEIGHT as f32));
     let mut renderer = Renderer::new(ColorSpace::Linear, (WIDTH, HEIGHT), (10, 12));
 
     // Limit to max ~60 fps update rate
-    window.set_target_fps(60);
+    //window.set_target_fps(60);
 
-    while window.is_open() && !window.is_key_down(Key::Escape) {
+    loop {
+    //while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
             *i = 0; // write something more funny here!
         }
@@ -178,6 +181,6 @@ fn main() {
         renderer.flush_frame(&mut buffer);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
+        //window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
 }

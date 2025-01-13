@@ -6,16 +6,17 @@ mod io_handler;
 pub mod primitives;
 pub mod signal;
 pub mod widgets;
+pub mod render;
 
-use arena_allocator::{Arena};
+use arena_allocator::Arena;
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;
-use primitives::{Primitive};
+use primitives::Primitive;
 use signal::Signal;
 
 type FlowiKey = u64;
 
-pub(crate) struct Flowi {
+pub struct Flowi {
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
     pub(crate) input: input::Input,
@@ -89,4 +90,10 @@ impl Flowi {
     pub fn primitives(&self) -> &[Primitive] {
         self.primitives.get_array_by_type::<Primitive>()
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ApplicationSettings {
+    pub width: usize,
+    pub height: usize,
 }

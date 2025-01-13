@@ -1,3 +1,4 @@
+/*
 use flowi::{
     font::Font,
     image::Image,
@@ -178,9 +179,5 @@ impl SystemView {
         Window::end();
     }
 }
-
-/*
-struct SystemsView {
-    systems: Vec<System>,
-}
 */
+

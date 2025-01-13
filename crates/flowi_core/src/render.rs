@@ -1,13 +1,14 @@
-use crate::{generated::image::Image, generated::renderer::Texture, ApplicationSettings};
+//use crate::{generated::image::Image, generated::renderer::Texture, ApplicationSettings};
 use raw_window_handle::RawWindowHandle;
 use std::collections::HashMap;
+use crate::ApplicationSettings;
 
 pub trait FlowiRenderer {
     fn new(settings: &ApplicationSettings, window: Option<&RawWindowHandle>) -> Self
     where
         Self: Sized;
     fn render(&mut self);
-    fn get_texture(&mut self, image: Image) -> Texture;
+    //fn get_texture(&mut self, image: Image) -> Texture;
 }
 
 pub struct DummyRenderer {}
@@ -19,9 +20,11 @@ impl FlowiRenderer for DummyRenderer {
 
     fn render(&mut self) {}
 
+    /*
     fn get_texture(&mut self, _image: Image) -> Texture {
         Texture { handle: 0 }
     }
+    */
 }
 
 pub(crate) struct RendererState {

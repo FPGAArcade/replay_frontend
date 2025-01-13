@@ -9,7 +9,7 @@ glam = "0.29"
 bitflags = "2.0.0-rc.1"
 flowi_core = { path = "../flowi_core" }
 
-# [dependencies.sdl2]
-# version = "0.36"
-# default-features = false
-# features = ["bundled", "hidapi", "unsafe_textures"]
+[dependencies.sdl2]
+version = "0.37"
+default-features = false
+features = ["bundled", "unsafe_textures"]

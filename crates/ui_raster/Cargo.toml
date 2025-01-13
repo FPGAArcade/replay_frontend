@@ -2,12 +2,3 @@
 name = "ui_raster"
 version = "0.1.0"
 edition = "2021"
-
-# Custom version becasue we need access to --enable--llvm-intrinsics
-# [build-dependencies]
-# ispc_compile = { git = "https://github.com/emoon/ispc-rs", branch = "llvm-intrinsics-flag", package = "ispc_compile" }
-
-[dependencies]
-png = "0.17"
-minifb = "0.27"
-# ispc_rt = "2"

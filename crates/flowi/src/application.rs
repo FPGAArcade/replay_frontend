@@ -7,9 +7,10 @@ use crate::sw_renderer::SwRenderer;
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
 use flowi_core::ApplicationSettings;
-use flowi_core::FlowiRenderer;
-use flowi_core::Instance;
-use flowi_core::Result;
+use flowi_core::render::FlowiRenderer;
+use flowi_core::Flowi;
+//use flowi_core::Instance;
+//use flowi_core::Result;
 //use raw_window_handle::RawWindowHandle;
 
 pub(crate) trait Window {
@@ -31,7 +32,7 @@ struct WrappedMainData {
 #[repr(C)]
 pub struct Application {
     pub(crate) window: Box<dyn Window>,
-    pub(crate) core: Instance,
+    pub(crate) core: Box<Flowi>,
     user: WrappedMainData,
     pub(crate) settings: ApplicationSettings,
 }
@@ -48,14 +49,14 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
 
     while !state.window.should_close() {
-        state.core.pre_update();
+        //state.core.pre_update();
         state.window.update();
-        state.core.update();
+        //state.core.update();
 
         user_trampoline_ud::<T>(&state.user);
 
-        state.core.post_update();
-        state.core.state.renderer.render();
+        //state.core.post_update();
+        //state.core.state.renderer.render();
 
         // TODO: This is a hack to not use 100% CPU
         std::thread::sleep(std::time::Duration::from_millis(1));
@@ -63,11 +64,11 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 }
 
 impl Application {
-    pub fn new(settings: &ApplicationSettings) -> Result<Box<Self>> {
-        let core = Instance::new(settings);
+    pub fn new(settings: &ApplicationSettings) -> Box<Self> {
+        let core = Flowi::new();
         let window = Box::new(Sdl2Window::new(settings));
 
-        Ok(Box::new(Self {
+        Box::new(Self {
             window,
             core,
             settings: *settings,
@@ -75,7 +76,7 @@ impl Application {
                 user_data: null_mut(),
                 user_func: null_mut(),
             },
-        }))
+        })
     }
 
     #[allow(clippy::type_complexity)]
@@ -84,7 +85,7 @@ impl Application {
         F: Fn(&mut T) + 'a,
     {
         let renderer = Box::new(SwRenderer::new(&self.settings, None));
-        self.core.state.renderer = renderer;
+        //self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end
         let f: Box<Box<dyn Fn(&mut T) + 'a>> = Box::new(Box::new(func));

@@ -1,8 +1,6 @@
 use crate::application::Window;
-use flowi_core::{
-    input::{Input, Key},
-    ApplicationSettings,
-};
+use flowi_core::input::{Input, Key};
+use flowi_core::ApplicationSettings;
 
 use sdl2::{
     //controller::{Axis, Button, GameController},
@@ -151,19 +149,23 @@ impl Sdl2Window {
                     }
                 }
                 Event::MouseMotion { x, y, .. } => {
-                    Input::add_mouse_pos_event(x as f32, y as f32);
+                    //Input::add_mouse_pos_event(x as f32, y as f32);
                 }
                 Event::MouseButtonDown { mouse_btn, .. } => {
+                    /*
                     Input::add_mouse_button_event(
                         Self::translate_sdl2_mouse_button(mouse_btn),
                         true,
                     );
+                    */
                 }
                 Event::MouseButtonUp { mouse_btn, .. } => {
+                    /*
                     Input::add_mouse_button_event(
                         Self::translate_sdl2_mouse_button(mouse_btn),
                         false,
                     );
+                    */
                 }
                 Event::Window {
                     win_event: sdl2::event::WindowEvent::FocusGained,
@@ -210,7 +212,7 @@ impl Sdl2Window {
         let x = mouse_state.x();
         let y = mouse_state.y();
 
-        Input::add_mouse_pos_event(x as f32, y as f32);
+        //Input::add_mouse_pos_event(x as f32, y as f32);
     }
 
     fn translate_sdl2_mouse_button(button: MouseButton) -> i32 {
@@ -345,15 +347,16 @@ impl Window for Sdl2Window {
             self.time + 0.00001,
             self.sdl_context.timer().unwrap().ticks() as f64 / 1000.0,
         );
-        let delta_time = if self.time > 0.0 {
+        let _delta_time = if self.time > 0.0 {
             current_time - self.time
         } else {
             1.0 / 60.0
         };
 
-        let display_size = self.canvas.window().drawable_size();
-        let window_size = self.canvas.window().size();
+        let _display_size = self.canvas.window().drawable_size();
+        let _window_size = self.canvas.window().size();
 
+        /*
         Input::update_screen_size_time(
             display_size.0 as _,
             display_size.1 as _,
@@ -361,6 +364,7 @@ impl Window for Sdl2Window {
             window_size.1 as _,
             delta_time as _,
         );
+        */
 
         self.time = current_time;
 
