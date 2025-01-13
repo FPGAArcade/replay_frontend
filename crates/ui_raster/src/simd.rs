@@ -736,9 +736,12 @@ impl i16x8 {
 
     #[cfg(target_arch = "aarch64")]
     pub fn pack_bytes(self) -> Self {
+        /*
         Self {
             v: unsafe { vqmovn_s16(self.v) },
         }
+        */
+        unimplemented!()
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -960,7 +963,9 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub fn test_intersect(a: f32x4, b: f32x4) -> bool {
+    pub fn test_intersect(a: i32x4, b: i32x4) -> bool {
+        false
+        /*
         unsafe {
             let mask =
                 vld1q_u32(&[0x00000000u32, 0x00000000, 0x80000000, 0x80000000] as *const u32);
@@ -975,6 +980,7 @@ impl i32x4 {
 
             vmaxvq_u32(cmp) == 0
         }
+        */
     }
 
     #[cfg(target_arch = "aarch64")]
