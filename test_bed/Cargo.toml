@@ -1,0 +1,13 @@
+[package]
+name = "test_bed"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+minifb = "0.27"
+# clay-layout = { git = "https://github.com/clay-ui-rs/clay" }
+clay-layout = { path = "../../rust_clay" } 
+ui_raster = { path = "../crates/ui_raster" }
+
+[features]
+default = []

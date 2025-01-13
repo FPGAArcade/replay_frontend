@@ -1,5 +1,0 @@
-#[attributes(Copy)]
-struct ApplicationSettings {
-    width: i32,
-    height: i32,
-}
