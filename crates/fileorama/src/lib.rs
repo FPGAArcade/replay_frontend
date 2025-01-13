@@ -96,7 +96,7 @@ pub enum Error {
     #[error("Walkdir Error")]
     WalkdirError(#[from] walkdir::Error),
     #[error("Ftp Error")]
-    FtpError(#[from] ftp::FtpError),
+    FtpError(#[from] suppaftp::FtpError),
     #[error("Generic")]
     Generic(String),
 }
