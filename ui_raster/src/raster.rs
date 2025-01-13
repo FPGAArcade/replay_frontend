@@ -123,12 +123,6 @@ fn blend_color(source: i16x8, dest: i16x8) -> i16x8 {
 ///
 /// An `i16x8` vector with adjusted color values based on the alpha value.
 ///
-/// # Example
-///
-/// ```
-/// let color = i16x8::new(255, 128, 64, 32, 255, 128, 64, 32);
-/// let result = premultiply_alpha(color);
-/// ```
 #[inline(always)]
 fn premultiply_alpha(color: i16x8) -> i16x8 {
     let alpha = color.shuffle_333_0x7fff_777_0x7fff();
@@ -820,10 +814,12 @@ impl Raster {
             );
         }
 
+        /*
         for side in 0..3 {
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);
         }
+        */
     }
 
     #[inline(never)]

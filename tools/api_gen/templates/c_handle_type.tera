@@ -1,3 +1,0 @@
-{%- for sdef in handle_structs %}
-typedef uint64_t Fl{{ sdef.name }};
-{%- endfor %}
