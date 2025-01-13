@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-raw-window-handle = "0.5"
-glam = "0.24"
+raw-window-handle = "0.6"
+glam = "0.29"
 bitflags = "2.0.0-rc.1"
 flowi_core = { path = "../flowi_core" }
 
