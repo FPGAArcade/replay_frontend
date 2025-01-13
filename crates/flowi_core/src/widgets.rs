@@ -1,4 +1,3 @@
-use crate::box_area::BoxFlags;
 use crate::Flowi;
 use bitflags::bitflags;
 
@@ -116,6 +115,4 @@ impl Flowi {
         let b = BoxFlags::DRAW_BACKGROUND | BoxFlags::DRAW_BORDER | BoxFlags::DRAW_TEXT;
     }
     */  
-
-    fn build_box_from_string(&mut self, flags: BoxFlags, text: &str) {}
 }
