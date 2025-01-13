@@ -273,6 +273,11 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    pub fn test_intersect(a: f32x4, b: f32x4) -> bool {
+        false
+    }
+
+    #[cfg(target_arch = "aarch64")]
     pub fn shuffle_0101(self) -> Self {
         Self {
             v: unsafe { vcombine_f32(vget_low_f32(self.v), vget_low_f32(self.v)) },
@@ -539,13 +544,6 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub fn shift_right<const LANE: i32>(self) -> Self {
-        Self {
-            v: unsafe { vshrq_n_s16(self.v, self.v, LANE) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
     pub fn shuffle_0123_0123(self) -> Self {
         Self {
             v: unsafe { vcombine_s16(vget_low_s16(self.v), vget_low_s16(self.v)) },
@@ -754,7 +752,7 @@ impl i16x8 {
     #[cfg(target_arch = "aarch64")]
     pub fn shift_right<const LANE: i32>(self) -> Self {
         Self {
-            v: unsafe { vshrq_n_s16(self.v, self.v, LANE) },
+            v: unsafe { vshrq_n_s16(self.v, LANE) },
         }
     }
 
