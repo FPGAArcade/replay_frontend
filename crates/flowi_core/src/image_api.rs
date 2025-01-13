@@ -2,7 +2,7 @@ use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus, ImageOptions};
 use crate::io_handler::LoadedData;
 use crate::primitives::FlData;
 //use crate::InternalState;
-use resvg::{tiny_skia, usvg, usvg::TreeParsing};
+use resvg::{tiny_skia, usvg};
 
 use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
 use thiserror::Error as ThisError;
@@ -100,9 +100,9 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
 fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
     let opt = usvg::Options::default();
     let tree = usvg::Tree::from_data(data, &opt).unwrap();
-    let rtree = resvg::Tree::from_usvg(&tree);
+    //let rtree = resvg::Tree::from_usvg(&tree);
 
-    let pixmap_size = rtree.size.to_int_size();
+    let pixmap_size = tree.size().to_int_size();
     let mut width = pixmap_size.width() as i32;
     let mut height = pixmap_size.height() as i32;
     let mut scale_x = 1.0;
@@ -128,7 +128,8 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     }
 
     let mut pixmap = tiny_skia::Pixmap::new(width as _, height as _).unwrap();
-    rtree.render(
+    resvg::render(
+        &tree,
         tiny_skia::Transform::from_scale(scale_x, scale_y),
         &mut pixmap.as_mut(),
     );

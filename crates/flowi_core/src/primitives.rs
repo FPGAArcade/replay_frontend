@@ -1,6 +1,3 @@
-use crate::box_area::Rect;
-use arena_allocator::TypedArena;
-
 #[repr(C)]
 pub struct FlData {
     pub data: *const core::ffi::c_void,
@@ -111,7 +108,6 @@ impl IRect {
     }
 }
 
-/*
 pub struct Rect {
     pub min: Vec2,
     pub max: Vec2,
@@ -136,7 +132,6 @@ impl Rect {
         }
     }
 }
-*/
 
 pub struct Primitive {
     pub rect: Rect,
