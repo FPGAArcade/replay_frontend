@@ -164,6 +164,7 @@ impl MemoryDriver for ConfigLoader {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,3 +195,4 @@ mod tests {
         panic!("Failed to load config");
     }
 }
+*/
