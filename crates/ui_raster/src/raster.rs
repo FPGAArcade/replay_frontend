@@ -852,5 +852,17 @@ impl Raster {
             bottom_colors,
         );
     }
+
+    /*
+    #[inline(never)]
+    pub fn render_text(&self,
+        output: &mut [i16],
+        tile_info: &TileInfo,
+        position: [f32; 2],
+        color: i16x8,
+        codepoints: &[u32],
+        glyph_info: &GlyphInfo,
+        atlas: &Atlas,
+    */
 }
 
