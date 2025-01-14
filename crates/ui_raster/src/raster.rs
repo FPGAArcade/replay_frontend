@@ -14,8 +14,8 @@ const COLOR_MODE_LERP: usize = 2;
 
 const BLEND_MODE_NONE: usize = 0;
 const BLEND_MODE_BG_COLOR: usize = 1;
-const BLEND_MODE_TEXTURE_COLOR: usize = 2;
-const BLEND_MODE_BG_TEXTURE_COLOR: usize = 3;
+//const BLEND_MODE_TEXTURE_COLOR: usize = 2;
+//const BLEND_MODE_BG_TEXTURE_COLOR: usize = 3;
 
 const ROUND_MODE_NONE: usize = 0;
 const ROUND_MODE_ENABLED: usize = 1;
@@ -36,11 +36,12 @@ const CORNER_OFFSETS: [(f32, f32); 4] = [
 ];
 
 #[derive(Copy, Clone)]
+#[allow(dead_code)]
 pub enum BlendMode {
     None = BLEND_MODE_NONE as _,
     WithBackground = BLEND_MODE_BG_COLOR as _,
-    WithTexture = BLEND_MODE_TEXTURE_COLOR as _,
-    WithBackgroundAndTexture = BLEND_MODE_BG_TEXTURE_COLOR as _,
+    //WithTexture = BLEND_MODE_TEXTURE_COLOR as _,
+    //WithBackgroundAndTexture = BLEND_MODE_BG_TEXTURE_COLOR as _,
 }
 
 pub(crate) struct Raster {
@@ -554,6 +555,7 @@ impl Raster {
     }
 
     #[inline(never)]
+    #[allow(dead_code)]
     pub fn render_aligned_texture(&self,
         output: &mut [i16],
         tile_info: &TileInfo,
@@ -578,6 +580,7 @@ impl Raster {
     }
 
     #[inline(never)]
+    #[allow(dead_code)]
     pub fn render_solid_quad(
         &self,
         output: &mut [i16],
@@ -630,11 +633,12 @@ impl Raster {
                     color,
                 );
             }
-            _ => unimplemented!(),
+            //_ => unimplemented!(),
         }
     }
 
     #[inline(never)]
+    #[allow(dead_code)]
     pub fn render_gradient_quad(
         &self,
         output: &mut [i16],
@@ -688,7 +692,7 @@ impl Raster {
                     color_bottom,
                 );
             }
-            _ => unimplemented!(),
+            //_ => unimplemented!(),
         }
     }
 
@@ -814,15 +818,14 @@ impl Raster {
             );
         }
 
-        /*
         for side in 0..3 {
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);
         }
-        */
     }
 
     #[inline(never)]
+    #[allow(dead_code)]
     pub fn render_solid_lerp_radius(
         &self,
         output: &mut [i16],

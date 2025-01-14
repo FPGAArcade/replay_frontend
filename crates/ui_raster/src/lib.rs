@@ -7,7 +7,7 @@ use raster::Raster;
 pub(crate) struct TileInfo {
     pub offsets: f32x4,
     pub width: i32,
-    pub height: i32,
+    pub _height: i32,
 }
 
 pub enum ColorSpace {
@@ -15,12 +15,12 @@ pub enum ColorSpace {
     Srgb,
 }
 
-const SRGB_BIT_COUNT: u32 = 12;
-const LINEAR_BIT_COUNT: u32 = 15;
-const LINEAR_TO_SRGB_SHIFT: u32 = LINEAR_BIT_COUNT - SRGB_BIT_COUNT;
+const SRGB_BIT_COUNT: i32 = 12;
+const LINEAR_BIT_COUNT: i32 = 15;
+const LINEAR_TO_SRGB_SHIFT: i32 = LINEAR_BIT_COUNT - SRGB_BIT_COUNT;
 
 pub struct Renderer {
-    color_space: ColorSpace,
+    _color_space: ColorSpace,
     raster: Raster,
     linear_to_srgb_table: [u8; 1 << SRGB_BIT_COUNT],
     srgb_to_linear_table: [u16; 1 << 8],
@@ -47,6 +47,7 @@ fn srgb_to_linear(x: f32) -> f32 {
         ((x + 0.055) / 1.055).powf(2.4)
     }
 }
+
 
 // TODO: Verify that we are building the range correctly here
 fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
@@ -116,7 +117,7 @@ impl Renderer {
             srgb_to_linear_table: build_srgb_to_linear_table(),
             raster: Raster::new(),
             primitives: Vec::with_capacity(8192),
-            color_space,
+            _color_space: color_space,
             tile_buffers: [t0, t1],
             tiles,
             screen_width: screen_size.0,
@@ -137,7 +138,7 @@ impl Renderer {
         let mut tile_info = TileInfo {
             offsets: f32x4::new_splat(0.0),
             width: 192,
-            height: 90,
+            _height: 90,
         };
 
         self.raster.scissor_rect = i32x4::new(0, 0, 192, 90);
@@ -271,7 +272,7 @@ impl Renderer {
         for _y in 0..tile_height {
             for _x in 0..(tile_width >> 1) {
                 let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr);
-                let rgba_rgba = rgba_rgba.shift_right::<3>();
+                let rgba_rgba = rgba_rgba.shift_right::<LINEAR_TO_SRGB_SHIFT>();
 
                 let r0 = rgba_rgba.extract::<0>() as u16;
                 let g0 = rgba_rgba.extract::<1>() as u16;
