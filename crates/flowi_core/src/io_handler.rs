@@ -2,6 +2,7 @@ use fileorama::{Fileorama, RecvMsg};
 use std::collections::HashMap;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) enum LoadedData {
     Data(Box<[u8]>),
     Error(String),

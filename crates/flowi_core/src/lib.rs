@@ -16,6 +16,7 @@ use signal::Signal;
 
 type FlowiKey = u64;
 
+#[allow(dead_code)]
 pub struct Flowi {
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
@@ -67,6 +68,7 @@ impl Flowi {
         Signal::new()
     }
 
+    #[allow(dead_code)]
     fn signal(&mut self) -> Signal {
         Signal::new()
         /*

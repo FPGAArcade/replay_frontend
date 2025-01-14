@@ -164,13 +164,13 @@ pub enum Key {
 }
 
 #[derive(Debug, Default)]
-struct MouseState {
-    clicked_pos: Vec2,
-    down: bool,
-    clicked: bool,
-    double_clicked: bool,
-    released: bool,
-    down_duration: f32,
+pub(crate) struct MouseState {
+    pub(crate) _clicked_pos: Vec2,
+    pub(crate) down: bool,
+    pub(crate) clicked: bool,
+    pub(crate) _double_clicked: bool,
+    pub(crate) released: bool,
+    pub(crate) down_duration: f32,
 }
 
 pub struct Input {

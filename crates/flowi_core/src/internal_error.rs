@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum InternalError {
     #[error("Io error: {0}")]
     Io(#[from] std::io::Error),
@@ -12,4 +13,5 @@ pub enum InternalError {
     ArenaError(#[from] arena_allocator::ArenaError),
 }
 
+#[allow(dead_code)]
 pub type InternalResult<T> = std::result::Result<T, InternalError>;

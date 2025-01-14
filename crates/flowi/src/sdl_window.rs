@@ -148,10 +148,12 @@ impl Sdl2Window {
                         Input::add_key_event(key, false);
                     }
                 }
-                Event::MouseMotion { x, y, .. } => {
+                //Event::MouseMotion { x, y, .. } => {
+                Event::MouseMotion { .. } => {
                     //Input::add_mouse_pos_event(x as f32, y as f32);
                 }
-                Event::MouseButtonDown { mouse_btn, .. } => {
+                //Event::MouseButtonDown { mouse_btn, .. } => {
+                Event::MouseButtonDown { .. } => {
                     /*
                     Input::add_mouse_button_event(
                         Self::translate_sdl2_mouse_button(mouse_btn),
@@ -159,7 +161,8 @@ impl Sdl2Window {
                     );
                     */
                 }
-                Event::MouseButtonUp { mouse_btn, .. } => {
+                //Event::MouseButtonUp { mouse_btn, .. } => {
+                Event::MouseButtonUp { .. } => {
                     /*
                     Input::add_mouse_button_event(
                         Self::translate_sdl2_mouse_button(mouse_btn),
@@ -209,12 +212,13 @@ impl Sdl2Window {
     fn update_mouse_data(&mut self) {
         // Assuming window focus is handled elsewhere or not relevant for SDL2
         let mouse_state = self.event_pump.mouse_state();
-        let x = mouse_state.x();
-        let y = mouse_state.y();
+        let _x = mouse_state.x();
+        let _y = mouse_state.y();
 
         //Input::add_mouse_pos_event(x as f32, y as f32);
     }
 
+    #[allow(dead_code)]
     fn translate_sdl2_mouse_button(button: MouseButton) -> i32 {
         match button {
             MouseButton::Left => 1,

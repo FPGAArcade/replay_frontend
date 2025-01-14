@@ -15,6 +15,7 @@ pub enum ImageFormat {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum ImageLoadStatus {
     /// The image is still loading
     Loading = 0,
@@ -25,6 +26,7 @@ pub enum ImageLoadStatus {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct ImageInfo {
     /// Format of the image. See the ImageFormat enum
     pub format: u32,
@@ -39,6 +41,7 @@ pub struct ImageInfo {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ImageOptions {
     /// The scale of the image. This is useful for loading SVGs at different sizes.
     pub scale: Vec2,

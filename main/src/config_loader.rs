@@ -2,6 +2,7 @@ use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, Progress};
 use serde::Deserialize;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 static CONFIG_LOADER_NAME: &str = "replay_config_loader";
 
 #[allow(dead_code)]
@@ -112,6 +113,7 @@ struct OptionValue {
 }
 
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 struct ConfigLoader {
     data: Box<[u8]>,
 }

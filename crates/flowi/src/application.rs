@@ -84,7 +84,7 @@ impl Application {
     where
         F: Fn(&mut T) + 'a,
     {
-        let renderer = Box::new(SwRenderer::new(&self.settings, None));
+        let _renderer = Box::new(SwRenderer::new(&self.settings, None));
         //self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end

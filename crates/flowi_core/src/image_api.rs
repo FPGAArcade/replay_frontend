@@ -1,6 +1,6 @@
-use crate::image::{ImageFormat, ImageInfo, ImageLoadStatus, ImageOptions};
-use crate::io_handler::LoadedData;
-use crate::primitives::FlData;
+use crate::image::{ImageFormat, ImageInfo, ImageOptions};
+//use crate::io_handler::LoadedData;
+//use crate::primitives::FlData;
 //use crate::InternalState;
 use resvg::{tiny_skia, usvg};
 

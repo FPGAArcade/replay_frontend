@@ -27,10 +27,12 @@ impl FlowiRenderer for DummyRenderer {
     */
 }
 
+#[allow(dead_code)]
 pub(crate) struct RendererState {
     pub(crate) _image_texture_map: HashMap<u64, u64>,
 }
 
+#[allow(dead_code)]
 impl RendererState {
     pub fn new() -> Self {
         Self {
