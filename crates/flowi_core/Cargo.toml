@@ -4,19 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-base64ct = { version = "1.6.0", features = ["alloc"] }
-raw-window-handle = "0.6"
-bytemuck = "1.14.0"
+arena-allocator = { path = "../arena-allocator" }
+background-worker = { path = "../background_worker" }
+bitflags = "2.7.0"
+cosmic-text = "0.12"
 fileorama = { path = "../fileorama" }
 glam = "0.29.0"
 log = "0.4"
 notify = "8.0"
-sha2 = "0.10.6"
-thiserror = "2.0"
-zune-image = { version = "0.4", default-features = false, features = ["metadata", "jpeg", "png"] }
-zune-core = "0.4.12"
-arena-allocator = { path = "../arena-allocator" }
+raw-window-handle = "0.6"
 resvg = { version = "0.44.0", features = [] }
 smallvec = "1.13"
-bitflags = "2.7.0"
+texture_packer = "0.29"
+thiserror = "2.0"
 tracing = { version = "0.1", features = ["log"] }
+zune-core = "0.4.12"
+zune-image = { version = "0.4", default-features = false, features = ["metadata", "jpeg", "png"] }

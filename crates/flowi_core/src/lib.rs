@@ -7,6 +7,7 @@ pub mod primitives;
 pub mod signal;
 pub mod widgets;
 pub mod render;
+pub mod font;
 
 use arena_allocator::Arena;
 use fileorama::Fileorama;

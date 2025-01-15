@@ -866,3 +866,55 @@ impl Raster {
     */
 }
 
+/*
+*
+#include <arm_neon.h>
+
+int16x8_t blend_neon(int16x8_t text_color, int16x8_t mask, int16x8_t dest) {
+    // Extract mask alpha (lane 3) and broadcast it across all lanes
+    int16x8_t mask_a_vec = vdupq_laneq_s16(mask, 3);
+
+    // Extract text_color alpha (lane 3) and broadcast it across all lanes
+    int16x8_t text_a_vec = vdupq_laneq_s16(text_color, 3);
+
+    // Calculate text_color.a * mask.a using vqrdmulhq_s16 for rounded multiplication
+    int16x8_t text_mask_a_vec = vqrdmulhq_s16(text_a_vec, mask_a_vec);
+
+    // Compute 1.0 - text_mask_a (scaled to i16 range: 32767 represents 1.0)
+    int16x8_t one_vec = vdupq_n_s16(32767);
+    int16x8_t one_minus_text_mask_a_vec = vsubq_s16(one_vec, text_mask_a_vec);
+
+    // Multiply text_color by mask.a using vqrdmulhq_s16 for rounded result
+    int16x8_t text_color_scaled = vqrdmulhq_s16(text_color, mask_a_vec);
+
+    // Combine dest scaling and addition in a single step using vqrdmlahq_s16
+    int16x8_t blended_vec = vqrdmlahq_s16(text_color_scaled, dest, one_minus_text_mask_a_vec);
+
+    return blended_vec;
+}
+
+[target_feature(enable = "sse4.2", enable = "ssse3")]
+unsafe fn blend_sse(text_color: __m128i, mask: __m128i, dest: __m128i) -> __m128i {
+    // Extract mask alpha (lane 3, 7, 11, 15) and broadcast across all lanes
+    let mask_a_vec = _mm_shuffle_epi8(mask, _mm_setr_epi8(6, 6, 6, 6, 14, 14, 14, 14, -1, -1, -1, -1, -1, -1, -1, -1));
+
+    // Extract text_color alpha (lane 3, 7, 11, 15) and broadcast across all lanes
+    let text_a_vec = _mm_shuffle_epi8(text_color, _mm_setr_epi8(6, 6, 6, 6, 14, 14, 14, 14, -1, -1, -1, -1, -1, -1, -1, -1));
+
+    // Calculate text_color.a * mask.a using rounding multiplication
+    let text_mask_a_vec = _mm_mulhrs_epi16(text_a_vec, mask_a_vec);
+
+    // Compute 1.0 - text_mask_a (scaled to i16 range: 32767 represents 1.0)
+    let one_vec = _mm_set1_epi16(32767);
+    let one_minus_text_mask_a_vec = _mm_sub_epi16(one_vec, text_mask_a_vec);
+
+    // Multiply text_color by mask.a using rounded multiplication
+    let text_color_scaled = _mm_mulhrs_epi16(text_color, mask_a_vec);
+
+    // Combine dest scaling and addition in a single step using rounded multiplication and addition
+    let blended_vec = _mm_adds_epi16(text_color_scaled, _mm_mulhrs_epi16(dest, one_minus_text_mask_a_vec));
+
+    blended_vec
+}
+
+*/

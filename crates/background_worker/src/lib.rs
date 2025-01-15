@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-type BoxAnySend = Box<dyn Any + Send>;
+pub type BoxAnySend = Box<dyn Any + Send>;
 
 // Type alias for the callback function with state.
 #[allow(dead_code)]
