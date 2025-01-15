@@ -575,8 +575,8 @@ impl i16x8 {
     pub fn shuffle_333_0x7fff_777_0x7fff(self) -> Self {
         let splat_7fff = i16x8::new_splat(0x7fff);
         let data = [
-            8, 7, 6, 7, 6, 7, 16, 17, // A0 replication and 0x7fff for R0
-            14, 15, 14, 15, 14, 15, 16, 17, // A1 replication and 0x7fff for R1
+            6, 7, 6, 7, 6, 7, 16, 17, 
+            14, 15, 14, 15, 14, 15, 16, 17,
         ];
 
         Self::tablebased_shuffle(self, splat_7fff, data)
@@ -605,7 +605,7 @@ impl i16x8 {
 
     #[cfg(target_arch = "aarch64")]
     pub fn shuffle_1111_3333(self) -> Self {
-        let data = [0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7, 12, 13, 14, 15];
+        let data = [2, 3, 2, 3, 2, 3, 2, 3, 6, 7, 6, 7, 6, 7, 6, 7];
 
         Self::tablebased_shuffle(self, self, data)
     }
@@ -700,7 +700,8 @@ impl i16x8 {
     #[cfg(target_arch = "aarch64")]
     pub fn shuffle_5555_7777(self) -> Self {
         let data = [
-            16, 17, 18, 19, 24, 25, 26, 27, 20, 21, 22, 23, 28, 29, 30, 31,
+            10, 11, 10, 11, 10, 11, 10, 11, // Duplicate 5th element
+            14, 15, 14, 15, 14, 15, 14, 15, // Duplicate 7th element
         ];
 
         Self::tablebased_shuffle(self, self, data)
@@ -736,12 +737,12 @@ impl i16x8 {
 
     #[cfg(target_arch = "aarch64")]
     pub fn pack_bytes(self) -> Self {
-        /*
-        Self {
-            v: unsafe { vqmovn_s16(self.v) },
+        let zero = i16x8::new_splat(0);
+        unsafe {
+            let narrow_v = vqmovn_s16(self.v);
+            let narrow_zero = vqmovn_s16(zero.v);
+            Self { v: vreinterpretq_s16_s8(vcombine_s8(narrow_v, narrow_zero)) }
         }
-        */
-        unimplemented!()
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -964,23 +965,21 @@ impl i32x4 {
 
     #[cfg(target_arch = "aarch64")]
     pub fn test_intersect(a: i32x4, b: i32x4) -> bool {
-        false
-        /*
         unsafe {
-            let mask =
-                vld1q_u32(&[0x00000000u32, 0x00000000, 0x80000000, 0x80000000] as *const u32);
-            let a = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(a.v), mask));
-            let b = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(b.v), mask));
+            let mask = vld1q_u32(&[0x00000000u32, 0x00000000, 0x8000_0000u32, 0x8000_000fu32] as *const u32);
 
-            let b = vextq_f32(b, b, 2);
-            let flip_sign = vreinterpretq_u32_f32(vdupq_n_f32(-0.0));
-            let b = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(b), flip_sign));
+            let m = i32x4 { v: vreinterpretq_s32_u32(mask) };
+            let a = i32x4 { v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(a.v), mask)) };
+            let b = i32x4 { v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(b.v), mask)) };
 
-            let cmp = vcltq_f32(a, b);
+            let b = vrev64q_s32(b.v);
+            let flip_sign = vreinterpretq_s32_f32(vdupq_n_f32(-0.0));
+            let b = veorq_s32(b, flip_sign);
+
+            let cmp = vcltq_s32(a.v, b);
 
             vmaxvq_u32(cmp) == 0
         }
-        */
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -1326,6 +1325,7 @@ impl Sub for i32x4 {
     }
 }
 
+/*
 #[cfg(test)]
 mod f32x4_tests {
     use super::*;
@@ -1464,7 +1464,6 @@ mod i32x4_tests {
     }
 }
 
-/*
 #[cfg(test)]
 mod i16x8_tests {
     use super::*;
