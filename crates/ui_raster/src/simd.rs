@@ -574,10 +574,7 @@ impl i16x8 {
     #[cfg(target_arch = "aarch64")]
     pub fn shuffle_333_0x7fff_777_0x7fff(self) -> Self {
         let splat_7fff = i16x8::new_splat(0x7fff);
-        let data = [
-            6, 7, 6, 7, 6, 7, 16, 17, 
-            14, 15, 14, 15, 14, 15, 16, 17,
-        ];
+        let data = [6, 7, 6, 7, 6, 7, 16, 17, 14, 15, 14, 15, 14, 15, 16, 17];
 
         Self::tablebased_shuffle(self, splat_7fff, data)
     }
@@ -741,7 +738,9 @@ impl i16x8 {
         unsafe {
             let narrow_v = vqmovn_s16(self.v);
             let narrow_zero = vqmovn_s16(zero.v);
-            Self { v: vreinterpretq_s16_s8(vcombine_s8(narrow_v, narrow_zero)) }
+            Self {
+                v: vreinterpretq_s16_s8(vcombine_s8(narrow_v, narrow_zero)),
+            }
         }
     }
 
@@ -966,11 +965,19 @@ impl i32x4 {
     #[cfg(target_arch = "aarch64")]
     pub fn test_intersect(a: i32x4, b: i32x4) -> bool {
         unsafe {
-            let mask = vld1q_u32(&[0x00000000u32, 0x00000000, 0x8000_0000u32, 0x8000_000fu32] as *const u32);
+            let mask = vld1q_u32(
+                &[0x00000000u32, 0x00000000, 0x8000_0000u32, 0x8000_000fu32] as *const u32
+            );
 
-            let m = i32x4 { v: vreinterpretq_s32_u32(mask) };
-            let a = i32x4 { v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(a.v), mask)) };
-            let b = i32x4 { v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(b.v), mask)) };
+            let m = i32x4 {
+                v: vreinterpretq_s32_u32(mask),
+            };
+            let a = i32x4 {
+                v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(a.v), mask)),
+            };
+            let b = i32x4 {
+                v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(b.v), mask)),
+            };
 
             let b = vrev64q_s32(b.v);
             let flip_sign = vreinterpretq_s32_f32(vdupq_n_f32(-0.0));
@@ -1833,7 +1840,7 @@ mod simd_tests {
     fn test_i16x8_pack_bytes() {
         let a = i16x8::new(0x02, 0x01, 0x04, 0x03, 0x06, 0x05, 0x08, 0x07);
 
-        let result = a.pack_bytes().to_array_u8(); 
+        let result = a.pack_bytes().to_array_u8();
         assert_eq!(result, [0x02,0x01,0x04,0x03,0x6,0x5,0x08,0x07, 0,0,0,0,0,0,0,0]);
     }
 }

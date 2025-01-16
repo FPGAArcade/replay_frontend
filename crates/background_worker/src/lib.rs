@@ -76,7 +76,8 @@ impl WorkSystem {
             .callbacks
             .lock()
             .unwrap()
-            .get(id).is_some_and(|callback| callback.is_some())
+            .get(id)
+            .is_some_and(|callback| callback.is_some())
         {
             self.sender
                 .send((id, Box::new(data), response_sender))

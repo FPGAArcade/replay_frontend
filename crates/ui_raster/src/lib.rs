@@ -1,5 +1,5 @@
-pub mod simd;
 mod raster;
+pub mod simd;
 
 use crate::simd::*;
 use raster::Raster;
@@ -25,7 +25,7 @@ pub struct Renderer {
     linear_to_srgb_table: [u8; 1 << SRGB_BIT_COUNT],
     srgb_to_linear_table: [u16; 1 << 8],
     // TODO: Arena
-    primitives: Vec<RenderPrimitive>, 
+    primitives: Vec<RenderPrimitive>,
     // TODO: Arena
     tiles: Vec<Tile>,
     tile_buffers: [Vec<i16>; 2],
@@ -47,7 +47,6 @@ fn srgb_to_linear(x: f32) -> f32 {
         ((x + 0.055) / 1.055).powf(2.4)
     }
 }
-
 
 // TODO: Verify that we are building the range correctly here
 fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
@@ -85,13 +84,17 @@ pub struct RenderPrimitive {
 struct Tile {
     aabb: i32x4,
     data: Vec<usize>,
-    tile_index: usize, 
+    tile_index: usize,
 }
 
 impl Renderer {
-    pub fn new(color_space: ColorSpace, screen_size: (usize, usize), tile_count: (usize, usize)) -> Self {
+    pub fn new(
+        color_space: ColorSpace,
+        screen_size: (usize, usize),
+        tile_count: (usize, usize),
+    ) -> Self {
         let tile_size = (screen_size.0 / tile_count.0, screen_size.1 / tile_count.1);
-        let total_tile_count = tile_count.0 * tile_count.1; 
+        let total_tile_count = tile_count.0 * tile_count.1;
         let tile_full_size = tile_size.0 * tile_size.1;
 
         let mut tiles = Vec::with_capacity(total_tile_count);
@@ -100,7 +103,12 @@ impl Renderer {
         for y in (0..screen_size.1).step_by(tile_size.1) {
             for x in (0..screen_size.0).step_by(tile_size.0) {
                 tiles.push(Tile {
-                    aabb: i32x4::new(x as i32, y as i32, (x + tile_size.0) as i32, (y + tile_size.1) as i32),
+                    aabb: i32x4::new(
+                        x as i32,
+                        y as i32,
+                        (x + tile_size.0) as i32,
+                        (y + tile_size.1) as i32,
+                    ),
                     data: Vec::with_capacity(8192),
                     tile_index: tile_index & 1,
                 });
@@ -109,8 +117,8 @@ impl Renderer {
             }
         }
 
-        let t0 = vec![i16::default(); tile_full_size * 8]; 
-        let t1 = vec![i16::default(); tile_full_size * 8]; 
+        let t0 = vec![i16::default(); tile_full_size * 8];
+        let t1 = vec![i16::default(); tile_full_size * 8];
 
         Self {
             linear_to_srgb_table: build_linear_to_srgb_table(),
@@ -170,32 +178,37 @@ impl Renderer {
                 // TODO: Fix this
                 let coords_vec = primitive.aabb.as_f32x4();
 
-                // TODO: Fix this 
+                // TODO: Fix this
                 coords_vec.store_unaligned(&mut coords);
 
                 /*
                 self.raster.render_solid_quad(
-                    tile_buffer, 
-                    &tile_info, 
-                    &coords, 
-                    color, 
+                    tile_buffer,
+                    &tile_info,
+                    &coords,
+                    color,
                     raster::BlendMode::None);
                 */
 
                 self.raster.render_solid_quad_rounded(
-                    tile_buffer, 
-                    &tile_info, 
-                    &coords, 
-                    color, 
+                    tile_buffer,
+                    &tile_info,
+                    &coords,
+                    color,
                     16.0,
-                    raster::BlendMode::None);
+                    raster::BlendMode::None,
+                );
             }
 
             // Rasterize the primitives for this tile
 
             Self::copy_tile_linear_to_srgb(
-                &self.linear_to_srgb_table, 
-                output, &tile_buffer, tile, self.screen_width);
+                &self.linear_to_srgb_table,
+                output,
+                &tile_buffer,
+                tile,
+                self.screen_width,
+            );
         }
     }
 
@@ -220,7 +233,7 @@ impl Renderer {
     /// - `primitives`: A slice of `RenderPrimitive` objects to be binned.
     fn bin_primitives(tiles: &mut [Tile], primitives: &[RenderPrimitive]) {
         for tile in tiles.iter_mut() {
-           let tile_aabb = tile.aabb;
+            let tile_aabb = tile.aabb;
             tile.data.clear();
             for (i, primitive) in primitives.iter().enumerate() {
                 if i32x4::test_intersect(tile_aabb, primitive.aabb) {
@@ -244,7 +257,7 @@ impl Renderer {
         tile_height: usize,
         width: usize,
     ) {
-        
+
 
     }
     */
@@ -303,10 +316,7 @@ impl Renderer {
                 output_index += 2;
             }
 
-
             output_index += width - tile_width;
         }
     }
-
 }
-

@@ -376,10 +376,12 @@ pub(crate) fn render_internal<
 
         let uv_fraction = x0y0x1y1_adjust - x0y0x1y1;
 
-        // TODO: Optimize 
+        // TODO: Optimize
         border_radius_v = f32x4::new_splat(border_radius);
-        circle_center_x = f32x4::new_splat(uv_fraction.extract::<0>() + (border_radius * center_adjust.0));
-        circle_center_y = f32x4::new_splat(uv_fraction.extract::<1>() + (border_radius * center_adjust.1));
+        circle_center_x =
+            f32x4::new_splat(uv_fraction.extract::<0>() + (border_radius * center_adjust.0));
+        circle_center_y =
+            f32x4::new_splat(uv_fraction.extract::<1>() + (border_radius * center_adjust.1));
     }
 
     let min_box = x0y0x1y1_int.min(scissor_rect);
@@ -556,7 +558,8 @@ impl Raster {
 
     #[inline(never)]
     #[allow(dead_code)]
-    pub fn render_aligned_texture(&self,
+    pub fn render_aligned_texture(
+        &self,
         output: &mut [i16],
         tile_info: &TileInfo,
         coords: &[f32],
@@ -632,8 +635,7 @@ impl Raster {
                     color,
                     color,
                 );
-            }
-            //_ => unimplemented!(),
+            } //_ => unimplemented!(),
         }
     }
 
@@ -691,8 +693,7 @@ impl Raster {
                     color_top,
                     color_bottom,
                 );
-            }
-            //_ => unimplemented!(),
+            } //_ => unimplemented!(),
         }
     }
 

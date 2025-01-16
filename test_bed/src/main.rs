@@ -46,7 +46,7 @@ fn main() {
     //window.set_target_fps(60);
 
     loop {
-    //while window.is_open() && !window.is_key_down(Key::Escape) {
+        //while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in buffer.iter_mut() {
             *i = 0; // write something more funny here!
         }
@@ -61,7 +61,8 @@ fn main() {
 
         // Adds a red rectangle with a corner radius of 5.
         // The Layout makes the rectangle have a width and height of 50.
-        clay.with([
+        clay.with(
+            [
                 Id::new("OuterContainer"),
                 Layout::new()
                     .width(grow!())
@@ -74,7 +75,8 @@ fn main() {
                     .color(Color::u_rgb(43, 41, 51))
                     .corner_radius(CornerRadius::All(5.))
                     .end(),
-            ], |clay| {
+            ],
+            |clay| {
                 clay.with(
                     [
                         Id::new("HeaderBar"),
@@ -93,15 +95,18 @@ fn main() {
                     |_| {},
                 );
 
-                clay.with([
+                clay.with(
+                    [
                         Id::new("LowerContent"),
                         Layout::new()
                             .width(grow!())
                             .height(grow!())
                             .child_gap(16)
                             .end(),
-                    ], |clay| {
-                        clay.with([ 
+                    ],
+                    |clay| {
+                        clay.with(
+                            [
                                 Id::new("Sidebar"),
                                 Layout::new()
                                     .width(fixed!(250.))
@@ -114,7 +119,8 @@ fn main() {
                             |_| {},
                         );
 
-                        clay.with([
+                        clay.with(
+                            [
                                 Id::new("MainContent"),
                                 Layout::new()
                                     .width(grow!())

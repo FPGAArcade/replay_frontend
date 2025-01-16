@@ -1,7 +1,7 @@
 //use crate::{generated::image::Image, generated::renderer::Texture, ApplicationSettings};
+use crate::ApplicationSettings;
 use raw_window_handle::RawWindowHandle;
 use std::collections::HashMap;
-use crate::ApplicationSettings;
 
 pub trait FlowiRenderer {
     fn new(settings: &ApplicationSettings, window: Option<&RawWindowHandle>) -> Self

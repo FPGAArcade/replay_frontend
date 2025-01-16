@@ -114,5 +114,5 @@ impl Flowi {
         //let box = build_box_from_string(
         let b = BoxFlags::DRAW_BACKGROUND | BoxFlags::DRAW_BORDER | BoxFlags::DRAW_TEXT;
     }
-    */  
+    */
 }

@@ -56,7 +56,7 @@ fn main() {
 
     let settings = flowi::ApplicationSettings { width, height };
 
-    let mut flowi_app = Application::new(&settings);//.unwrap();
+    let mut flowi_app = Application::new(&settings); //.unwrap();
 
     /*
     let fonts = Fonts {

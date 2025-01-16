@@ -3,21 +3,21 @@ use std::result::Result;
 
 /// Represents errors that can occur when using the `arena-allocator`.
 ///
-/// The `ArenaError` enum encapsulates different types of errors that might be encountered while 
-/// interacting with the `Arena` or `TypedArena`. These errors typically arise from issues 
+/// The `ArenaError` enum encapsulates different types of errors that might be encountered while
+/// interacting with the `Arena` or `TypedArena`. These errors typically arise from issues
 /// related to memory reservation, protection, or when the arena runs out of reserved memory.
 ///
 /// # Variants
 ///
-/// - `ReserveFailed(String)`: This error occurs when the initial reservation of virtual memory 
+/// - `ReserveFailed(String)`: This error occurs when the initial reservation of virtual memory
 ///   fails. The associated string provides a description of the underlying issue.
 ///
-/// - `ProtectionFailed(String)`: This error is returned when the memory protection mechanisms 
-///   fail. This is especially relevant in debug mode, where memory protection is used to detect 
+/// - `ProtectionFailed(String)`: This error is returned when the memory protection mechanisms
+///   fail. This is especially relevant in debug mode, where memory protection is used to detect
 ///   use-after-free bugs. The associated string provides a detailed explanation of the failure.
 ///
-/// - `OutOfReservedMemory`: This error is triggered when an allocation request exceeds the 
-///   available reserved memory. It indicates that the arena has run out of its pre-reserved 
+/// - `OutOfReservedMemory`: This error is triggered when an allocation request exceeds the
+///   available reserved memory. It indicates that the arena has run out of its pre-reserved
 ///   virtual memory and cannot accommodate additional allocations without further action.
 #[derive(Debug)]
 pub enum ArenaError {
@@ -26,8 +26,8 @@ pub enum ArenaError {
     OutOfReservedMemory,
 }
 
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
 impl fmt::Display for ArenaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -46,7 +46,6 @@ impl Error for ArenaError {
         None
     }
 }
-
 
 #[cfg(not(target_os = "windows"))]
 mod posix {
@@ -86,7 +85,7 @@ mod posix {
     }
 
     pub(crate) fn commit_memory(ptr: *mut c_void, size: usize) -> Result<(), ArenaError> {
-        let result = unsafe { mprotect(ptr, size, PROT_READ | PROT_WRITE ) };
+        let result = unsafe { mprotect(ptr, size, PROT_READ | PROT_WRITE) };
         if result != 0 {
             return Err(ArenaError::ProtectionFailed(get_last_error_message()));
         }
@@ -341,7 +340,8 @@ impl VmRange {
 
         // If we have already committed the memory, we can just return a slice
         if new_pos < self.committed_size {
-            let return_slice = std::slice::from_raw_parts_mut(self.ptr.add(self.pos) as *mut u8, size);
+            let return_slice =
+                std::slice::from_raw_parts_mut(self.ptr.add(self.pos) as *mut u8, size);
             self.pos = new_pos;
             return Ok(return_slice);
         }
@@ -533,10 +533,7 @@ impl Arena {
     /// The returned array is uninitialized, and it is the caller's responsibility to initialize the
     /// elements before use. Using uninitialized data can lead to undefined behavior. After the arena
     /// is rewound, all references to this array become invalid.
-    pub unsafe fn alloc_array<T: Sized>(
-        &mut self,
-        count: usize,
-    ) -> Result<&mut [T], ArenaError> {
+    pub unsafe fn alloc_array<T: Sized>(&mut self, count: usize) -> Result<&mut [T], ArenaError> {
         let t = self.current.alloc_array(count)?;
         Ok(&mut *t)
     }
@@ -566,19 +563,17 @@ impl Arena {
     /// This function allocates memory for a single instance of type `T` and initializes it using
     /// `T::default()`.
     pub fn alloc_init<T: Default + Sized>(&mut self) -> Result<&mut T, ArenaError> {
-        unsafe { 
+        unsafe {
             let t = self.current.alloc_init()?;
             Ok(&mut *t)
         }
     }
 
     pub fn get_array_by_type<T: Sized>(&self) -> &[T] {
-        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>()); 
+        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let count = self.current.pos / total_item_size;
 
-        unsafe {
-            core::slice::from_raw_parts(self.current.ptr as *const T, count)
-        }
+        unsafe { core::slice::from_raw_parts(self.current.ptr as *const T, count) }
     }
 
     /// Allocates an array of `T` elements in the arena and initializes them with the default value.
@@ -745,7 +740,7 @@ impl<T: Default + Sized> TypedArena<T> {
         Ok((ret, index))
     }
 
-    /// Return the array of `T` elements in the arena. 
+    /// Return the array of `T` elements in the arena.
     pub fn get_array<'a>(&mut self) -> &'a mut [T] {
         let size = self.arena.current.pos / core::mem::size_of::<T>();
         unsafe { std::slice::from_raw_parts_mut(self.arena.current.ptr as *mut T, size) }
@@ -760,7 +755,10 @@ impl<T: Default + Sized> TypedArena<T> {
         self.arena.current.pos -= core::mem::size_of::<T>();
     }
 
-    pub fn push<'a>(&mut self, item: T) where T: Sized + {
+    pub fn push<'a>(&mut self, item: T)
+    where
+        T: Sized,
+    {
         let t = self.alloc().unwrap();
         *t = item;
     }
@@ -799,7 +797,7 @@ pub struct VecArena<T> {
 impl<T> VecArena<T> {
     pub fn new(reserve_virtual_size: usize) -> Result<Self, ArenaError> {
         Ok(Self {
-            arena: Arena::new(reserve_virtual_size)?, 
+            arena: Arena::new(reserve_virtual_size)?,
             phantom: core::marker::PhantomData,
         })
     }
@@ -836,7 +834,7 @@ pub struct PodArena<T: Sized + Default + Clone> {
 impl<T: Sized + Default + Clone> PodArena<T> {
     pub fn new(reserve_virtual_size: usize) -> Result<Self, ArenaError> {
         Ok(Self {
-            arena: Arena::new(reserve_virtual_size)?, 
+            arena: Arena::new(reserve_virtual_size)?,
             phantom: core::marker::PhantomData,
         })
     }
@@ -856,10 +854,10 @@ impl<T: Sized + Default + Clone> PodArena<T> {
 
     pub fn last(&mut self) -> Option<&mut T> {
         if self.arena.current.pos == 0 {
-            return None; 
+            return None;
         }
 
-        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>()); 
+        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let index = self.arena.current.pos - total_item_size;
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
         Some(unsafe { &mut *ptr })
@@ -867,10 +865,10 @@ impl<T: Sized + Default + Clone> PodArena<T> {
 
     pub fn last_or_default(&mut self) -> T {
         if self.arena.current.pos == 0 {
-            return T::default(); 
+            return T::default();
         }
 
-        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>()); 
+        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let index = self.arena.current.pos - total_item_size;
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
         unsafe { (*ptr).clone() }

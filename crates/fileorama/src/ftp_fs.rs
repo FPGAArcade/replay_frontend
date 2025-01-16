@@ -1,8 +1,8 @@
 use crate::{Error, FilesDirs, IoDriver, IoDriverType, LoadStatus, Progress};
-use suppaftp::{FtpError, FtpStream};
 use log::error;
-use std::path::MAIN_SEPARATOR;
 use std::fmt::{Debug, Formatter};
+use std::path::MAIN_SEPARATOR;
+use suppaftp::{FtpError, FtpStream};
 
 // This is kinda ugly, but better than testing non-supported paths on a remote server
 #[cfg(target_os = "windows")]
@@ -108,7 +108,9 @@ impl IoDriver for FtpFs {
             };
 
             stream.login("anonymous", "anonymous").unwrap();
-            stream.transfer_type(suppaftp::types::FileType::Binary).unwrap();
+            stream
+                .transfer_type(suppaftp::types::FileType::Binary)
+                .unwrap();
 
             return Some(Box::new(FtpFs { data: Some(stream) }));
         }

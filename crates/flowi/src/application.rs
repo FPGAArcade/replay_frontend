@@ -6,8 +6,8 @@ use crate::sw_renderer::SwRenderer;
 
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
-use flowi_core::ApplicationSettings;
 use flowi_core::render::FlowiRenderer;
+use flowi_core::ApplicationSettings;
 use flowi_core::Flowi;
 //use flowi_core::Instance;
 //use flowi_core::Result;

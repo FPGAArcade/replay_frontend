@@ -1,13 +1,13 @@
+pub mod font;
 mod image;
 mod image_api;
 pub mod input;
 mod internal_error;
 mod io_handler;
 pub mod primitives;
+pub mod render;
 pub mod signal;
 pub mod widgets;
-pub mod render;
-pub mod font;
 
 use arena_allocator::Arena;
 use fileorama::Fileorama;
@@ -19,6 +19,7 @@ type FlowiKey = u64;
 
 #[allow(dead_code)]
 pub struct Flowi {
+    pub(crate) text_generator: font::TextGenerator, 
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
     pub(crate) input: input::Input,
@@ -38,6 +39,7 @@ impl Flowi {
         Box::new(Flowi {
             vfs,
             io_handler,
+            text_generator: font::TextGenerator::new(),
             hot_item: 0,
             input: input::Input::new(),
             current_frame: 0,
@@ -46,7 +48,6 @@ impl Flowi {
     }
 
     pub fn begin(&mut self, _delta_time: f32, _width: usize, _height: usize) {
-
         self.io_handler.update();
         self.primitives.rewind();
     }
@@ -57,9 +58,7 @@ impl Flowi {
         self.current_frame += 1;
     }
 
-
-    fn generate_primitives(&mut self) {
-    }
+    fn generate_primitives(&mut self) {}
 
     pub fn button(&mut self, _text: &str) -> Signal {
         /*
