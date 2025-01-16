@@ -68,7 +68,7 @@ fn main() {
                     .width(grow!())
                     .height(grow!())
                     .direction(LayoutDirection::TopToBottom)
-                    .padding(Padding::new(16, 16))
+                    .padding(Padding::all(16))
                     .child_gap(16)
                     .end(),
                 Rectangle::new()
@@ -83,7 +83,7 @@ fn main() {
                         Layout::new()
                             .width(grow!())
                             .height(fixed!(60.))
-                            .padding(Padding::new(16, 16))
+                            .padding(Padding::all(16))
                             .child_gap(16)
                             .child_alignment(Alignment::new(
                                 LayoutAlignmentX::Left,
@@ -112,7 +112,7 @@ fn main() {
                                     .width(fixed!(250.))
                                     .height(grow!())
                                     .direction(LayoutDirection::TopToBottom)
-                                    .padding(Padding::new(16, 16))
+                                    .padding(Padding::all(16))
                                     .end(),
                                 content_background_config,
                             ],
