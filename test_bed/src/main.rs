@@ -15,7 +15,7 @@ use clay_layout::{
 };
 //use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
 
-use ui_raster::simd::{f32x4, i32x4};
+use ui_raster::simd::f32x4;
 use ui_raster::{ColorSpace, RenderPrimitive, Renderer};
 
 const WIDTH: usize = 1920;
@@ -142,11 +142,11 @@ fn main() {
         renderer.begin_frame();
 
         for command in render_commands {
-            let aabb = i32x4::new(
-                command.bounding_box.x as i32,
-                command.bounding_box.y as i32,
-                (command.bounding_box.x + command.bounding_box.width) as i32,
-                (command.bounding_box.y + command.bounding_box.height) as i32,
+            let aabb = f32x4::new(
+                command.bounding_box.x,
+                command.bounding_box.y,
+                command.bounding_box.x + command.bounding_box.width,
+                command.bounding_box.y + command.bounding_box.height,
             );
 
             //println!("{:?}", aabb.to_array());

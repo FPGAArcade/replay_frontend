@@ -76,13 +76,13 @@ fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
 
 #[derive(Clone, Copy)]
 pub struct RenderPrimitive {
-    pub aabb: i32x4,
+    pub aabb: f32x4,
     pub color: i16x8,
     pub corner_radius: f32x4,
 }
 
 struct Tile {
-    aabb: i32x4,
+    aabb: f32x4,
     data: Vec<usize>,
     tile_index: usize,
 }
@@ -103,11 +103,11 @@ impl Renderer {
         for y in (0..screen_size.1).step_by(tile_size.1) {
             for x in (0..screen_size.0).step_by(tile_size.0) {
                 tiles.push(Tile {
-                    aabb: i32x4::new(
-                        x as i32,
-                        y as i32,
-                        (x + tile_size.0) as i32,
-                        (y + tile_size.1) as i32,
+                    aabb: f32x4::new(
+                        x as f32,
+                        y as f32,
+                        (x + tile_size.0) as f32,
+                        (y + tile_size.1) as f32,
                     ),
                     data: Vec::with_capacity(8192),
                     tile_index: tile_index & 1,
@@ -149,7 +149,7 @@ impl Renderer {
             _height: 90,
         };
 
-        self.raster.scissor_rect = i32x4::new(0, 0, 192, 90);
+        self.raster.scissor_rect = f32x4::new(0.0, 0.0, 192.0, 90.0);
 
         //let tile = &self.tiles[0];
 
@@ -167,7 +167,7 @@ impl Renderer {
 
             let tile_aabb = tile.aabb;
             let tile_buffer = &mut self.tile_buffers[tile.tile_index];
-            tile_info.offsets = tile_aabb.as_f32x4().shuffle_0101();
+            tile_info.offsets = tile_aabb.shuffle_0101();
 
             //self.raster.scissor_rect = tile_aabb;
 
@@ -176,7 +176,7 @@ impl Renderer {
                 let color = primitive.color;
 
                 // TODO: Fix this
-                let coords_vec = primitive.aabb.as_f32x4();
+                let coords_vec = primitive.aabb;
 
                 // TODO: Fix this
                 coords_vec.store_unaligned(&mut coords);
@@ -236,7 +236,7 @@ impl Renderer {
             let tile_aabb = tile.aabb;
             tile.data.clear();
             for (i, primitive) in primitives.iter().enumerate() {
-                if i32x4::test_intersect(tile_aabb, primitive.aabb) {
+                if f32x4::test_intersect(tile_aabb, primitive.aabb) {
                     tile.data.push(i);
                 }
             }

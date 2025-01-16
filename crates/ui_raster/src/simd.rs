@@ -939,56 +939,6 @@ impl i32x4 {
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
-    // Taken from https://gist.github.com/mtsamis/441c16f3d6fc86566eaa2a302ed247c9
-    pub fn test_intersect(a: i32x4, b: i32x4) -> bool {
-        unsafe {
-            // make max.x, max.y negative
-            let flip_sign_0 = _mm_set_epi32(0, 0, 0x7fff_ffffu32 as i32, 0x7fff_ffffu32 as i32);
-            let a = _mm_xor_si128(a.v, flip_sign_0);
-            let b = _mm_xor_si128(b.v, flip_sign_0);
-
-            // we have min_x,  min_y, -max_x, -max_y and want
-            //        -max_x, -max_y,  min_x,  min_y
-            let b = _mm_shuffle_epi32(b, 78); // [ -max_x, -max_y, min_x, min_y ]
-            let flip_sign = _mm_set1_epi32(0x7fff_ffffu32 as i32);
-            let b = _mm_xor_si128(b, flip_sign); // [ -min_x, -min_y, max_x, max_y ]
-
-            // Check overlap: compare shuffled `a` <= negated `b`
-            let cmp = _mm_cmplt_epi32(a, b);
-
-            // Test if all comparison results are true
-            _mm_movemask_epi8(cmp) == 0
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    pub fn test_intersect(a: i32x4, b: i32x4) -> bool {
-        unsafe {
-            let mask = vld1q_u32(
-                &[0x00000000u32, 0x00000000, 0x8000_0000u32, 0x8000_000fu32] as *const u32
-            );
-
-            let m = i32x4 {
-                v: vreinterpretq_s32_u32(mask),
-            };
-            let a = i32x4 {
-                v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(a.v), mask)),
-            };
-            let b = i32x4 {
-                v: vreinterpretq_s32_u32(veorq_u32(vreinterpretq_u32_s32(b.v), mask)),
-            };
-
-            let b = vrev64q_s32(b.v);
-            let flip_sign = vreinterpretq_s32_f32(vdupq_n_f32(-0.0));
-            let b = veorq_s32(b, flip_sign);
-
-            let cmp = vcltq_s32(a.v, b);
-
-            vmaxvq_u32(cmp) == 0
-        }
-    }
-
     #[cfg(target_arch = "aarch64")]
     pub fn extract<const LANE: i32>(self) -> i32 {
         unsafe { vgetq_lane_s32(self.v, LANE) }
@@ -1713,118 +1663,110 @@ mod simd_tests {
         assert_eq!(data, [1, 2, 3, 4, 0, 0, 0, 0]);
     }
 
-    #[test]
-    fn test_i32x4_full_overlap() {
-        let a = i32x4::new(1, 1, 3, 3);
-        let b = i32x4::new(2, 2, 4, 4);
-        let bf = a.as_f32x4();
-        let bc = b.as_f32x4();
-
-        let t = f32x4::test_intersect(bf, bc);
-
-        dbg!(t);
-        dbg!(i32x4::test_intersect(a, b));
-
-        assert!(i32x4::test_intersect(a, b), "AABBs should overlap");
+        #[test]
+    fn test_f32x4_full_overlap() {
+        let a = f32x4::new(1.0, 1.0, 3.0, 3.0);
+        let b = f32x4::new(2.0, 2.0, 4.0, 4.0);
+        assert!(f32x4::test_intersect(a, b), "AABBs should overlap");
     }
 
     #[test]
-    fn test_i32x4_partial_overlap() {
-        let a = i32x4::new(1, 1, 3, 3);
-        let b = i32x4::new(2, 2, 4, 4);
-        assert!(i32x4::test_intersect(a, b), "AABBs should overlap");
+    fn test_f32x4_partial_overlap() {
+        let a = f32x4::new(1.0, 1.0, 3.0, 3.0);
+        let b = f32x4::new(2.0, 2.0, 4.0, 4.0);
+        assert!(f32x4::test_intersect(a, b), "AABBs should overlap");
     }
 
     #[test]
-    fn test_i32x4_full_containment() {
-        let a = i32x4::new(2, 2, 3, 3);
-        let b = i32x4::new(1, 1, 4, 4);
-        assert!(i32x4::test_intersect(a, b), "AABBs should overlap");
+    fn test_f32x4_full_containment() {
+        let a = f32x4::new(2.0, 2.0, 3.0, 3.0);
+        let b = f32x4::new(1.0, 1.0, 4.0, 4.0);
+        assert!(f32x4::test_intersect(a, b), "AABBs should overlap");
     }
 
     #[test]
-    fn test_i32x4_edge_touching() {
-        let a = i32x4::new(1, 1, 3, 3);
-        let b = i32x4::new(3, 3, 5, 5);
+    fn test_f32x4_edge_touching() {
+        let a = f32x4::new(1.0, 1.0, 3.0, 3.0);
+        let b = f32x4::new(3.0, 3.0, 5.0, 5.0);
         assert!(
-            i32x4::test_intersect(a, b),
+            f32x4::test_intersect(a, b),
             "AABBs should overlap (edge touch)"
         );
     }
 
     #[test]
-    fn test_i32x4_corner_touching() {
-        let a = i32x4::new(1, 1, 3, 3);
-        let b = i32x4::new(3, 3, 4, 4);
+    fn test_f32x4_corner_touching() {
+        let a = f32x4::new(1.0, 1.0, 3.0, 3.0);
+        let b = f32x4::new(3.0, 3.0, 4.0, 4.0);
         assert!(
-            i32x4::test_intersect(a, b),
+            f32x4::test_intersect(a, b),
             "AABBs should overlap (corner touch)"
         );
     }
 
     #[test]
-    fn test_i32x4_no_overlap_separated() {
-        let a = i32x4::new(1, 1, 3, 3);
-        let b = i32x4::new(4, 4, 5, 5);
-        assert!(!i32x4::test_intersect(a, b), "AABBs should not overlap");
+    fn test_f32x4_no_overlap_separated() {
+        let a = f32x4::new(1.0, 1.0, 3.0, 3.0);
+        let b = f32x4::new(4.0, 4.0, 5.0, 5.0);
+        assert!(!f32x4::test_intersect(a, b), "AABBs should not overlap");
     }
 
     #[test]
-    fn test_i32x4_no_overlap_left() {
-        let a = i32x4::new(1, 1, 2, 2);
-        let b = i32x4::new(3, 1, 4, 2);
+    fn test_f32x4_no_overlap_left() {
+        let a = f32x4::new(1.0, 1.0, 2.0, 2.0);
+        let b = f32x4::new(3.0, 1.0, 4.0, 2.0);
         assert!(
-            !i32x4::test_intersect(a, b),
+            !f32x4::test_intersect(a, b),
             "AABBs should not overlap (AABB to the left)"
         );
     }
 
     #[test]
-    fn test_i32x4_no_overlap_right() {
-        let a = i32x4::new(3, 1, 4, 2);
-        let b = i32x4::new(1, 1, 2, 2);
+    fn test_f32x4_no_overlap_right() {
+        let a = f32x4::new(3.0, 1.0, 4.0, 2.0);
+        let b = f32x4::new(1.0, 1.0, 2.0, 2.0);
         assert!(
-            !i32x4::test_intersect(a, b),
+            !f32x4::test_intersect(a, b),
             "AABBs should not overlap (AABB to the right)"
         );
     }
 
     #[test]
-    fn test_i32x4_no_overlap_below() {
-        let a = i32x4::new(1, 1, 2, 2);
-        let b = i32x4::new(1, 3, 2, 4);
+    fn test_f32x4_no_overlap_below() {
+        let a = f32x4::new(1.0, 1.0, 2.0, 2.0);
+        let b = f32x4::new(1.0, 3.0, 2.0, 4.0);
         assert!(
-            !i32x4::test_intersect(a, b),
+            !f32x4::test_intersect(a, b),
             "AABBs should not overlap (AABB below)"
         );
     }
 
     #[test]
-    fn test_i32x4_no_overlap_above() {
-        let a = i32x4::new(1, 3, 2, 4);
-        let b = i32x4::new(1, 1, 2, 2);
+    fn test_f32x4_no_overlap_above() {
+        let a = f32x4::new(1.0, 3.0, 2.0, 4.0);
+        let b = f32x4::new(1.0, 1.0, 2.0, 2.0);
         assert!(
-            !i32x4::test_intersect(a, b),
+            !f32x4::test_intersect(a, b),
             "AABBs should not overlap (AABB above)"
         );
     }
 
     #[test]
-    fn test_i32x4_no_overlap_top_right() {
-        let a = i32x4::new(1, 1, 2, 2);
-        let b = i32x4::new(3, 3, 4, 4);
+    fn test_f32x4_no_overlap_top_right() {
+        let a = f32x4::new(1.0, 1.0, 2.0, 2.0);
+        let b = f32x4::new(3.0, 3.0, 4.0, 4.0);
         assert!(
-            !i32x4::test_intersect(a, b),
+            !f32x4::test_intersect(a, b),
             "AABBs should not overlap (AABB to the top-right)"
         );
     }
 
     #[test]
-    fn test_i32x4_no_overlap_bottom_left() {
-        let a = i32x4::new(3, 3, 4, 4);
-        let b = i32x4::new(1, 1, 2, 2);
+    fn test_f32x4_no_overlap_bottom_left() {
+        let a = f32x4::new(3.0, 3.0, 4.0, 4.0);
+        let b = f32x4::new(1.0, 1.0, 2.0, 2.0);
         assert!(
-            !i32x4::test_intersect(a, b),
+            !f32x4::test_intersect(a, b),
             "AABBs should not overlap (AABB to the bottom-left)"
         );
     }

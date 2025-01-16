@@ -45,7 +45,7 @@ pub enum BlendMode {
 }
 
 pub(crate) struct Raster {
-    pub(crate) scissor_rect: i32x4,
+    pub(crate) scissor_rect: f32x4,
 }
 
 /// Calculates the blending factor for rounded corners in vectorized form.
@@ -268,7 +268,7 @@ pub(crate) fn render_internal<
     const BLEND_MODE: usize,
 >(
     output: &mut [i16],
-    scissor_rect: i32x4,
+    scissor_rect: f32x4,
     texture_data: *const i16,
     tile_info: &TileInfo,
     uv_data: &[f32],
@@ -285,7 +285,7 @@ pub(crate) fn render_internal<
     let x0y0x1y1_int = x0y0x1y1.as_i32x4();
 
     // Make sure we intersect with the scissor rect otherwise skip rendering
-    if !i32x4::test_intersect(scissor_rect, x0y0x1y1_int) {
+    if !f32x4::test_intersect(scissor_rect, x0y0x1y1) {
         return;
     }
 
@@ -312,7 +312,7 @@ pub(crate) fn render_internal<
 
     // Calculate the difference between the scissor rect and the current rect
     // if diff is > 0 we return back a positive value to use for clipping
-    let clip_diff = (x0y0x1y1_int - scissor_rect).min(i32x4::new_splat(0)).abs();
+    let clip_diff = (x0y0x1y1_int - scissor_rect.as_i32x4()).min(i32x4::new_splat(0)).abs();
 
     if COLOR_MODE == COLOR_MODE_LERP {
         let x0y0x0y0 = x0y0x1y1.shuffle_0101();
@@ -384,8 +384,8 @@ pub(crate) fn render_internal<
             f32x4::new_splat(uv_fraction.extract::<1>() + (border_radius * center_adjust.1));
     }
 
-    let min_box = x0y0x1y1_int.min(scissor_rect);
-    let max_box = x0y0x1y1_int.max(scissor_rect);
+    let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
+    let max_box = x0y0x1y1_int.max(scissor_rect.as_i32x4());
 
     let x0 = max_box.extract::<0>();
     let y0 = max_box.extract::<1>();
@@ -552,7 +552,7 @@ pub(crate) fn render_internal<
 impl Raster {
     pub(crate) fn new() -> Self {
         Self {
-            scissor_rect: i32x4::new_splat(0),
+            scissor_rect: f32x4::new_splat(0.0),
         }
     }
 
