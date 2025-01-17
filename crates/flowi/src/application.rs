@@ -8,7 +8,7 @@ use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
 use flowi_core::render::FlowiRenderer;
 use flowi_core::ApplicationSettings;
-use flowi_core::Flowi;
+use flowi_core::Ui;
 //use flowi_core::Instance;
 //use flowi_core::Result;
 //use raw_window_handle::RawWindowHandle;
@@ -30,18 +30,18 @@ struct WrappedMainData {
 }
 
 #[repr(C)]
-pub struct Application {
+pub struct Application<'a> {
     pub(crate) window: Box<dyn Window>,
-    pub(crate) core: Box<Flowi>,
+    pub ui: Box<Ui<'a>>,
     user: WrappedMainData,
     pub(crate) settings: ApplicationSettings,
 }
 
 #[allow(clippy::transmute_ptr_to_ref)]
-unsafe extern "C" fn user_trampoline_ud<T>(wd: &WrappedMainData) {
-    let f: &&(dyn Fn(&mut T) + 'static) = transmute(wd.user_func);
-    let data = wd.user_data as *mut T;
-    f(&mut *data);
+unsafe extern "C" fn user_trampoline_ud<T>(app: &mut Application) {
+    let f: &&(dyn Fn(&mut Ui, &mut T) + 'static) = transmute(app.user.user_func);
+    let data = app.user.user_data as *mut T;
+    f(&mut app.ui, &mut *data);
 }
 
 #[allow(clippy::transmute_ptr_to_ref)]
@@ -53,7 +53,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         state.window.update();
         //state.core.update();
 
-        user_trampoline_ud::<T>(&state.user);
+        user_trampoline_ud::<T>(state);
 
         //state.core.post_update();
         //state.core.state.renderer.render();
@@ -63,14 +63,14 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     }
 }
 
-impl Application {
+impl Application<'_> {
     pub fn new(settings: &ApplicationSettings) -> Box<Self> {
-        let core = Flowi::new();
+        let ui = Ui::new();
         let window = Box::new(Sdl2Window::new(settings));
 
         Box::new(Self {
             window,
-            core,
+            ui,
             settings: *settings,
             user: WrappedMainData {
                 user_data: null_mut(),
@@ -82,13 +82,13 @@ impl Application {
     #[allow(clippy::type_complexity)]
     pub fn run<'a, F, T>(&mut self, data: Box<T>, func: F) -> bool
     where
-        F: Fn(&mut T) + 'a,
+        F: Fn(&mut Ui, &mut T) + 'a,
     {
         let _renderer = Box::new(SwRenderer::new(&self.settings, None));
         //self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end
-        let f: Box<Box<dyn Fn(&mut T) + 'a>> = Box::new(Box::new(func));
+        let f: Box<Box<dyn Fn(&mut Ui, &mut T) + 'a>> = Box::new(Box::new(func));
         let func = Box::into_raw(f) as *const _;
 
         self.user.user_data = Box::into_raw(data) as *const _;

@@ -1,14 +1,15 @@
 //use cosmic_text::{Attrs, Color, FontSystem, SwashCache, Buffer, Metrics, Shaping};
 use crate::internal_error::{InternalError, InternalResult};
+use std::borrow::Cow;
 //use background_worker::BoxAnySend;
-use cosmic_text::{Attrs, AttrsOwned, FontSystem, SwashCache, Color, Shaping, Metrics, Buffer};
+use cosmic_text::{Attrs, AttrsOwned, FontSystem, SwashCache, Shaping, Metrics, Buffer};
 //use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub(crate) struct GeneratorConfig {
-    font_path: String,
+    font_handle: FontHandle,
     text: String,
     font_size: u32,
     sub_pixel_steps_x: u32,
@@ -35,6 +36,8 @@ fn build_srgb_to_linear_table() -> [i16; 256] {
     table
 }
 
+pub type FontHandle = u64;
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct FontFaceInfo {
@@ -42,7 +45,6 @@ struct FontFaceInfo {
     style: cosmic_text::fontdb::Style,
     weight: cosmic_text::fontdb::Weight,
     family_name: String,
-    font_id: u32,
 }
 
 /// A cached string is a pre-rendered string that can be drawn to the screen
@@ -56,7 +58,7 @@ pub(crate) struct CachedString {
     sub_pixel_step_y: u32,
 }
 
-type LoadedFonts = HashMap<String, FontFaceInfo>;
+type LoadedFonts = HashMap<FontHandle, FontInfo>;
 type CachedStrings = HashMap<GeneratorConfig, CachedString>;
 
 #[allow(dead_code)]
@@ -83,66 +85,94 @@ impl AsyncState {
     }
 }
 
+struct FontInfo {
+    attrs: AttrsOwned,
+    size: i32,
+}
+
 #[allow(dead_code)]
 pub(crate) struct TextGenerator {
     async_state: Arc<Mutex<AsyncState>>,
     cached_strings: CachedStrings, 
+    /// These are for messure texts on the main thread.
+    sync_font_system: FontSystem,
+    sync_loaded_fonts: LoadedFonts,
+    font_id_counter: u64,
+}
+
+pub(crate) struct LoadConfig {
+    pub(crate) font_id: FontHandle,
+    pub(crate) font_path: Cow<'static, str>,
 }
 
 #[allow(dead_code)]
-fn get_attrs_from_font(font: &FontFaceInfo) -> InternalResult<cosmic_text::AttrsOwned> {
-    Ok(AttrsOwned::new(
-        Attrs::new()
-            .stretch(font.stretch)
-            .style(font.style)
-            .weight(font.weight)
-            .family(cosmic_text::Family::Name(font.family_name.as_str())),
-    )) // TODO: Fix alloc
-}
-
-#[allow(dead_code)]
-fn get_or_load_font(
+fn load_font(
+    id: FontHandle,
     font_path: &str,
+    font_size: i32,
     loaded_fonts: &mut LoadedFonts,
     font_system: &mut FontSystem,
-) -> InternalResult<cosmic_text::AttrsOwned> {
-    if let Some(font) = loaded_fonts.get(font_path) {
-        get_attrs_from_font(font)
-    } else {
-        let font_db = font_system.db_mut();
-        let ids = font_db.load_font_source(cosmic_text::fontdb::Source::File(font_path.into()));
+) -> InternalResult<()> {
+    let font_db = font_system.db_mut();
+    let ids = font_db.load_font_source(cosmic_text::fontdb::Source::File(font_path.into()));
 
-        // TODO: it is assumed this is the right font face
-        let face_id = *ids.last().ok_or(InternalError::GenericError {
-            text: "No font_id found".to_owned(),
-        })?;
-        let face = font_db.face(face_id).ok_or(InternalError::GenericError {
-            text: "No font face found".to_owned(),
-        })?;
-        let family_name = face.families[0].0.as_str();
+    // TODO: it is assumed this is the right font face
+    let face_id = *ids.last().ok_or(InternalError::GenericError {
+        text: "No font_id found".to_owned(),
+    })?;
+    let face = font_db.face(face_id).ok_or(InternalError::GenericError {
+        text: "No font face found".to_owned(),
+    })?;
+    let family_name = face.families[0].0.as_str();
 
-        let font = FontFaceInfo {
-            stretch: face.stretch,
-            style: face.style,
-            weight: face.weight,
-            family_name: family_name.to_owned(),
-            font_id: 0,
-        };
+    let attrs = AttrsOwned::new(
+        Attrs::new()
+            .stretch(face.stretch)
+            .style(face.style)
+            .weight(face.weight)
+            .family(cosmic_text::Family::Name(family_name)));
 
-        loaded_fonts.insert(font_path.to_string(), font.clone());
-
-        get_attrs_from_font(&font)
-    }
+    loaded_fonts.insert(id, FontInfo { attrs, size: font_size }); 
+    Ok(())
 }
 
-#[allow(dead_code)]
-fn load_sync(data: &GeneratorConfig, state: &mut AsyncState) -> InternalResult<CachedString> {
-    let attrs = get_or_load_font(
-        &data.font_path,
-        &mut state.loaded_fonts,
-        &mut state.font_system,
-    )?;
+fn measure_string_size(text: &str, font_info: &FontInfo, line_height: f32, font_system: &mut FontSystem) -> Option<(f32, f32)> {
+    // Define metrics for the text
+    let metrics = Metrics::new(font_info.size as _, line_height);
 
+    // Create a buffer for the text
+    let mut buffer = Buffer::new(font_system, metrics);
+
+    // Set the text in the buffer with default attributes
+    buffer.set_text(font_system, text, font_info.attrs.as_attrs(), Shaping::Basic);
+
+    // Shape the text to compute layout without rendering
+    buffer.shape_until_scroll(font_system, true);
+
+    // Get the layout runs which contain size information
+    let layout_runs = buffer.layout_runs();
+    
+    // Calculate width and height; this assumes single line text for simplicity
+    let mut width = 0.0f32;
+    let mut height = 0.0f32;
+    for run in layout_runs {
+        width = width.max(run.line_w);
+        height += run.line_height;
+    }
+
+    Some((width, height))
+}
+
+/*
+#[allow(dead_code)]
+fn load_async(data: &LoadConfig, state: &mut AsyncState) -> InternalResult<()> {
+    load_font(data.font_id, &data.font_path, &mut state.loaded_fonts, &mut state.font_system)
+}
+*/
+
+/*
+#[allow(dead_code)]
+fn generate_text(data: &GeneratorConfig, state: &mut AsyncState) -> InternalResult<CachedString> {
     let font_size = data.font_size;
 
     // Text metrics indicate the font size and line height of a buffer
@@ -189,6 +219,7 @@ fn load_sync(data: &GeneratorConfig, state: &mut AsyncState) -> InternalResult<C
         sub_pixel_step_y: data.sub_pixel_steps_y,
     })
 }
+*/
 
 /*
 fn job_generate_text(data: BoxAnySend, state: Arc<Mutex<dyn Any + Send>>) {
@@ -205,13 +236,35 @@ impl TextGenerator {
 
         Self {
             async_state,
+            sync_font_system: FontSystem::new(),
+            sync_loaded_fonts: HashMap::new(),
+            font_id_counter: 0,
             cached_strings: HashMap::new(),
         }
     }
 
+    /*
     #[allow(dead_code)]
     pub(crate) fn generate_text_sync(&mut self, config: &GeneratorConfig) -> InternalResult<CachedString> {
-        load_sync(config, &mut self.async_state.lock().unwrap())
+        //load_sync_async(config, &mut self.async_state.lock().unwrap())
+    }
+    */
+
+    pub fn load_font_async(&mut self, path: &str, font_size: i32) -> FontHandle {
+        let font_id = self.font_id_counter;
+        load_font(font_id, path, font_size, &mut self.sync_loaded_fonts, &mut self.sync_font_system).unwrap();
+        self.font_id_counter += 1;
+        font_id
+    }
+
+    pub(crate) fn messure_text_size(&mut self, text: &str, load_config: &LoadConfig) -> Option<(f32, f32)> { 
+        if let Some(font_info) = self.sync_loaded_fonts.get(&load_config.font_id) {
+            let font_size = font_info.size as f32;
+            let line_height = font_size * 1.5;
+            measure_string_size(text, font_info, line_height, &mut self.sync_font_system) 
+        } else {
+            None
+        }
     }
 }
 
@@ -234,6 +287,7 @@ mod tests {
         assert_eq!(table[128], 55);
     }
 
+    /*
     #[test]
     fn test_load_sync() {
         let state = TextGenerator::new();
@@ -257,5 +311,19 @@ mod tests {
         };
 
         let _res = load_sync(&config, &mut state.async_state.lock().unwrap()).unwrap();
+    }
+    */
+    #[test]
+    fn test_load_sync() {
+        let mut state = TextGenerator::new();
+        let font_id = state.load_font_async("../../data/fonts/roboto/Roboto-Regular.ttf", 56);
+        let load_config = LoadConfig {
+            font_id,
+            font_path: Cow::Borrowed("../../data/fonts/roboto/Roboto-Regular.ttf"),
+        };
+
+        let text = "Hello, World!";
+        let size = state.messure_text_size(text, &load_config).unwrap();
+        assert_eq!(size, (313.71484, 84.0));
     }
 }

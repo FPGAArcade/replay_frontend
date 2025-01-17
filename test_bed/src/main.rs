@@ -1,44 +1,8 @@
-use clay_layout::{
-    color::Color,
-    elements::{rectangle::Rectangle, CornerRadius},
-    fixed, grow,
-    id::Id,
-    layout::Layout,
-    layout::LayoutDirection,
-    layout::{
-        alignment::Alignment, alignment::LayoutAlignmentX, alignment::LayoutAlignmentY,
-        padding::Padding,
-    },
-    math::Dimensions,
-    render_commands::*,
-    Clay,
-};
-//use minifb::{Key, Scale, ScaleMode, Window, WindowOptions};
-
-use ui_raster::simd::f32x4;
-use ui_raster::{ColorSpace, RenderPrimitive, Renderer};
-
 const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
 
 fn main() {
-    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT * 2];
-
     /*
-    let mut window = Window::new(
-        "Test - ESC to exit",
-        WIDTH,
-        HEIGHT,
-        WindowOptions {
-            scale: Scale::X1,
-            ..WindowOptions::default()
-        },
-    )
-    .unwrap_or_else(|e| {
-        panic!("{}", e);
-    });
-    */
-
     let clay = Clay::new(Dimensions::new(WIDTH as f32, HEIGHT as f32));
     let mut renderer = Renderer::new(ColorSpace::Linear, (WIDTH, HEIGHT), (10, 12));
 
@@ -189,4 +153,5 @@ fn main() {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         //window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
+    */
 }

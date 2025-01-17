@@ -8,6 +8,7 @@ arena-allocator = { path = "../arena-allocator" }
 background-worker = { path = "../background_worker" }
 bitflags = "2.7.0"
 cosmic-text = "0.12"
+clay-layout = { path = "../clay_layout" }
 fileorama = { path = "../fileorama" }
 glam = "0.29.0"
 log = "0.4"

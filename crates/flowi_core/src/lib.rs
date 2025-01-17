@@ -14,11 +14,27 @@ use fileorama::Fileorama;
 pub use io_handler::IoHandler;
 use primitives::Primitive;
 use signal::Signal;
+use clay_layout::{
+    TypedConfig,
+    math::Dimensions,
+    Clay,
+};
+
+use font::FontHandle;
+
+pub use clay_layout::layout::{
+    LayoutDirection,
+    alignment::Alignment,
+    sizing::Sizing,
+    padding::Padding,
+};
+    
+pub use clay_layout::elements::rectangle::Rectangle;
 
 type FlowiKey = u64;
 
 #[allow(dead_code)]
-pub struct Flowi {
+pub struct Ui<'a> {
     pub(crate) text_generator: font::TextGenerator, 
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
@@ -26,9 +42,10 @@ pub struct Flowi {
     pub(crate) primitives: Arena,
     pub(crate) hot_item: FlowiKey,
     pub(crate) current_frame: u64,
+    pub(crate) layout: Clay<'a>,
 }
 
-impl Flowi {
+impl<'a> Ui<'a> {
     pub fn new() -> Box<Self> {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
@@ -36,7 +53,7 @@ impl Flowi {
 
         let reserve_size = 1024 * 1024 * 1024;
 
-        Box::new(Flowi {
+        Box::new(Ui {
             vfs,
             io_handler,
             text_generator: font::TextGenerator::new(),
@@ -44,12 +61,24 @@ impl Flowi {
             input: input::Input::new(),
             current_frame: 0,
             primitives: Arena::new(reserve_size).unwrap(),
+            layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
         })
     }
 
-    pub fn begin(&mut self, _delta_time: f32, _width: usize, _height: usize) {
+    pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
+        self.layout.layout_dimensions(Dimensions::new(width as f32, height as f32));
         self.io_handler.update();
         self.primitives.rewind();
+    }
+
+    pub fn with_layout<F: FnOnce(&Ui), const N: usize>(
+        &self,
+        configs: [TypedConfig; N],
+        f: F,
+    ) {
+        self.layout.with(configs, |_clay| {
+            f(self);
+        });
     }
 
     pub fn end(&mut self) {
@@ -59,6 +88,10 @@ impl Flowi {
     }
 
     fn generate_primitives(&mut self) {}
+
+    pub fn load_font(&mut self, path: &str, size: i32) -> FontHandle {
+        self.text_generator.load_font_async(path, size)
+    }
 
     pub fn button(&mut self, _text: &str) -> Signal {
         /*

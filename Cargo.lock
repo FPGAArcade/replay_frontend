@@ -512,6 +512,7 @@ dependencies = [
  "arena-allocator",
  "background-worker",
  "bitflags 2.7.0",
+ "clay-layout",
  "cosmic-text",
  "fileorama",
  "glam",
@@ -1689,8 +1690,7 @@ dependencies = [
 name = "test_bed"
 version = "0.1.0"
 dependencies = [
- "clay-layout",
- "ui_raster",
+ "flowi",
 ]
 
 [[package]]

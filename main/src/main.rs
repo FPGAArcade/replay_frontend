@@ -1,5 +1,6 @@
 //use flowi::font::Font;
 use flowi::Application;
+use flowi::Ui;
 
 mod config_loader;
 mod left_side_menu;
@@ -35,7 +36,7 @@ pub(crate) struct App {
     height: usize,
 }
 
-fn main_loop(_app: &mut App) {
+fn main_loop(_ui: &mut Ui, _app: &mut App) {
     /*
     if !app.left_side_menu.update(&app.fonts, app.width, app.height) {
         return;

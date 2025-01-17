@@ -1,4 +1,4 @@
-use crate::Flowi;
+use crate::Ui;
 use bitflags::bitflags;
 
 bitflags! {
@@ -108,7 +108,7 @@ impl Signals {
     }
 }
 
-impl Flowi {
+impl Ui<'_> {
     /*
     pub fn button(&mut self, text: &str) {
         //let box = build_box_from_string(

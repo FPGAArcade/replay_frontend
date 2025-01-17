@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# clay-layout = { git = "https://github.com/clay-ui-rs/clay" }
-clay-layout = { path = "../crates/clay_layout" } 
-ui_raster = { path = "../crates/ui_raster" }
+flowi = { path = "../crates/flowi" }
 
 [features]
 default = []
