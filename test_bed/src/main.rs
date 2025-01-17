@@ -1,8 +1,69 @@
 const WIDTH: usize = 1920;
 const HEIGHT: usize = 1080;
 
+use flowi::Application;
+use flowi::Ui;
+use flowi::{Id, Layout, LayoutDirection, Padding, grow};
+/*
+pub struct Fonts {
+    pub default: Font,
+    pub system_header: Font,
+    pub system_text: Font,
+    pub rot_header: Font,
+}
+*/
+
+#[allow(dead_code)]
+pub(crate) struct App {
+    width: usize,
+    height: usize,
+}
+
+fn main_loop(ui: &mut Ui, _app: &mut App) {
+    ui.with_layout([
+        Id::new("main_container"),
+        Layout::new()
+            .width(grow!())
+            .height(grow!())
+            .direction(LayoutDirection::TopToBottom)
+            .padding(Padding::all(16))
+            .child_gap(16)
+            .end()],
+        |_ui| {
+
+    })
+}
+
 fn main() {
+    let width = 1920;
+    let height = 1080;
+
+    let settings = flowi::ApplicationSettings { width, height };
+
+    let mut flowi_app = Application::new(&settings); //.unwrap();
+
     /*
+    let fonts = Fonts {
+        default: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 56).unwrap(),
+        system_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 72).unwrap(),
+        system_text: Font::load("data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap(),
+        rot_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 56).unwrap(),
+    };
+    */
+
+    let app = Box::new(App {
+        width,
+        height,
+    });
+
+    if !flowi_app.run(app, main_loop) {
+        println!("Failed to create main application");
+    }
+}
+
+
+    /*
+//fn main() {
     let clay = Clay::new(Dimensions::new(WIDTH as f32, HEIGHT as f32));
     let mut renderer = Renderer::new(ColorSpace::Linear, (WIDTH, HEIGHT), (10, 12));
 
@@ -153,5 +214,5 @@ fn main() {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         //window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
     }
-    */
 }
+*/
