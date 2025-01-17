@@ -53,7 +53,9 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         state.window.update();
         //state.core.update();
 
+        state.ui.begin(0.0, state.settings.width, state.settings.height);
         user_trampoline_ud::<T>(state);
+        state.ui.end();
 
         //state.core.post_update();
         //state.core.state.renderer.render();

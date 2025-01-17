@@ -22,14 +22,20 @@ use clay_layout::{
 
 use font::FontHandle;
 
-pub use clay_layout::layout::{
-    LayoutDirection,
-    alignment::Alignment,
-    sizing::Sizing,
-    padding::Padding,
+pub use clay_layout::{
+    layout::{
+        LayoutDirection,
+        alignment::Alignment,
+        sizing::Sizing,
+        padding::Padding,
+        Layout
+    },
+
+    elements::rectangle::Rectangle,
+    id::Id,
+    grow,
+    fixed,
 };
-    
-pub use clay_layout::elements::rectangle::Rectangle;
 
 type FlowiKey = u64;
 
@@ -67,6 +73,7 @@ impl<'a> Ui<'a> {
 
     pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
         self.layout.layout_dimensions(Dimensions::new(width as f32, height as f32));
+        self.layout.begin();
         self.io_handler.update();
         self.primitives.rewind();
     }
@@ -82,6 +89,7 @@ impl<'a> Ui<'a> {
     }
 
     pub fn end(&mut self) {
+        let _ = self.layout.end();
         // Generate primitives from all boxes
         self.generate_primitives();
         self.current_frame += 1;
