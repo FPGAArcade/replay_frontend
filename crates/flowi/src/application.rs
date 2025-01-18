@@ -39,9 +39,9 @@ pub struct Application<'a> {
 
 #[allow(clippy::transmute_ptr_to_ref)]
 unsafe extern "C" fn user_trampoline_ud<T>(app: &mut Application) {
-    let f: &&(dyn Fn(&mut Ui, &mut T) + 'static) = transmute(app.user.user_func);
+    let f: &&(dyn Fn(&Ui, &mut T) + 'static) = transmute(app.user.user_func);
     let data = app.user.user_data as *mut T;
-    f(&mut app.ui, &mut *data);
+    f(&app.ui, &mut *data);
 }
 
 #[allow(clippy::transmute_ptr_to_ref)]
@@ -53,7 +53,9 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         state.window.update();
         //state.core.update();
 
-        state.ui.begin(0.0, state.settings.width, state.settings.height);
+        state
+            .ui
+            .begin(0.0, state.settings.width, state.settings.height);
         user_trampoline_ud::<T>(state);
         state.ui.end();
 
@@ -84,13 +86,13 @@ impl Application<'_> {
     #[allow(clippy::type_complexity)]
     pub fn run<'a, F, T>(&mut self, data: Box<T>, func: F) -> bool
     where
-        F: Fn(&mut Ui, &mut T) + 'a,
+        F: Fn(&Ui, &mut T) + 'a,
     {
         let _renderer = Box::new(SwRenderer::new(&self.settings, None));
         //self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end
-        let f: Box<Box<dyn Fn(&mut Ui, &mut T) + 'a>> = Box::new(Box::new(func));
+        let f: Box<Box<dyn Fn(&Ui, &mut T) + 'a>> = Box::new(Box::new(func));
         let func = Box::into_raw(f) as *const _;
 
         self.user.user_data = Box::into_raw(data) as *const _;

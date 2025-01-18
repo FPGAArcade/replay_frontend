@@ -9,39 +9,29 @@ pub mod render;
 pub mod signal;
 pub mod widgets;
 
+use std::cell::UnsafeCell;
 use arena_allocator::Arena;
+use clay_layout::{color::Color, math::Dimensions, Clay, TypedConfig};
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;
 use primitives::Primitive;
 use signal::Signal;
-use clay_layout::{
-    TypedConfig,
-    math::Dimensions,
-    Clay,
-};
 
 use font::FontHandle;
 
 pub use clay_layout::{
-    layout::{
-        LayoutDirection,
-        alignment::Alignment,
-        sizing::Sizing,
-        padding::Padding,
-        Layout
-    },
-
-    elements::rectangle::Rectangle,
-    id::Id,
-    grow,
+    //color::Color,
+    elements::{rectangle::Rectangle, CornerRadius},
     fixed,
+    grow,
+    id::Id,
+    layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
 };
 
 type FlowiKey = u64;
 
-#[allow(dead_code)]
-pub struct Ui<'a> {
-    pub(crate) text_generator: font::TextGenerator, 
+struct State<'a> {
+    pub(crate) text_generator: font::TextGenerator,
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
     pub(crate) input: input::Input,
@@ -49,6 +39,12 @@ pub struct Ui<'a> {
     pub(crate) hot_item: FlowiKey,
     pub(crate) current_frame: u64,
     pub(crate) layout: Clay<'a>,
+    pub(crate) button_id: u32,
+}
+
+#[allow(dead_code)]
+pub struct Ui<'a> {
+    state: UnsafeCell<State<'a>>,
 }
 
 impl<'a> Ui<'a> {
@@ -58,8 +54,7 @@ impl<'a> Ui<'a> {
         crate::image_api::install_image_loader(&vfs);
 
         let reserve_size = 1024 * 1024 * 1024;
-
-        Box::new(Ui {
+        let state = State {
             vfs,
             io_handler,
             text_generator: font::TextGenerator::new(),
@@ -68,44 +63,70 @@ impl<'a> Ui<'a> {
             current_frame: 0,
             primitives: Arena::new(reserve_size).unwrap(),
             layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
+            button_id: 0,
+        };
+
+        Box::new(Ui {
+            state: UnsafeCell::new(state),
         })
     }
 
     pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
-        self.layout.layout_dimensions(Dimensions::new(width as f32, height as f32));
-        self.layout.begin();
-        self.io_handler.update();
-        self.primitives.rewind();
+        let state = unsafe { &mut *self.state.get() };
+        state.layout
+            .layout_dimensions(Dimensions::new(width as f32, height as f32));
+        state.layout.begin();
+        state.io_handler.update();
+        state.primitives.rewind();
+        state.button_id = 0;
     }
 
-    pub fn with_layout<F: FnOnce(&Ui), const N: usize>(
-        &self,
-        configs: [TypedConfig; N],
-        f: F,
-    ) {
-        self.layout.with(configs, |_clay| {
+    pub fn with_layout<F: FnOnce(&Ui), const N: usize>(&self, configs: [TypedConfig; N], f: F) {
+        let state = unsafe { &mut *self.state.get() };
+
+        state.layout.with(configs, |_clay| {
             f(self);
         });
     }
 
     pub fn end(&mut self) {
-        let _ = self.layout.end();
+        let state = unsafe { &mut *self.state.get() };
+
+        let _ = state.layout.end();
         // Generate primitives from all boxes
-        self.generate_primitives();
-        self.current_frame += 1;
+        //state.generate_primitives();
+        state.current_frame += 1;
     }
 
     fn generate_primitives(&mut self) {}
 
     pub fn load_font(&mut self, path: &str, size: i32) -> FontHandle {
-        self.text_generator.load_font_async(path, size)
+        let state = unsafe { &mut *self.state.get() };
+
+        state.text_generator.load_font_async(path, size)
     }
 
-    pub fn button(&mut self, _text: &str) -> Signal {
-        /*
-        let box_area = self.create_box_with_string(text);
-        self.signal(box_area)
-        */
+    #[rustfmt::skip]
+    pub fn button(&self, _text: &str) -> Signal {
+        let state = unsafe { &mut *self.state.get() };
+
+        state.layout.with([
+            Id::new_index("TestButton", state.button_id),
+            Layout::new()
+                .width(grow!())
+                .height(fixed!(60.))
+                .end(),
+             Rectangle::new()
+                .color(Color::rgba(244.0, 200.0, 200.0, 255.0))
+                .corner_radius(CornerRadius::All(8.0))
+                .end()], |_ui|
+            {
+                dbg!(state.layout.get_bounding_box(Id::new_index("TestButton", state.button_id)));
+            },
+        );
+
+        state.button_id += 1;
+
         Signal::new()
     }
 
@@ -126,6 +147,7 @@ impl<'a> Ui<'a> {
         */
     }
 
+    /*
     pub fn input(&mut self) -> &mut input::Input {
         &mut self.input
     }
@@ -133,6 +155,7 @@ impl<'a> Ui<'a> {
     pub fn primitives(&self) -> &[Primitive] {
         self.primitives.get_array_by_type::<Primitive>()
     }
+    */
 }
 
 #[derive(Debug, Clone, Copy)]

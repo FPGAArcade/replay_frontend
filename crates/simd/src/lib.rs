@@ -436,10 +436,17 @@ impl i16x8 {
         }
     }
 
+    /// This is to make sure the compiler will always generate the instruction and not a wrapper
+    #[cfg(target_arch = "x86_64")]
+    #[target_feature(enable = "sse4.2", enable = "ssse3")]
+    unsafe fn mulhrs_epi16(a: __m128i, b: __m128i) -> __m128i {
+        _mm_mulhrs_epi16(a, b)
+    }
+
     #[cfg(target_arch = "x86_64")]
     pub fn lerp_diff(start: Self, delta: Self, t: i16x8) -> Self {
         Self {
-            v: unsafe { _mm_add_epi16(_mm_mulhrs_epi16(delta.v, t.v), start.v) },
+            v: unsafe { _mm_add_epi16(Self::mulhrs_epi16(delta.v, t.v), start.v) },
         }
     }
 
@@ -456,7 +463,7 @@ impl i16x8 {
         Self {
             v: unsafe {
                 _mm_add_epi16(
-                    _mm_mulhrs_epi16(_mm_sub_epi16(end.v, start.v), t.v),
+                    Self::mulhrs_epi16(_mm_sub_epi16(end.v, start.v), t.v),
                     start.v,
                 )
             },
@@ -473,7 +480,7 @@ impl i16x8 {
     #[cfg(target_arch = "x86_64")]
     pub fn mul_high(a: Self, b: Self) -> Self {
         Self {
-            v: unsafe { _mm_mulhrs_epi16(a.v, b.v) },
+            v: unsafe { Self::mulhrs_epi16(a.v, b.v) },
         }
     }
 
@@ -579,6 +586,13 @@ impl i16x8 {
         Self::tablebased_shuffle(self, splat_7fff, data)
     }
 
+    /// This is to make sure the compiler will always generate the instruction and not a wrapper
+    #[cfg(target_arch = "x86_64")]
+    #[target_feature(enable = "sse4.2", enable = "ssse3")]
+    unsafe fn shuffle_epi8(a: __m128i, b: __m128i) -> __m128i {
+        _mm_shuffle_epi8(a, b)
+    }
+
     #[cfg(target_arch = "x86_64")]
     pub fn shuffle_333_0x7fff_777_0x7fff(self) -> Self {
         unsafe {
@@ -594,7 +608,7 @@ impl i16x8 {
             );
 
             // Shuffle the blended vector with the shuffle mask.
-            let result = _mm_shuffle_epi8(blended, shuffle_mask);
+            let result = Self::shuffle_epi8(blended, shuffle_mask);
 
             Self { v: result }
         }

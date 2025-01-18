@@ -2,7 +2,7 @@
 use crate::internal_error::{InternalError, InternalResult};
 use std::borrow::Cow;
 //use background_worker::BoxAnySend;
-use cosmic_text::{Attrs, AttrsOwned, FontSystem, SwashCache, Shaping, Metrics, Buffer};
+use cosmic_text::{Attrs, AttrsOwned, Buffer, FontSystem, Metrics, Shaping, SwashCache};
 //use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -93,7 +93,7 @@ struct FontInfo {
 #[allow(dead_code)]
 pub(crate) struct TextGenerator {
     async_state: Arc<Mutex<AsyncState>>,
-    cached_strings: CachedStrings, 
+    cached_strings: CachedStrings,
     /// These are for messure texts on the main thread.
     sync_font_system: FontSystem,
     sync_loaded_fonts: LoadedFonts,
@@ -130,13 +130,25 @@ fn load_font(
             .stretch(face.stretch)
             .style(face.style)
             .weight(face.weight)
-            .family(cosmic_text::Family::Name(family_name)));
+            .family(cosmic_text::Family::Name(family_name)),
+    );
 
-    loaded_fonts.insert(id, FontInfo { attrs, size: font_size }); 
+    loaded_fonts.insert(
+        id,
+        FontInfo {
+            attrs,
+            size: font_size,
+        },
+    );
     Ok(())
 }
 
-fn measure_string_size(text: &str, font_info: &FontInfo, line_height: f32, font_system: &mut FontSystem) -> Option<(f32, f32)> {
+fn measure_string_size(
+    text: &str,
+    font_info: &FontInfo,
+    line_height: f32,
+    font_system: &mut FontSystem,
+) -> Option<(f32, f32)> {
     // Define metrics for the text
     let metrics = Metrics::new(font_info.size as _, line_height);
 
@@ -144,14 +156,19 @@ fn measure_string_size(text: &str, font_info: &FontInfo, line_height: f32, font_
     let mut buffer = Buffer::new(font_system, metrics);
 
     // Set the text in the buffer with default attributes
-    buffer.set_text(font_system, text, font_info.attrs.as_attrs(), Shaping::Basic);
+    buffer.set_text(
+        font_system,
+        text,
+        font_info.attrs.as_attrs(),
+        Shaping::Basic,
+    );
 
     // Shape the text to compute layout without rendering
     buffer.shape_until_scroll(font_system, true);
 
     // Get the layout runs which contain size information
     let layout_runs = buffer.layout_runs();
-    
+
     // Calculate width and height; this assumes single line text for simplicity
     let mut width = 0.0f32;
     let mut height = 0.0f32;
@@ -177,7 +194,7 @@ fn generate_text(data: &GeneratorConfig, state: &mut AsyncState) -> InternalResu
 
     // Text metrics indicate the font size and line height of a buffer
     let metrics = Metrics::new(
-        (font_size * data.sub_pixel_steps_x) as f32, 
+        (font_size * data.sub_pixel_steps_x) as f32,
         (font_size * data.sub_pixel_steps_y) as f32);
 
     // A Buffer provides shaping and layout for a UTF-8 string, create one per text widget
@@ -252,16 +269,27 @@ impl TextGenerator {
 
     pub fn load_font_async(&mut self, path: &str, font_size: i32) -> FontHandle {
         let font_id = self.font_id_counter;
-        load_font(font_id, path, font_size, &mut self.sync_loaded_fonts, &mut self.sync_font_system).unwrap();
+        load_font(
+            font_id,
+            path,
+            font_size,
+            &mut self.sync_loaded_fonts,
+            &mut self.sync_font_system,
+        )
+        .unwrap();
         self.font_id_counter += 1;
         font_id
     }
 
-    pub(crate) fn messure_text_size(&mut self, text: &str, load_config: &LoadConfig) -> Option<(f32, f32)> { 
+    pub(crate) fn messure_text_size(
+        &mut self,
+        text: &str,
+        load_config: &LoadConfig,
+    ) -> Option<(f32, f32)> {
         if let Some(font_info) = self.sync_loaded_fonts.get(&load_config.font_id) {
             let font_size = font_info.size as f32;
             let line_height = font_size * 1.5;
-            measure_string_size(text, font_info, line_height, &mut self.sync_font_system) 
+            measure_string_size(text, font_info, line_height, &mut self.sync_font_system)
         } else {
             None
         }

@@ -287,10 +287,11 @@ impl Sdl2Window {
             .with_lock(None, |buffer: &mut [u8], pitch: usize| {
                 for y in 0..1080 - 1 {
                     for x in 0..1920 - 1 {
-                        let offset = y * pitch + x * 3;
+                        let offset = y * pitch + x * 4;
                         buffer[offset] = color_shift; // Red
                         buffer[offset + 1] = 64; // Green
                         buffer[offset + 2] = 255 - color_shift; // Blue
+                        buffer[offset + 3] = 0; // Alpha 
                     }
                 }
             })
@@ -323,7 +324,7 @@ impl Window for Sdl2Window {
         let texture_creator = canvas.texture_creator();
         let texture = texture_creator
             .create_texture(
-                PixelFormatEnum::RGB24,
+                PixelFormatEnum::RGBA8888,
                 TextureAccess::Streaming,
                 width,
                 height,
