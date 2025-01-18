@@ -1,7 +1,6 @@
 mod raster;
-pub mod simd;
 
-use crate::simd::*;
+use simd::*;
 use raster::Raster;
 
 pub(crate) struct TileInfo {

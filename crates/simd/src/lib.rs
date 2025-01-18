@@ -1,8 +1,8 @@
 #[cfg(target_arch = "aarch64")]
-use std::arch::aarch64::*;
+use core::arch::aarch64::*;
 
 //#[cfg(target_arch = "aarch64")]
-//use std::arch::asm;
+//use core::arch::asm;
 
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
@@ -1282,8 +1282,7 @@ impl Sub for i32x4 {
     }
 }
 
-/*
-#[cfg(test)]
+#[cfg(all(test, target_arch = "x86_64"))]
 mod f32x4_tests {
     use super::*;
 
@@ -1365,7 +1364,7 @@ mod f32x4_tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_arch = "x86_64"))]
 mod i32x4_tests {
     use super::*;
 
@@ -1421,7 +1420,7 @@ mod i32x4_tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_arch = "x86_64"))]
 mod i16x8_tests {
     use super::*;
 
@@ -1492,7 +1491,7 @@ mod i16x8_tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_arch = "x86_64"))]
 mod simd_tests {
     use super::*;
 
@@ -1786,4 +1785,4 @@ mod simd_tests {
         assert_eq!(result, [0x02,0x01,0x04,0x03,0x6,0x5,0x08,0x07, 0,0,0,0,0,0,0,0]);
     }
 }
-*/
+

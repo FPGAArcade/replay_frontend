@@ -1,4 +1,4 @@
-use crate::simd::*;
+use simd::*;
 use crate::TileInfo;
 
 const TEXTURE_MODE_NONE: usize = 0;
@@ -312,7 +312,9 @@ pub(crate) fn render_internal<
 
     // Calculate the difference between the scissor rect and the current rect
     // if diff is > 0 we return back a positive value to use for clipping
-    let clip_diff = (x0y0x1y1_int - scissor_rect.as_i32x4()).min(i32x4::new_splat(0)).abs();
+    let clip_diff = (x0y0x1y1_int - scissor_rect.as_i32x4())
+        .min(i32x4::new_splat(0))
+        .abs();
 
     if COLOR_MODE == COLOR_MODE_LERP {
         let x0y0x0y0 = x0y0x1y1.shuffle_0101();
