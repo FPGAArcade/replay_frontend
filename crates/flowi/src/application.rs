@@ -6,12 +6,13 @@ use crate::sdl_window::Sdl2Window;
 
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
-use flowi_core::render::FlowiRenderer;
+use flowi_core::render::{FlowiRenderer, DummyRenderer};
 use flowi_core::ApplicationSettings;
 use flowi_core::Ui;
+use flowi_sw_renderer::Renderer;
+use flowi_core::render::SoftwareRenderData;
 //use flowi_core::Instance;
 //use flowi_core::Result;
-//use raw_window_handle::RawWindowHandle;
 
 pub(crate) trait Window {
     fn new(settings: &ApplicationSettings) -> Self
@@ -19,6 +20,8 @@ pub(crate) trait Window {
         Self: Sized;
     fn update(&mut self);
     fn should_close(&mut self) -> bool;
+    fn update_software_renderer<'a>(&'a mut self, _data: Option<SoftwareRenderData<'a>>) {}
+    fn present(&mut self);
     //fn is_focused(&self) -> bool;
     //fn raw_window_handle(&self) -> RawWindowHandle;
 }
@@ -59,6 +62,8 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         user_trampoline_ud::<T>(state);
         state.ui.end();
 
+        state.window.update_software_renderer(state.ui.renderer().software_renderer_info());
+
         //state.core.post_update();
         //state.core.state.renderer.render();
 
@@ -69,8 +74,8 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 
 impl Application<'_> {
     pub fn new(settings: &ApplicationSettings) -> Box<Self> {
-        let ui = Ui::new();
         let window = Box::new(Sdl2Window::new(settings));
+        let ui = Ui::new(Box::new(Renderer::new(settings, None))); 
 
         Box::new(Self {
             window,
@@ -88,9 +93,6 @@ impl Application<'_> {
     where
         F: Fn(&Ui, &mut T) + 'a,
     {
-        //let _renderer = Box::new(SwRenderer::new(&self.settings, None));
-        //self.core.state.renderer = renderer;
-
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end
         let f: Box<Box<dyn Fn(&Ui, &mut T) + 'a>> = Box::new(Box::new(func));
         let func = Box::into_raw(f) as *const _;

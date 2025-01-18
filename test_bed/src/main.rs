@@ -1,6 +1,6 @@
 use flowi::Application;
 use flowi::Ui;
-use flowi::{grow, Id, Layout, LayoutDirection, Padding};
+use flowi::{grow, fixed, Id, Layout, LayoutDirection, Padding};
 /*
 pub struct Fonts {
     pub default: Font,
@@ -16,23 +16,29 @@ pub(crate) struct App {
     height: usize,
 }
 
+#[rustfmt::skip]
 fn main_loop(ui: &Ui, _app: &mut App) {
-    ui.with_layout(
-        [
-            Id::new("main_container"),
+    ui.with_layout([
+        Id::new("main_container"),
+        Layout::new()
+            .width(grow!())
+            .height(grow!())
+            .direction(LayoutDirection::TopToBottom)
+            .padding(Padding::all(16))
+            .child_gap(16)
+            .end()], |ui| 
+   {
+        ui.with_layout([
+            Id::new("buttons"),
             Layout::new()
                 .width(grow!())
-                .height(grow!())
-                .direction(LayoutDirection::TopToBottom)
-                .padding(Padding::all(16))
-                .child_gap(16)
-                .end(),
-        ],
-        |ui| {
+                .height(fixed!(60.))
+                .end()], |ui| 
+        {
             ui.button("Test");
             ui.button("Test");
-        },
-    )
+        });
+    });
 }
 
 fn main() {

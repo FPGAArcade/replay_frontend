@@ -4,12 +4,15 @@ use raw_window_handle::RawWindowHandle;
 use std::collections::HashMap;
 use clay_layout::render_commands::RenderCommand;
 
-/// Used to tell the backend what kinda of rendering is going on (i.e hardware or not)
-/// In the case of a software renderer the backend will request an output bufffer as well
-/// after the rendering is complete
-pub enum RenderType {
-    Hardware,
-    Software,
+pub enum SoftwareRenderFormat {
+    RGBA16,
+    RGB8,
+}
+
+pub struct SoftwareRenderData<'a> {
+    pub buffer: &'a [u8], 
+    pub width: u32,
+    pub height: u32,
 }
 
 pub trait FlowiRenderer {
@@ -17,12 +20,12 @@ pub trait FlowiRenderer {
     where
         Self: Sized;
 
-    fn rendertype(&self) -> RenderType {
-        RenderType::Hardware
+    /// If the renderer returns this it's expected that it has filled this buffer.
+    fn software_renderer_info<'a>(&'a self) -> Option<SoftwareRenderData<'a>> {
+        None
     }
 
-    fn render<'a>(&mut self, commands: impl Iterator<Item = RenderCommand<'a>>);
-    //fn get_texture(&mut self, image: Image) -> Texture;
+    fn render(&mut self, commands: &[RenderCommand]);
 }
 
 pub struct DummyRenderer {}
@@ -32,7 +35,7 @@ impl FlowiRenderer for DummyRenderer {
         Self {}
     }
 
-    fn render<'a>(&mut self, _commands: impl Iterator<Item = RenderCommand<'a>>) {}
+    fn render(&mut self, _commands: &[RenderCommand]) {}
 
     /*
     fn get_texture(&mut self, _image: Image) -> Texture {

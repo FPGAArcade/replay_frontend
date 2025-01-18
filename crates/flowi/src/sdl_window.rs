@@ -1,6 +1,6 @@
 use crate::application::Window;
 use flowi_core::input::{Input, Key};
-use flowi_core::ApplicationSettings;
+use flowi_core::{ApplicationSettings, render::SoftwareRenderData};
 
 use sdl2::{
     //controller::{Axis, Button, GameController},
@@ -324,7 +324,7 @@ impl Window for Sdl2Window {
         let texture_creator = canvas.texture_creator();
         let texture = texture_creator
             .create_texture(
-                PixelFormatEnum::RGBA8888,
+                PixelFormatEnum::RGB24,
                 TextureAccess::Streaming,
                 width,
                 height,
@@ -379,7 +379,7 @@ impl Window for Sdl2Window {
 
         self.update_input();
 
-        Self::update_texture(&mut self.texture, self.shift).unwrap();
+        //Self::update_texture(&mut self.texture, self.shift).unwrap();
 
         self.canvas
             .copy(
@@ -391,6 +391,18 @@ impl Window for Sdl2Window {
         self.canvas.present();
 
         self.shift = self.shift.wrapping_add(1);
+    }
+
+    fn present(&mut self) {
+        self.canvas.present();
+    }
+
+    fn update_software_renderer<'a>(&'a mut self, data: Option<SoftwareRenderData<'a>>) {
+        if let Some(data) = data {
+            self.texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+                buffer.copy_from_slice(data.buffer);
+            }).unwrap();
+        }
     }
 
     /*

@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+raw-window-handle = "0.6"
 simd = { path = "../simd" }
 flowi_core = { path = "../flowi_core" }

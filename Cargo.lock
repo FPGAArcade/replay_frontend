@@ -500,6 +500,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.7.0",
  "flowi_core",
+ "flowi_sw_renderer",
  "glam",
  "raw-window-handle",
  "sdl2",
@@ -533,6 +534,7 @@ name = "flowi_sw_renderer"
 version = "0.1.0"
 dependencies = [
  "flowi_core",
+ "raw-window-handle",
  "simd",
 ]
 

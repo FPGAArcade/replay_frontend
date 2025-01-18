@@ -26,7 +26,7 @@ pub use clay_layout::{
     grow,
     id::Id,
     layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
-    render_commands::{RenderCommandType, RenderCommandConfig},
+    render_commands::{RenderCommandType, RenderCommandConfig, RenderCommand},
 };
 
 pub use render::FlowiRenderer as Renderer;
@@ -44,6 +44,7 @@ struct State<'a> {
     pub(crate) current_frame: u64,
     pub(crate) layout: Clay<'a>,
     pub(crate) button_id: u32,
+    pub(crate) renderer: Box<dyn Renderer>,
 }
 
 #[allow(dead_code)]
@@ -52,7 +53,7 @@ pub struct Ui<'a> {
 }
 
 impl<'a> Ui<'a> {
-    pub fn new() -> Box<Self> {
+    pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
         crate::image_api::install_image_loader(&vfs);
@@ -68,6 +69,7 @@ impl<'a> Ui<'a> {
             primitives: Arena::new(reserve_size).unwrap(),
             layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
             button_id: 0,
+            renderer,
         };
 
         Box::new(Ui {
@@ -97,7 +99,10 @@ impl<'a> Ui<'a> {
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
 
-        let _ = state.layout.end();
+        // TODO: Fix me
+        let primitives = state.layout.end().collect::<Vec<_>>();
+        state.renderer.render(&primitives);
+
         // Generate primitives from all boxes
         //state.generate_primitives();
         state.current_frame += 1;
@@ -126,7 +131,7 @@ impl<'a> Ui<'a> {
                 .corner_radius(CornerRadius::All(8.0))
                 .end()], |_ui|
             {
-                dbg!(state.layout.get_bounding_box(Id::new_index("TestButton", state.button_id)));
+                //dbg!(state.layout.get_bounding_box(Id::new_index("TestButton", state.button_id)));
             },
         );
 
@@ -150,6 +155,11 @@ impl<'a> Ui<'a> {
 
         signal
         */
+    }
+
+    pub fn renderer(&mut self) -> &Box<dyn Renderer> {
+        let state = unsafe { &mut *self.state.get() };
+        &state.renderer
     }
 
     /*
