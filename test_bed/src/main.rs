@@ -17,16 +17,18 @@ pub(crate) struct App {
 }
 
 fn main_loop(ui: &Ui, _app: &mut App) {
-    ui.with_layout([
-        Id::new("main_container"),
-        Layout::new()
-            .width(grow!())
-            .height(grow!())
-            .direction(LayoutDirection::TopToBottom)
-            .padding(Padding::all(16))
-            .child_gap(16)
-            .end()], |ui| 
-        {
+    ui.with_layout(
+        [
+            Id::new("main_container"),
+            Layout::new()
+                .width(grow!())
+                .height(grow!())
+                .direction(LayoutDirection::TopToBottom)
+                .padding(Padding::all(16))
+                .child_gap(16)
+                .end(),
+        ],
+        |ui| {
             ui.button("Test");
             ui.button("Test");
         },

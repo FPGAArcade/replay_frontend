@@ -273,14 +273,23 @@ impl f32x4 {
     #[cfg(target_arch = "aarch64")]
     pub fn test_intersect(a: f32x4, b: f32x4) -> bool {
         unsafe {
-             // make only max.x, max.y negative by using a mask for the last two elements
-            let flip_sign = f32x4::new(0.0, 0.0, -0.0, -0.0); 
-            let a = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(a.v), vreinterpretq_u32_f32(flip_sign.v)));
-            let b = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(b.v), vreinterpretq_u32_f32(flip_sign.v)));
+            // make only max.x, max.y negative by using a mask for the last two elements
+            let flip_sign = f32x4::new(0.0, 0.0, -0.0, -0.0);
+            let a = vreinterpretq_f32_u32(veorq_u32(
+                vreinterpretq_u32_f32(a.v),
+                vreinterpretq_u32_f32(flip_sign.v),
+            ));
+            let b = vreinterpretq_f32_u32(veorq_u32(
+                vreinterpretq_u32_f32(b.v),
+                vreinterpretq_u32_f32(flip_sign.v),
+            ));
 
             let b = vextq_f32(b, b, 2); // [ max_x, max_y, min_x, min_y ]
             let flip_sign = vdupq_n_f32(-0.0);
-            let b = vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(b), vreinterpretq_u32_f32(flip_sign))); 
+            let b = vreinterpretq_f32_u32(veorq_u32(
+                vreinterpretq_u32_f32(b),
+                vreinterpretq_u32_f32(flip_sign),
+            ));
 
             // Check overlap: compare shuffled `a` <= negated `b`
             let cmp = vcltq_f32(a, b);
@@ -1690,7 +1699,7 @@ mod simd_tests {
         assert_eq!(data, [1, 2, 3, 4, 0, 0, 0, 0]);
     }
 
-        #[test]
+    #[test]
     fn test_f32x4_full_overlap() {
         let a = f32x4::new(1.0, 1.0, 3.0, 3.0);
         let b = f32x4::new(2.0, 2.0, 4.0, 4.0);
@@ -1814,7 +1823,9 @@ mod simd_tests {
         let a = i16x8::new(0x02, 0x01, 0x04, 0x03, 0x06, 0x05, 0x08, 0x07);
 
         let result = a.pack_bytes().to_array_u8();
-        assert_eq!(result, [0x02,0x01,0x04,0x03,0x6,0x5,0x08,0x07, 0,0,0,0,0,0,0,0]);
+        assert_eq!(
+            result,
+            [0x02, 0x01, 0x04, 0x03, 0x6, 0x5, 0x08, 0x07, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
     }
 }
-

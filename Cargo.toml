@@ -8,7 +8,6 @@ members = [
     "crates/flowi_core", 
     "crates/flowi_sw_renderer", 
     "crates/simd",
-    "crates/ui_raster",
     "main",
     "test_bed", 
 ]

@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+simd = { path = "../simd" }
+flowi_core = { path = "../flowi_core" }

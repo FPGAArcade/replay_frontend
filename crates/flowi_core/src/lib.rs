@@ -9,13 +9,13 @@ pub mod render;
 pub mod signal;
 pub mod widgets;
 
-use std::cell::UnsafeCell;
 use arena_allocator::Arena;
 use clay_layout::{color::Color, math::Dimensions, Clay, TypedConfig};
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;
 use primitives::Primitive;
 use signal::Signal;
+use std::cell::UnsafeCell;
 
 use font::FontHandle;
 
@@ -26,10 +26,14 @@ pub use clay_layout::{
     grow,
     id::Id,
     layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
+    render_commands::{RenderCommandType, RenderCommandConfig},
 };
+
+pub use render::FlowiRenderer as Renderer;
 
 type FlowiKey = u64;
 
+#[allow(dead_code)]
 struct State<'a> {
     pub(crate) text_generator: font::TextGenerator,
     pub(crate) vfs: Fileorama,
@@ -73,7 +77,8 @@ impl<'a> Ui<'a> {
 
     pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
         let state = unsafe { &mut *self.state.get() };
-        state.layout
+        state
+            .layout
             .layout_dimensions(Dimensions::new(width as f32, height as f32));
         state.layout.begin();
         state.io_handler.update();

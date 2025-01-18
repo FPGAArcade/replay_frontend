@@ -1,7 +1,0 @@
-[package]
-name = "ui_raster"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-simd = { path = "../simd" }

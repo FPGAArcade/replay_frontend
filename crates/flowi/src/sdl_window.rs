@@ -291,7 +291,7 @@ impl Sdl2Window {
                         buffer[offset] = color_shift; // Red
                         buffer[offset + 1] = 64; // Green
                         buffer[offset + 2] = 255 - color_shift; // Blue
-                        buffer[offset + 3] = 0; // Alpha 
+                        buffer[offset + 3] = 0; // Alpha
                     }
                 }
             })

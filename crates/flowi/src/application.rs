@@ -2,7 +2,7 @@
 //use crate::bgfx_renderer::BgfxRenderer;
 //use crate::glfw_window::GlfwWindow;
 use crate::sdl_window::Sdl2Window;
-use crate::sw_renderer::SwRenderer;
+//use crate::sw_renderer::SwRenderer;
 
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
@@ -88,7 +88,7 @@ impl Application<'_> {
     where
         F: Fn(&Ui, &mut T) + 'a,
     {
-        let _renderer = Box::new(SwRenderer::new(&self.settings, None));
+        //let _renderer = Box::new(SwRenderer::new(&self.settings, None));
         //self.core.state.renderer = renderer;
 
         // Having the data on the stack is safe as the mainloop only exits after the application is about to end

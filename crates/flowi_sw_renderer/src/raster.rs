@@ -1,5 +1,5 @@
-use simd::*;
 use crate::TileInfo;
+use simd::*;
 
 const TEXTURE_MODE_NONE: usize = 0;
 const TEXTURE_MODE_ALIGNED: usize = 1;
