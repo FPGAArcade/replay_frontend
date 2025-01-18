@@ -36,7 +36,7 @@ pub(crate) struct App {
     height: usize,
 }
 
-fn main_loop(_ui: &mut Ui, _app: &mut App) {
+fn main_loop(_ui: &Ui, _app: &mut App) {
     /*
     if !app.left_side_menu.update(&app.fonts, app.width, app.height) {
         return;

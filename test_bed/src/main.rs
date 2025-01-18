@@ -1,9 +1,6 @@
-const WIDTH: usize = 1920;
-const HEIGHT: usize = 1080;
-
 use flowi::Application;
 use flowi::Ui;
-use flowi::{Id, Layout, LayoutDirection, Padding, grow};
+use flowi::{grow, Id, Layout, LayoutDirection, Padding};
 /*
 pub struct Fonts {
     pub default: Font,
@@ -19,7 +16,7 @@ pub(crate) struct App {
     height: usize,
 }
 
-fn main_loop(ui: &mut Ui, _app: &mut App) {
+fn main_loop(ui: &Ui, _app: &mut App) {
     ui.with_layout([
         Id::new("main_container"),
         Layout::new()
@@ -28,10 +25,12 @@ fn main_loop(ui: &mut Ui, _app: &mut App) {
             .direction(LayoutDirection::TopToBottom)
             .padding(Padding::all(16))
             .child_gap(16)
-            .end()],
-        |_ui| {
-
-    })
+            .end()], |ui| 
+        {
+            ui.button("Test");
+            ui.button("Test");
+        },
+    )
 }
 
 fn main() {
@@ -51,18 +50,14 @@ fn main() {
     };
     */
 
-    let app = Box::new(App {
-        width,
-        height,
-    });
+    let app = Box::new(App { width, height });
 
     if !flowi_app.run(app, main_loop) {
         println!("Failed to create main application");
     }
 }
 
-
-    /*
+/*
 //fn main() {
     let clay = Clay::new(Dimensions::new(WIDTH as f32, HEIGHT as f32));
     let mut renderer = Renderer::new(ColorSpace::Linear, (WIDTH, HEIGHT), (10, 12));
