@@ -286,12 +286,8 @@ impl f32x4 {
             let cmp = vcltq_f32(a, b);
 
             // Test if all comparison results are true
-            let lane0 = vgetq_lane_u32(cmp, 0); 
-            let lane1 = vgetq_lane_u32(cmp, 1); 
-            let lane2 = vgetq_lane_u32(cmp, 2); 
-            let lane3 = vgetq_lane_u32(cmp, 3); 
-
-            (lane0 & lane1 & lane2 & lane3) != 0
+            let comp = vshrn_n_u16(vreinterpretq_u16_u32(cmp), 4);
+            vget_lane_u64(vreinterpret_u64_u8(comp), 0) == u64::MAX
         }
     }
 
