@@ -21,7 +21,7 @@ opt-level = 3
 [profile.dev.package.resvg]
 opt-level = 3
 
-[profile.dev.package.ui_raster]
+[profile.dev.package.flowi_sw_renderer]
 opt-level = 2
 
 [profile.release]
