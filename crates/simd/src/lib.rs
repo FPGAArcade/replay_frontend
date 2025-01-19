@@ -58,6 +58,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn load_unaligned(data: &[f32]) -> Self {
         Self {
             v: unsafe { _mm_loadu_ps(data.as_ptr()) },
@@ -65,6 +66,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn store_unaligned(self, data: &mut [f32]) {
         unsafe {
             vst1q_f32(data.as_mut_ptr(), self.v);
@@ -72,6 +74,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn store_unaligned(self, data: &mut [f32]) {
         unsafe {
             _mm_storeu_ps(data.as_mut_ptr(), self.v);
@@ -79,6 +82,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn new_splat(a: f32) -> Self {
         Self {
             v: unsafe { vdupq_n_f32(a) },
@@ -86,6 +90,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn new_splat(a: f32) -> Self {
         Self {
             v: unsafe { _mm_set1_ps(a) },
@@ -93,6 +98,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn drop_fraction(self) -> Self {
         Self {
             v: unsafe { vcvtq_f32_s32(vcvtq_s32_f32(self.v)) },
@@ -100,6 +106,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn drop_fraction(self) -> Self {
         Self {
             v: unsafe { _mm_cvtepi32_ps(_mm_cvttps_epi32(self.v)) },
@@ -107,6 +114,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn as_i32x4(self) -> i32x4 {
         i32x4 {
             v: unsafe { vcvtq_s32_f32(self.v) },
@@ -114,6 +122,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn as_i32x4(self) -> i32x4 {
         i32x4 {
             v: unsafe { _mm_cvttps_epi32(self.v) },
@@ -121,20 +130,24 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn extract<const LANE: i32>(self) -> f32 {
         unsafe { vgetq_lane_f32(self.v, LANE) }
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn extract<const LANE: i32>(self) -> f32 {
         unsafe { f32::from_bits(_mm_extract_ps(self.v, LANE) as _) }
     }
 
+    #[inline(always)]
     pub fn new_xy(a: f32, b: f32) -> Self {
         Self::new(a, b, a, b)
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn new(a: f32, b: f32, c: f32, d: f32) -> Self {
         let t = [a, b, c, d];
         Self {
@@ -143,6 +156,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn new(a: f32, b: f32, c: f32, d: f32) -> Self {
         Self {
             v: unsafe { _mm_set_ps(d, c, b, a) },
@@ -150,6 +164,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn add(self, rhs: Self) -> Self {
         Self {
             v: unsafe { vaddq_f32(self.v, rhs.v) },
@@ -157,6 +172,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn add(self, rhs: Self) -> Self {
         Self {
             v: unsafe { _mm_add_ps(self.v, rhs.v) },
@@ -164,6 +180,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn sub(self, rhs: Self) -> Self {
         Self {
             v: unsafe { vsubq_f32(self.v, rhs.v) },
@@ -171,6 +188,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn sub(self, rhs: Self) -> Self {
         Self {
             v: unsafe { _mm_sub_ps(self.v, rhs.v) },
@@ -192,6 +210,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn floor(self) -> Self {
         Self {
             v: unsafe { vrndmq_f32(self.v) },
@@ -199,6 +218,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn floor(self) -> Self {
         Self {
             v: unsafe { _mm_floor_ps(self.v) },
@@ -248,6 +268,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     // Taken from https://gist.github.com/mtsamis/441c16f3d6fc86566eaa2a302ed247c9
     pub fn test_intersect(a: f32x4, b: f32x4) -> bool {
         unsafe {
@@ -271,6 +292,7 @@ impl f32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn test_intersect(a: f32x4, b: f32x4) -> bool {
         unsafe {
             // make only max.x, max.y negative by using a mask for the last two elements
@@ -353,6 +375,7 @@ impl f32x4 {
 impl i16x8 {
     #[cfg(target_arch = "aarch64")]
     #[allow(clippy::too_many_arguments)]
+    #[inline(always)]
     pub fn new(a: i16, b: i16, c: i16, d: i16, e: i16, f: i16, g: i16, h: i16) -> Self {
         let temp = [a, b, c, d, e, f, g, h];
         Self {
@@ -362,6 +385,7 @@ impl i16x8 {
 
     #[cfg(target_arch = "x86_64")]
     #[allow(clippy::too_many_arguments)]
+    #[inline(always)]
     pub fn new(a: i16, b: i16, c: i16, d: i16, e: i16, f: i16, g: i16, h: i16) -> Self {
         Self {
             v: unsafe { _mm_set_epi16(h, g, f, e, d, c, b, a) },
@@ -369,6 +393,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn new_splat(a: i16) -> Self {
         Self {
             v: unsafe { vdupq_n_s16(a) },
@@ -376,6 +401,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn new_splat(a: i16) -> Self {
         Self {
             v: unsafe { _mm_set1_epi16(a) },
@@ -383,6 +409,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn load_unaligned(data: &[i16]) -> Self {
         Self {
             v: unsafe { vld1q_s16(data.as_ptr()) },
@@ -390,6 +417,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn store_unaligned_ptr(self, data: *mut i16) {
         unsafe {
             vst1q_s16(data, self.v);
@@ -397,6 +425,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn store_unaligned_ptr(self, data: *mut i16) {
         unsafe {
             _mm_storeu_si128(data as *mut __m128i, self.v);
@@ -404,6 +433,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn store_unaligned_ptr_lower(self, data: *mut i16) {
         unsafe {
             vst1_s16(data, vget_low_s16(self.v));
@@ -411,6 +441,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn store_unaligned_ptr_lower(self, data: *mut i16) {
         unsafe {
             _mm_storeu_si64(data as *mut u8, self.v);
@@ -418,6 +449,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn load_unaligned(data: &[i16]) -> Self {
         Self {
             v: unsafe { _mm_loadu_si128(data.as_ptr() as *const __m128i) },
@@ -425,6 +457,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn store_unaligned(self, data: &mut [i16]) {
         unsafe {
             vst1q_s16(data.as_mut_ptr(), self.v);
@@ -432,6 +465,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn store_unaligned(self, data: &mut [i16]) {
         unsafe {
             _mm_storeu_si128(data.as_mut_ptr() as *mut __m128i, self.v);
@@ -439,6 +473,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn load_unaligned_ptr(data: *const i16) -> Self {
         Self {
             v: unsafe { vld1q_s16(data) },
@@ -446,6 +481,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn load_unaligned_ptr(data: *const i16) -> Self {
         Self {
             v: unsafe { _mm_loadu_si128(data as *const __m128i) },
@@ -453,27 +489,23 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn lerp_diff(start: Self, delta: Self, t: i16x8) -> Self {
         Self {
             v: unsafe { vqrdmlahq_s16(start.v, delta.v, t.v) },
         }
     }
 
-    /// This is to make sure the compiler will always generate the instruction and not a wrapper
     #[cfg(target_arch = "x86_64")]
-    #[target_feature(enable = "sse4.2", enable = "ssse3")]
-    unsafe fn mulhrs_epi16(a: __m128i, b: __m128i) -> __m128i {
-        _mm_mulhrs_epi16(a, b)
-    }
-
-    #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn lerp_diff(start: Self, delta: Self, t: i16x8) -> Self {
         Self {
-            v: unsafe { _mm_add_epi16(Self::mulhrs_epi16(delta.v, t.v), start.v) },
+            v: unsafe { _mm_add_epi16(_mm_mulhrs_epi16(delta.v, t.v), start.v) },
         }
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn lerp(start: Self, end: Self, t: i16x8) -> Self {
         let delta = unsafe { vsubq_s16(end.v, start.v) };
         Self {
@@ -482,11 +514,12 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn lerp(start: Self, end: Self, t: i16x8) -> Self {
         Self {
             v: unsafe {
                 _mm_add_epi16(
-                    Self::mulhrs_epi16(_mm_sub_epi16(end.v, start.v), t.v),
+                    _mm_mulhrs_epi16(_mm_sub_epi16(end.v, start.v), t.v),
                     start.v,
                 )
             },
@@ -494,6 +527,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn mul_high(a: Self, b: Self) -> Self {
         Self {
             v: unsafe { vqrdmulhq_s16(a.v, b.v) },
@@ -501,13 +535,15 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn mul_high(a: Self, b: Self) -> Self {
         Self {
-            v: unsafe { Self::mulhrs_epi16(a.v, b.v) },
+            v: unsafe { _mm_mulhrs_epi16(a.v, b.v) },
         }
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     fn splat<const LANE: i32>(self) -> Self {
         Self {
             v: unsafe { vdupq_laneq_s16(self.v, LANE) },
@@ -515,21 +551,25 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn splat_0000_0000(self) -> Self {
         self.splat::<0>()
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn splat_1111_1111(self) -> Self {
         self.splat::<1>()
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn splat_2222_2222(self) -> Self {
         self.splat::<2>()
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn splat_0000_0000(self) -> Self {
         unsafe {
             let lower = _mm_shufflelo_epi16(self.v, 0b00_00_00_00);
@@ -540,6 +580,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn splat_1111_1111(self) -> Self {
         unsafe {
             let lower = _mm_shufflelo_epi16(self.v, 0b01_01_01_01);
@@ -550,6 +591,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn splat_2222_2222(self) -> Self {
         unsafe {
             let lower = _mm_shufflelo_epi16(self.v, 0b10_10_10_10);
@@ -560,6 +602,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn rotate_4(self) -> Self {
         Self {
             v: unsafe { vextq_s16(self.v, self.v, 4) },
@@ -567,6 +610,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn rotate_4(self) -> Self {
         Self {
             v: unsafe { _mm_shuffle_epi32(self.v, 0b01_00_11_10) },
@@ -574,6 +618,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_0123_0123(self) -> Self {
         Self {
             v: unsafe { vcombine_s16(vget_low_s16(self.v), vget_low_s16(self.v)) },
@@ -581,6 +626,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_0123_0123(self) -> Self {
         Self {
             v: unsafe { _mm_shuffle_epi32(self.v, 0b01_00_01_00) },
@@ -588,6 +634,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_4567_4567(self) -> Self {
         Self {
             v: unsafe { vcombine_s16(vget_high_s16(self.v), vget_high_s16(self.v)) },
@@ -595,6 +642,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_4567_4567(self) -> Self {
         Self {
             v: unsafe { _mm_shuffle_epi32(self.v, 0b11_10_11_10) },
@@ -609,14 +657,8 @@ impl i16x8 {
         Self::tablebased_shuffle(self, splat_7fff, data)
     }
 
-    /// This is to make sure the compiler will always generate the instruction and not a wrapper
     #[cfg(target_arch = "x86_64")]
-    #[target_feature(enable = "sse4.2", enable = "ssse3")]
-    unsafe fn shuffle_epi8(a: __m128i, b: __m128i) -> __m128i {
-        _mm_shuffle_epi8(a, b)
-    }
-
-    #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_333_0x7fff_777_0x7fff(self) -> Self {
         unsafe {
             let splat_7fff = i16x8::new_splat(0x7fff);
@@ -631,13 +673,14 @@ impl i16x8 {
             );
 
             // Shuffle the blended vector with the shuffle mask.
-            let result = Self::shuffle_epi8(blended, shuffle_mask);
+            let result = _mm_shuffle_epi8(blended, shuffle_mask);
 
             Self { v: result }
         }
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_1111_3333(self) -> Self {
         let data = [2, 3, 2, 3, 2, 3, 2, 3, 6, 7, 6, 7, 6, 7, 6, 7];
 
@@ -645,6 +688,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_1111_3333(self) -> Self {
         unsafe {
             // pshuflw xmm0, xmm0, 245
@@ -655,6 +699,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_3333_7777(self) -> Self {
         let data = [6, 7, 6, 7, 6, 7, 6, 7, 14, 15, 14, 15, 14, 15, 14, 15];
 
@@ -662,6 +707,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_3333_7777(self) -> Self {
         unsafe {
             Self {
@@ -694,6 +740,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_0000_2222(self) -> Self {
         let data = [
             0, 1, 0, 1, 0, 1, 0, 1, // Duplicate 0th element
@@ -704,6 +751,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_0000_2222(self) -> Self {
         unsafe {
             let temp = _mm_shufflelo_epi16(self.v, 160);
@@ -713,6 +761,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_4444_6666(self) -> Self {
         let data = [
             8, 9, 8, 9, 8, 9, 8, 9, // Duplicate 4th element
@@ -723,6 +772,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_4444_6666(self) -> Self {
         unsafe {
             let temp = _mm_shufflehi_epi16(self.v, 160);
@@ -732,6 +782,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_5555_7777(self) -> Self {
         let data = [
             10, 11, 10, 11, 10, 11, 10, 11, // Duplicate 5th element
@@ -742,6 +793,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_5555_7777(self) -> Self {
         unsafe {
             let temp = _mm_shufflehi_epi16(self.v, 245);
@@ -751,6 +803,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn merge(v0: Self, v1: Self) -> Self {
         Self {
             v: unsafe { vcombine_s16(vget_low_s16(v0.v), vget_low_s16(v1.v)) },
@@ -758,6 +811,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn merge(v0: Self, v1: Self) -> Self {
         Self {
             v: unsafe {
@@ -770,6 +824,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn pack_bytes(self) -> Self {
         let zero = i16x8::new_splat(0);
         unsafe {
@@ -782,6 +837,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn pack_bytes(self) -> Self {
         let zero = i16x8::new_splat(0);
         i16x8 {
@@ -790,6 +846,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shift_right<const LANE: i32>(self) -> Self {
         Self {
             v: unsafe { vshrq_n_s16(self.v, LANE) },
@@ -797,6 +854,7 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shift_right<const LANE: i32>(self) -> Self {
         Self {
             v: unsafe { _mm_srai_epi16(self.v, LANE) },
@@ -804,11 +862,13 @@ impl i16x8 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn extract<const LANE: i32>(self) -> i16 {
         unsafe { vgetq_lane_s16(self.v, LANE) }
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn extract<const LANE: i32>(self) -> i32 {
         unsafe { _mm_extract_epi16(self.v, LANE) }
     }
@@ -866,6 +926,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn new(a: i32, b: i32, c: i32, d: i32) -> Self {
         Self {
             v: unsafe { _mm_set_epi32(d, c, b, a) },
@@ -873,6 +934,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn load_unaligned(data: &[i32]) -> Self {
         Self {
             v: unsafe { vld1q_s32(data.as_ptr()) },
@@ -880,6 +942,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn load_unaligned(data: &[i32]) -> Self {
         Self {
             v: unsafe { _mm_loadu_si128(data.as_ptr() as *const __m128i) },
@@ -887,6 +950,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn new_splat(a: i32) -> Self {
         Self {
             v: unsafe { vdupq_n_s32(a) },
@@ -894,6 +958,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn new_splat(a: i32) -> Self {
         Self {
             v: unsafe { _mm_set1_epi32(a) },
@@ -901,6 +966,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_xyxy(self) -> Self {
         unsafe {
             // Extract the lower two elements (x1, y1) from the vector
@@ -912,6 +978,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_xyxy(self) -> Self {
         Self {
             v: unsafe { _mm_shuffle_epi32(self.v, 0b01_00_01_00) },
@@ -919,6 +986,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn shuffle_zwzw(self) -> Self {
         unsafe {
             let high = vget_high_s32(self.v);
@@ -928,6 +996,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn shuffle_zwzw(self) -> Self {
         Self {
             v: unsafe { _mm_shuffle_epi32(self.v, 0b11_10_11_10) },
@@ -935,6 +1004,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn min(self, rhs: Self) -> Self {
         Self {
             v: unsafe { vminq_s32(self.v, rhs.v) },
@@ -942,6 +1012,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn min(self, rhs: Self) -> Self {
         Self {
             v: unsafe { _mm_min_epi32(self.v, rhs.v) },
@@ -949,6 +1020,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn max(self, rhs: Self) -> Self {
         Self {
             v: unsafe { vmaxq_s32(self.v, rhs.v) },
@@ -956,6 +1028,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn max(self, rhs: Self) -> Self {
         Self {
             v: unsafe { _mm_max_epi32(self.v, rhs.v) },
@@ -963,6 +1036,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn abs(self) -> Self {
         Self {
             v: unsafe { vabsq_s32(self.v) },
@@ -970,6 +1044,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn abs(self) -> Self {
         Self {
             v: unsafe { _mm_abs_epi32(self.v) },
@@ -977,16 +1052,19 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn extract<const LANE: i32>(self) -> i32 {
         unsafe { vgetq_lane_s32(self.v, LANE) }
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn extract<const LANE: i32>(self) -> i32 {
         unsafe { _mm_extract_epi32(self.v, LANE) }
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn as_i16x8(self) -> i16x8 {
         i16x8 {
             v: unsafe { vreinterpretq_s16_s32(self.v) },
@@ -994,11 +1072,13 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn as_i16x8(self) -> i16x8 {
         i16x8 { v: self.v }
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn as_f32x4(self) -> f32x4 {
         f32x4 {
             v: unsafe { vcvtq_f32_s32(self.v) },
@@ -1006,6 +1086,7 @@ impl i32x4 {
     }
 
     #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
     pub fn as_f32x4(self) -> f32x4 {
         f32x4 {
             v: unsafe { _mm_cvtepi32_ps(self.v) },
@@ -1221,6 +1302,7 @@ impl f16x8 {
 impl Sub for f32x4 {
     type Output = Self;
 
+    #[inline(always)]
     fn sub(self, rhs: Self) -> Self {
         self.sub(rhs)
     }
@@ -1229,6 +1311,7 @@ impl Sub for f32x4 {
 impl Add for f32x4 {
     type Output = Self;
 
+    #[inline(always)]
     fn add(self, rhs: Self) -> Self {
         self.add(rhs)
     }
@@ -1237,6 +1320,7 @@ impl Add for f32x4 {
 impl Mul for f32x4 {
     type Output = Self;
 
+    #[inline(always)]
     fn mul(self, rhs: Self) -> Self {
         self.mul(rhs)
     }
@@ -1245,6 +1329,7 @@ impl Mul for f32x4 {
 impl Div for f32x4 {
     type Output = Self;
 
+    #[inline(always)]
     fn div(self, rhs: Self) -> Self {
         Self {
             #[cfg(target_arch = "aarch64")]
@@ -1256,6 +1341,7 @@ impl Div for f32x4 {
 }
 
 impl AddAssign for f32x4 {
+    #[inline(always)]
     fn add_assign(&mut self, rhs: Self) {
         *self = self.add(rhs);
     }
@@ -1264,6 +1350,7 @@ impl AddAssign for f32x4 {
 impl Add for i16x8 {
     type Output = Self;
 
+    #[inline(always)]
     fn add(self, rhs: Self) -> Self {
         Self {
             #[cfg(target_arch = "aarch64")]
@@ -1277,6 +1364,7 @@ impl Add for i16x8 {
 impl Sub for i16x8 {
     type Output = Self;
 
+    #[inline(always)]
     fn sub(self, rhs: Self) -> Self {
         Self {
             #[cfg(target_arch = "aarch64")]
@@ -1290,6 +1378,7 @@ impl Sub for i16x8 {
 impl Mul for i16x8 {
     type Output = Self;
 
+    #[inline(always)]
     fn mul(self, rhs: Self) -> Self {
         Self {
             #[cfg(target_arch = "aarch64")]
@@ -1301,6 +1390,7 @@ impl Mul for i16x8 {
 }
 
 impl AddAssign for i16x8 {
+    #[inline(always)]
     fn add_assign(&mut self, rhs: Self) {
         *self = self.add(rhs);
     }
@@ -1309,6 +1399,7 @@ impl AddAssign for i16x8 {
 impl Sub for i32x4 {
     type Output = Self;
 
+    #[inline(always)]
     fn sub(self, rhs: Self) -> Self {
         Self {
             #[cfg(target_arch = "aarch64")]
@@ -1319,6 +1410,7 @@ impl Sub for i32x4 {
     }
 }
 
+//
 #[cfg(test)]
 mod f32x4_tests {
     use super::*;
