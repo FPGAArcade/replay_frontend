@@ -32,12 +32,25 @@ fn main_loop(ui: &Ui, _app: &mut App) {
             Id::new("buttons"),
             Layout::new()
                 .width(grow!())
-                .height(fixed!(60.))
+                .child_gap(16)
+                .height(fixed!(160.0))
                 .end()], |ui| 
         {
             ui.button("Test");
             ui.button("Test");
         });
+
+        ui.with_layout([
+            Id::new("buttons2"),
+            Layout::new()
+                .width(grow!())
+                .height(fixed!(160.0))
+                .end()], |ui| 
+        {
+            ui.button("Test");
+            ui.button("Test");
+        });
+
     });
 }
 

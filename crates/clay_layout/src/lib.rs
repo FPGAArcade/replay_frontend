@@ -14,10 +14,12 @@ mod mem;
 
 use elements::{text::TextElementConfig, ElementConfigType};
 use errors::Error;
-use math::{BoundingBox, Dimensions, Vector2};
+//use math::{BoundingBox, Dimensions, Vector2};
 use render_commands::RenderCommand;
 
 use crate::bindings::*;
+
+pub use math::{BoundingBox, Dimensions, Vector2};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]

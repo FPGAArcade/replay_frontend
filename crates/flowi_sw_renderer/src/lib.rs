@@ -95,7 +95,7 @@ struct Tile {
 impl FlowiRenderer for Renderer {
     fn new(_settings: &ApplicationSettings, _window: Option<&RawWindowHandle>) -> Self {
         let screen_size = (1920, 1080);
-        let tile_count = (10, 8); 
+        let tile_count = (10, 12); 
 
         let tile_size = (screen_size.0 / tile_count.0, screen_size.1 / tile_count.1);
         let total_tile_count = tile_count.0 * tile_count.1;

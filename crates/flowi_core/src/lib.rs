@@ -123,9 +123,9 @@ impl<'a> Ui<'a> {
         state.layout.with([
             Id::new_index("TestButton", state.button_id),
             Layout::new()
-                .width(grow!())
-                .height(fixed!(60.))
-                .end(),
+                .width(fixed!(160.0))
+                .height(fixed!(40.0))
+                .padding(Padding::all(8)).end(),
              Rectangle::new()
                 .color(Color::rgba(244.0, 200.0, 200.0, 255.0))
                 .corner_radius(CornerRadius::All(8.0))
