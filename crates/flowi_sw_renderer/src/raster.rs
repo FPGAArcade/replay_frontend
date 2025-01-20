@@ -21,7 +21,7 @@ const ROUND_MODE_NONE: usize = 0;
 const ROUND_MODE_ENABLED: usize = 1;
 
 #[derive(Copy, Clone)]
-enum Corner {
+pub enum Corner {
     TopLeft,
     TopRight,
     BottomRight,
@@ -44,8 +44,8 @@ pub enum BlendMode {
     //WithBackgroundAndTexture = BLEND_MODE_BG_TEXTURE_COLOR as _,
 }
 
-pub(crate) struct Raster {
-    pub(crate) scissor_rect: f32x4,
+pub struct Raster {
+    pub scissor_rect: f32x4,
 }
 
 /// Calculates the blending factor for rounded corners in vectorized form.
@@ -381,9 +381,9 @@ pub(crate) fn render_internal<
         // TODO: Optimize
         border_radius_v = f32x4::new_splat(border_radius);
         circle_center_x =
-            f32x4::new_splat(uv_fraction.extract::<0>() + (border_radius * center_adjust.0));
+            f32x4::new_splat(uv_fraction.extract::<0>() + (border_radius * center_adjust.0) - center_adjust.0);
         circle_center_y =
-            f32x4::new_splat(uv_fraction.extract::<1>() + (border_radius * center_adjust.1));
+            f32x4::new_splat(uv_fraction.extract::<1>() + (border_radius * center_adjust.1) - center_adjust.1);
     }
 
     let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
@@ -552,7 +552,7 @@ pub(crate) fn render_internal<
 }
 
 impl Raster {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             scissor_rect: f32x4::new_splat(0.0),
         }
@@ -701,7 +701,7 @@ impl Raster {
 
     #[inline(never)]
     #[allow(clippy::too_many_arguments)]
-    fn render_solid_rounded_corner(
+    pub fn render_solid_rounded_corner(
         &self,
         output: &mut [i16],
         tile_info: &TileInfo,

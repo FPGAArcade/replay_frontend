@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-flowi = { path = "../crates/flowi" }
+flowi = { path = "../../crates/flowi" }
 
 [features]
 default = []

@@ -1,0 +1,9 @@
+[package]
+name = "renderer_tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+minifb = { path = "../../crates/rust_minifb" } 
+simd = { path = "../../crates/simd" }
+flowi_sw_renderer = { path = "../../crates/flowi_sw_renderer" }

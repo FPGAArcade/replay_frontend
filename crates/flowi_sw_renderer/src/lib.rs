@@ -1,7 +1,7 @@
-mod raster;
-
 use simd::*;
-use raster::Raster;
+
+pub mod raster;
+pub use raster::{Raster, BlendMode, Corner};
 use raw_window_handle::RawWindowHandle;
 
 use flowi_core::Renderer as FlowiRenderer;
@@ -9,7 +9,7 @@ use flowi_core::{ApplicationSettings, RenderCommand};
 use flowi_core::render::SoftwareRenderData;
 use flowi_core::{RenderCommandConfig, CornerRadius};
 
-pub(crate) struct TileInfo {
+pub struct TileInfo {
     pub offsets: f32x4,
     pub width: i32,
     pub _height: i32,
@@ -67,7 +67,7 @@ fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
 }
 
 // TODO: Verify that we are building the range correctly here
-fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
+pub fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
     let mut table = [0; 1 << SRGB_BIT_COUNT];
 
     for (i, entry) in table.iter_mut().enumerate().take(1 << SRGB_BIT_COUNT) {
@@ -86,7 +86,7 @@ pub struct RenderPrimitive {
     pub corner_radius: f32x4,
 }
 
-struct Tile {
+pub struct Tile {
     aabb: f32x4,
     data: Vec<usize>,
     tile_index: usize,
@@ -392,7 +392,7 @@ impl Renderer {
 
     // Reference implementation. This will run in hw on the device.
     #[inline(never)]
-    fn copy_tile_linear_to_srgb(
+    pub fn copy_tile_linear_to_srgb(
         linear_to_srgb_table: &[u8; 4096],
         output: &mut [u8],
         tile: &[i16],

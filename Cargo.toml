@@ -8,8 +8,9 @@ members = [
     "crates/flowi_core", 
     "crates/flowi_sw_renderer", 
     "crates/simd",
-    "main",
-    "test_bed", 
+    "tests/test_bed",
+    "tests/renderer_tests",
+    "main", 
 ]
 
 [profile.dev.package.zune-png]
