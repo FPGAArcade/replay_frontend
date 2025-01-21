@@ -66,6 +66,19 @@ fn zoom_buffer(output: &mut [u32], input: &[u32], zoom: usize) {
     }
 }
 
+fn draw_pixel_grid(output: &mut [u32], zoom: usize) {
+    assert!(zoom > 0, "Zoom size must be greater than 0");
+
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            // Draw a line every `zoom` pixels in both x and y directions
+            if x % zoom == 0 || y % zoom == 0 {
+                output[y * WIDTH + x] = 0xFF000000; // Black color for the grid lines
+            }
+        }
+    }
+}
+ 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
     let mut tile_output = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
@@ -74,7 +87,10 @@ fn main() {
 
     let mut raster = Raster::new();
     raster.scissor_rect = f32x4::new(0.0, 0.0, RENDER_WIDTH as f32, RENDER_HEIGHT as f32);
-    let mut radius = 65.0;
+
+
+
+    let radius = 31.0; // actually 16 
 
     let mut window = Window::new(
         "Test - ESC to exit",
@@ -90,7 +106,7 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut shape = Shape::RoundedTopLeft;
+    let mut shape = Shape::RoundRect;
     let mut render_mode = RenderMode::Flat;
     let mut blend_mode = BlendMode::None;
 
@@ -107,19 +123,18 @@ fn main() {
             &mut tile_output,
             &raster,
             shape,
-            &[0.0, 0.0, 64.0, 64.0], 
+            &[10.0, 10.0, 200.0, 200.0], 
             i16x8::new(0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff),
             i16x8::new(0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff),
             &linear_to_srgb_table, 
-            radius,
         );
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
-        zoom_buffer(&mut buffer, &tile_output_u32, 8);
+        let zoom = 1;
 
-        //radius -= 0.1;
-        dbg!(radius);
+        zoom_buffer(&mut buffer, &tile_output_u32, zoom);
+        //draw_pixel_grid(&mut buffer, zoom);
     }
 }
 
@@ -132,8 +147,9 @@ fn render_shapes(
     color_top: i16x8,
     _color_botttom: i16x8,
     linear_to_srgb_table: &[u8; 4096],
-    radius: f32,
 ) {
+    let radius = 16.0; 
+
     let tile_info = TileInfo {
         offsets: f32x4::new_splat(0.0),
         width: RENDER_WIDTH as i32,
@@ -146,12 +162,27 @@ fn render_shapes(
         }
 
         Shape::RoundedTopLeft => {
-            raster.render_solid_rounded_corner(temp_output, &tile_info, coords, color_top, radius, BlendMode::None, Corner::TopLeft);
+            let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
+            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::TopLeft);
         }
 
+        Shape::RoundedTopRight => {
+            let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
+            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::TopRight);
+        }
 
-        _ => {
-            unimplemented!();
+        Shape::RoundedBottomLeft => {
+            let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
+            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::BottomLeft);
+        }
+
+        Shape::RoundedBottomRight => {
+            let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
+            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::BottomRight);
+        }
+
+        Shape::RoundRect => {
+            raster.render_solid_quad_rounded(temp_output, &tile_info, coords, color_top, radius, BlendMode::None);
         }
     }
 
@@ -177,13 +208,13 @@ pub fn copy_tile_linear_to_srgb(
             let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr);
             let rgba_rgba = rgba_rgba.shift_right::<3>();
 
-            let r0 = rgba_rgba.extract::<0>() as u16;
-            let g0 = rgba_rgba.extract::<1>() as u16;
-            let b0 = rgba_rgba.extract::<2>() as u16;
+            let r0 = (rgba_rgba.extract::<0>() as u16) & 0xfff;
+            let g0 = (rgba_rgba.extract::<1>() as u16) & 0xfff;
+            let b0 = (rgba_rgba.extract::<2>() as u16) & 0xfff;
 
-            let r1 = rgba_rgba.extract::<4>() as u16;
-            let g1 = rgba_rgba.extract::<5>() as u16;
-            let b1 = rgba_rgba.extract::<6>() as u16;
+            let r1 = (rgba_rgba.extract::<4>() as u16) & 0xfff;
+            let g1 = (rgba_rgba.extract::<5>() as u16) & 0xfff;
+            let b1 = (rgba_rgba.extract::<6>() as u16) & 0xfff;
 
             unsafe {
                 let r0 = *linear_to_srgb_table.get_unchecked(r0 as usize) as u32;
