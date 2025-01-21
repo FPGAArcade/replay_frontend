@@ -26,7 +26,7 @@ pub use clay_layout::{
     grow,
     id::Id,
     layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
-    render_commands::{RenderCommandType, RenderCommandConfig, RenderCommand},
+    render_commands::{RenderCommand, RenderCommandConfig, RenderCommandType},
 };
 
 pub use render::FlowiRenderer as Renderer;
@@ -112,8 +112,12 @@ impl<'a> Ui<'a> {
 
     pub fn load_font(&mut self, path: &str, size: i32) -> FontHandle {
         let state = unsafe { &mut *self.state.get() };
-
         state.text_generator.load_font_async(path, size)
+    }
+
+    pub fn generate_text(&mut self, text: &str) -> Option<font::CachedString> {
+        let state = unsafe { &mut *self.state.get() };
+        state.text_generator.generate_text(text)
     }
 
     #[rustfmt::skip]

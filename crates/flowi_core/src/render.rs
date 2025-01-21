@@ -1,8 +1,8 @@
 //use crate::{generated::image::Image, generated::renderer::Texture, ApplicationSettings};
 use crate::ApplicationSettings;
+use clay_layout::render_commands::RenderCommand;
 use raw_window_handle::RawWindowHandle;
 use std::collections::HashMap;
-use clay_layout::render_commands::RenderCommand;
 
 pub enum SoftwareRenderFormat {
     RGBA16,
@@ -10,7 +10,7 @@ pub enum SoftwareRenderFormat {
 }
 
 pub struct SoftwareRenderData<'a> {
-    pub buffer: &'a [u8], 
+    pub buffer: &'a [u8],
     pub width: u32,
     pub height: u32,
 }

@@ -1,6 +1,6 @@
 use flowi::Application;
 use flowi::Ui;
-use flowi::{grow, fixed, Id, Layout, LayoutDirection, Padding};
+use flowi::{fixed, grow, Id, Layout, LayoutDirection, Padding};
 /*
 pub struct Fonts {
     pub default: Font,

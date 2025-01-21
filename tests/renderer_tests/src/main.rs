@@ -1,4 +1,6 @@
-use flowi_sw_renderer::{BlendMode, Raster, TileInfo, Corner};
+use flowi_core::render::{DummyRenderer, FlowiRenderer};
+use flowi_sw_renderer::{BlendMode, Corner, Raster, Renderer, TileInfo};
+
 use minifb::{Key, Window, WindowOptions};
 use simd::*;
 
@@ -16,6 +18,7 @@ enum Shape {
     RoundedTopRight,
     RoundedBottomLeft,
     RoundedBottomRight,
+    TextBuffer,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,7 +60,7 @@ fn zoom_buffer(output: &mut [u32], input: &[u32], zoom: usize) {
                 for dx in 0..zoom {
                     if start_x + dx >= WIDTH {
                         break;
-                    } 
+                    }
 
                     target_row[start_x + dx] = color;
                 }
@@ -73,24 +76,43 @@ fn draw_pixel_grid(output: &mut [u32], zoom: usize) {
         for x in 0..WIDTH {
             // Draw a line every `zoom` pixels in both x and y directions
             if x % zoom == 0 || y % zoom == 0 {
-                output[y * WIDTH + x] = 0xFF000000; // Black color for the grid lines
+                output[y * WIDTH + x] = 0x00FF0000; // Black color for the grid lines
             }
         }
     }
 }
- 
+
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
     let mut tile_output = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
     let mut tile_output_u32 = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
     let linear_to_srgb_table = flowi_sw_renderer::build_linear_to_srgb_table();
+    let application_settings = flowi_core::ApplicationSettings {
+        width: WIDTH,
+        height: HEIGHT,
+    };
+
+    let mut core = flowi_core::Ui::new(Box::new(Renderer::new(&application_settings, None)));
+    let text = core.generate_text("This is a test!").unwrap();
 
     let mut raster = Raster::new();
     raster.scissor_rect = f32x4::new(0.0, 0.0, RENDER_WIDTH as f32, RENDER_HEIGHT as f32);
 
+    let mut text_test = vec![0i16; 128 * 128];
 
+    for y in 0..128 {
+        for x in 0..128 {
+            /*
+            if (x & 1) == 0 {
+                text_test[y * 128 + x] = 0x7fff;
+            }
+            */
 
-    let radius = 31.0; // actually 16 
+            text_test[y * 128 + x] = (((y ^ x) as i16) * 64) & 0x7fff;
+        }
+    }
+
+    let radius = 31.0; // actually 16
 
     let mut window = Window::new(
         "Test - ESC to exit",
@@ -106,7 +128,7 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut shape = Shape::RoundRect;
+    let mut shape = Shape::TextBuffer;
     let mut render_mode = RenderMode::Flat;
     let mut blend_mode = BlendMode::None;
 
@@ -121,12 +143,18 @@ fn main() {
         render_shapes(
             &mut tile_output_u32,
             &mut tile_output,
+            &text.data,
+            text.width as _,
             &raster,
             shape,
-            &[10.0, 10.0, 200.0, 200.0], 
-            i16x8::new(0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff),
-            i16x8::new(0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff,0x7fff),
-            &linear_to_srgb_table, 
+            &[10.0, 10.0, 228.0, 80.0],
+            i16x8::new(
+                0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
+            ),
+            i16x8::new(
+                0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
+            ),
+            &linear_to_srgb_table,
         );
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
@@ -141,6 +169,8 @@ fn main() {
 fn render_shapes(
     output: &mut [u32],
     temp_output: &mut [i16],
+    text_object: &[i16],
+    text_object_width: usize,
     raster: &Raster,
     shape: Shape,
     coords: &[f32; 4],
@@ -148,7 +178,7 @@ fn render_shapes(
     _color_botttom: i16x8,
     linear_to_srgb_table: &[u8; 4096],
 ) {
-    let radius = 16.0; 
+    let radius = 16.0;
 
     let tile_info = TileInfo {
         offsets: f32x4::new_splat(0.0),
@@ -163,26 +193,76 @@ fn render_shapes(
 
         Shape::RoundedTopLeft => {
             let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
-            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::TopLeft);
+            raster.render_solid_rounded_corner(
+                temp_output,
+                &tile_info,
+                &coords,
+                color_top,
+                radius,
+                BlendMode::None,
+                Corner::TopLeft,
+            );
         }
 
         Shape::RoundedTopRight => {
             let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
-            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::TopRight);
+            raster.render_solid_rounded_corner(
+                temp_output,
+                &tile_info,
+                &coords,
+                color_top,
+                radius,
+                BlendMode::None,
+                Corner::TopRight,
+            );
         }
 
         Shape::RoundedBottomLeft => {
             let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
-            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::BottomLeft);
+            raster.render_solid_rounded_corner(
+                temp_output,
+                &tile_info,
+                &coords,
+                color_top,
+                radius,
+                BlendMode::None,
+                Corner::BottomLeft,
+            );
         }
 
         Shape::RoundedBottomRight => {
             let coords = [0.0, 0.0, radius + 1.0, radius + 1.0];
-            raster.render_solid_rounded_corner(temp_output, &tile_info, &coords, color_top, radius, BlendMode::None, Corner::BottomRight);
+            raster.render_solid_rounded_corner(
+                temp_output,
+                &tile_info,
+                &coords,
+                color_top,
+                radius,
+                BlendMode::None,
+                Corner::BottomRight,
+            );
         }
 
         Shape::RoundRect => {
-            raster.render_solid_quad_rounded(temp_output, &tile_info, coords, color_top, radius, BlendMode::None);
+            raster.render_solid_quad_rounded(
+                temp_output,
+                &tile_info,
+                coords,
+                color_top,
+                radius,
+                BlendMode::None,
+            );
+        }
+
+        Shape::TextBuffer => {
+            raster.render_text_texture(
+                temp_output,
+                text_object.as_ptr(),
+                &tile_info,
+                text_object_width,
+                coords,
+                color_top,
+            );
         }
     }
 
@@ -195,12 +275,12 @@ pub fn copy_tile_linear_to_srgb(
     output: &mut [u32],
     tile: &[i16],
 ) {
-    let tile_width = RENDER_WIDTH; 
-    let tile_height = RENDER_HEIGHT; 
-    let width = RENDER_WIDTH; 
+    let tile_width = RENDER_WIDTH;
+    let tile_height = RENDER_HEIGHT;
+    let width = RENDER_WIDTH;
 
     let mut tile_ptr = tile.as_ptr();
-    let mut output_index = 0; 
+    let mut output_index = 0;
 
     for _y in 0..tile_height {
         let mut current_index = output_index;
@@ -224,7 +304,7 @@ pub fn copy_tile_linear_to_srgb(
                 let r1 = *linear_to_srgb_table.get_unchecked(r1 as usize) as u32;
                 let g1 = *linear_to_srgb_table.get_unchecked(g1 as usize) as u32;
                 let b1 = *linear_to_srgb_table.get_unchecked(b1 as usize) as u32;
-            
+
                 let rgb0 = (r0 << 16) | (g0 << 8) | b0;
                 let rgb1 = (r1 << 16) | (g1 << 8) | b1;
 
@@ -240,4 +320,3 @@ pub fn copy_tile_linear_to_srgb(
         output_index += width;
     }
 }
-

@@ -6,11 +6,11 @@ use crate::sdl_window::Sdl2Window;
 
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
-use flowi_core::render::{FlowiRenderer, DummyRenderer};
+use flowi_core::render::SoftwareRenderData;
+use flowi_core::render::{DummyRenderer, FlowiRenderer};
 use flowi_core::ApplicationSettings;
 use flowi_core::Ui;
 use flowi_sw_renderer::Renderer;
-use flowi_core::render::SoftwareRenderData;
 //use flowi_core::Instance;
 //use flowi_core::Result;
 
@@ -62,7 +62,9 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         user_trampoline_ud::<T>(state);
         state.ui.end();
 
-        state.window.update_software_renderer(state.ui.renderer().software_renderer_info());
+        state
+            .window
+            .update_software_renderer(state.ui.renderer().software_renderer_info());
 
         //state.core.post_update();
         //state.core.state.renderer.render();
@@ -75,7 +77,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 impl Application<'_> {
     pub fn new(settings: &ApplicationSettings) -> Box<Self> {
         let window = Box::new(Sdl2Window::new(settings));
-        let ui = Ui::new(Box::new(Renderer::new(settings, None))); 
+        let ui = Ui::new(Box::new(Renderer::new(settings, None)));
 
         Box::new(Self {
             window,

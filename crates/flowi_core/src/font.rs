@@ -2,7 +2,7 @@
 use crate::internal_error::{InternalError, InternalResult};
 use std::borrow::Cow;
 //use background_worker::BoxAnySend;
-use cosmic_text::{Attrs, AttrsOwned, Buffer, FontSystem, Metrics, Shaping, SwashCache};
+use cosmic_text::{Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache};
 //use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -30,7 +30,7 @@ fn build_srgb_to_linear_table() -> [i16; 256] {
     for (i, entry) in table.iter_mut().enumerate().take(256) {
         let srgb = i as f32 / 255.0;
         let linear = srgb_to_linear(srgb);
-        *entry = (linear * 255.0).round() as i16;
+        *entry = (linear * 32767.0).round() as i16;
     }
 
     table
@@ -49,13 +49,13 @@ struct FontFaceInfo {
 
 /// A cached string is a pre-rendered string that can be drawn to the screen
 #[allow(dead_code)]
-pub(crate) struct CachedString {
-    data: Vec<i16>,
-    stride: u32,
-    width: u32,
-    height: u32,
-    sub_pixel_step_x: u32,
-    sub_pixel_step_y: u32,
+pub struct CachedString {
+    pub data: Vec<i16>,
+    pub stride: u32,
+    pub width: u32,
+    pub height: u32,
+    pub sub_pixel_step_x: u32,
+    pub sub_pixel_step_y: u32,
 }
 
 type LoadedFonts = HashMap<FontHandle, FontInfo>;
@@ -187,30 +187,35 @@ fn load_async(data: &LoadConfig, state: &mut AsyncState) -> InternalResult<()> {
 }
 */
 
-/*
 #[allow(dead_code)]
-fn generate_text(data: &GeneratorConfig, state: &mut AsyncState) -> InternalResult<CachedString> {
-    let font_size = data.font_size;
+fn generate_text(
+    text: &str,
+    font_info: &FontInfo,
+    line_height: f32,
+    font_system: &mut FontSystem,
+    swash_cache: &mut SwashCache,
+    srgb_to_linear: &[i16; 256],
+) -> Option<CachedString> {
+    // Define metrics for the text
+    let metrics = Metrics::new(font_info.size as _, line_height);
 
-    // Text metrics indicate the font size and line height of a buffer
-    let metrics = Metrics::new(
-        (font_size * data.sub_pixel_steps_x) as f32,
-        (font_size * data.sub_pixel_steps_y) as f32);
+    // Create a buffer for the text
+    let mut buffer = Buffer::new(font_system, metrics);
 
-    // A Buffer provides shaping and layout for a UTF-8 string, create one per text widget
-    let mut buffer = Buffer::new(&mut state.font_system, metrics);
+    // Set the text in the buffer with default attributes
+    buffer.set_text(
+        font_system,
+        text,
+        font_info.attrs.as_attrs(),
+        Shaping::Basic,
+    );
 
-    // Set a size for the text buffer, in pixels
-    //buffer.set_size(&mut font_system, f32::MAX, f32::MAX);
-
-    buffer.set_text(&mut state.font_system, &data.text, attrs.as_attrs(), Shaping::Advanced);
-
-    // Perform shaping as desired
-    buffer.shape_until_scroll(&mut state.font_system, true);
+    // Shape the text to compute layout without rendering
+    buffer.shape_until_scroll(font_system, true);
 
     let line = buffer.layout_runs().next().unwrap();
     let width = line.line_w as usize;
-    let height = (line.line_y + 54.0) as usize;
+    let height = line_height as usize;
 
     let mut output = vec![0; width * height];
 
@@ -218,25 +223,31 @@ fn generate_text(data: &GeneratorConfig, state: &mut AsyncState) -> InternalResu
     let text_color = Color::rgb(0xFF, 0xFF, 0xFF);
 
     // Draw the buffer (for performance, instead use SwashCache directly)
-    buffer.draw(&mut state.font_system, &mut state.swash_cache, text_color, |x, y, _w, _h, color| {
-        let c = (color.0 >> 24) as u8;
-        if x < 0 || y < 0 || x >= width as i32 || y >= height as i32 {
-            return;
-        }
+    buffer.draw(
+        font_system,
+        swash_cache,
+        text_color,
+        |x, y, _w, _h, color| {
+            let c = (color.0 >> 24) as u8;
+            if x < 0 || y < 0 || x >= width as i32 || y >= height as i32 {
+                return;
+            }
 
-        output[(y as usize * width + x as usize) as usize] = state.srgb_to_linear[c as usize];
-    });
+            let out = srgb_to_linear[c as usize];
 
-    Ok(CachedString {
+            output[(y as usize * width + x as usize) as usize] = srgb_to_linear[c as usize];
+        },
+    );
+
+    Some(CachedString {
         data: output,
         stride: width as u32,
         width: width as u32,
         height: height as u32,
-        sub_pixel_step_x: data.sub_pixel_steps_x,
-        sub_pixel_step_y: data.sub_pixel_steps_y,
+        sub_pixel_step_x: 1,
+        sub_pixel_step_y: 1,
     })
 }
-*/
 
 /*
 fn job_generate_text(data: BoxAnySend, state: Arc<Mutex<dyn Any + Send>>) {
@@ -290,6 +301,33 @@ impl TextGenerator {
             let font_size = font_info.size as f32;
             let line_height = font_size * 1.5;
             measure_string_size(text, font_info, line_height, &mut self.sync_font_system)
+        } else {
+            None
+        }
+    }
+
+    pub fn generate_text(&mut self, text: &str) -> Option<CachedString> {
+        let font_id = self.load_font_async("../../data/fonts/roboto/Roboto-Regular.ttf", 56);
+        let load_config = LoadConfig {
+            font_id,
+            font_path: Cow::Borrowed("../../data/fonts/roboto/Roboto-Regular.ttf"),
+        };
+
+        if let Some(font_info) = self.sync_loaded_fonts.get(&load_config.font_id) {
+            let font_size = font_info.size as f32;
+            let line_height = font_size * 1.5;
+            let mut state = self.async_state.lock().unwrap();
+
+            let srgb_table = build_srgb_to_linear_table();
+
+            generate_text(
+                text,
+                font_info,
+                line_height,
+                &mut self.sync_font_system,
+                &mut state.swash_cache,
+                &srgb_table,
+            )
         } else {
             None
         }

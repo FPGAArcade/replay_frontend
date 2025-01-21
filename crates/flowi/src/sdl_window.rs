@@ -1,6 +1,6 @@
 use crate::application::Window;
 use flowi_core::input::{Input, Key};
-use flowi_core::{ApplicationSettings, render::SoftwareRenderData};
+use flowi_core::{render::SoftwareRenderData, ApplicationSettings};
 
 use sdl2::{
     //controller::{Axis, Button, GameController},
@@ -399,9 +399,11 @@ impl Window for Sdl2Window {
 
     fn update_software_renderer<'a>(&'a mut self, data: Option<SoftwareRenderData<'a>>) {
         if let Some(data) = data {
-            self.texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-                buffer.copy_from_slice(data.buffer);
-            }).unwrap();
+            self.texture
+                .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+                    buffer.copy_from_slice(data.buffer);
+                })
+                .unwrap();
         }
     }
 

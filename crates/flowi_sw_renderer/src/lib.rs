@@ -1,13 +1,13 @@
 use simd::*;
 
 pub mod raster;
-pub use raster::{Raster, BlendMode, Corner};
+pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
+use flowi_core::render::SoftwareRenderData;
 use flowi_core::Renderer as FlowiRenderer;
 use flowi_core::{ApplicationSettings, RenderCommand};
-use flowi_core::render::SoftwareRenderData;
-use flowi_core::{RenderCommandConfig, CornerRadius};
+use flowi_core::{CornerRadius, RenderCommandConfig};
 
 pub struct TileInfo {
     pub offsets: f32x4,
@@ -95,7 +95,7 @@ pub struct Tile {
 impl FlowiRenderer for Renderer {
     fn new(_settings: &ApplicationSettings, _window: Option<&RawWindowHandle>) -> Self {
         let screen_size = (1920, 1080);
-        let tile_count = (10, 12); 
+        let tile_count = (10, 12);
 
         let tile_size = (screen_size.0 / tile_count.0, screen_size.1 / tile_count.1);
         let total_tile_count = tile_count.0 * tile_count.1;
@@ -143,7 +143,6 @@ impl FlowiRenderer for Renderer {
             height: 1080,
         })
     }
-
 
     fn render(&mut self, commands: &[RenderCommand]) {
         self.primitives.clear();
