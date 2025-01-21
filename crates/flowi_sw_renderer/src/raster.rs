@@ -380,10 +380,13 @@ pub(crate) fn render_internal<
 
         // TODO: Optimize
         border_radius_v = f32x4::new_splat(border_radius);
+
+        let bt = border_radius - 1.0;
+
         circle_center_x =
-            f32x4::new_splat(uv_fraction.extract::<0>() + (border_radius * center_adjust.0) - center_adjust.0);
+            f32x4::new_splat(uv_fraction.extract::<0>() + (bt * center_adjust.0));
         circle_center_y =
-            f32x4::new_splat(uv_fraction.extract::<1>() + (border_radius * center_adjust.1) - center_adjust.1);
+            f32x4::new_splat(uv_fraction.extract::<1>() + (bt * center_adjust.1));
     }
 
     let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
@@ -434,7 +437,6 @@ pub(crate) fn render_internal<
         let mut x_step_current = xi_start;
 
         for _x in 0..(xlen >> 2) {
-            // Calculate the distance to the circle center
             if ROUND_MODE == ROUND_MODE_ENABLED {
                 circle_distance = calculate_rounding_blend(
                     circle_y2,
@@ -731,7 +733,7 @@ impl Raster {
 
     fn get_corner_coords(corner: Corner, coords: &[f32], radius: f32) -> [f32; 4] {
         let corner_size = radius.ceil();
-        let corner_exp = corner_size + 4.0;
+        let corner_exp = corner_size + 1.0;
 
         match corner {
             Corner::TopLeft => [
@@ -763,7 +765,7 @@ impl Raster {
 
     fn get_side_coords(side: usize, coords: &[f32], radius: f32) -> [f32; 4] {
         let corner_size = radius.ceil();
-        let corner_exp = corner_size + 4.0;
+        let corner_exp = corner_size + 1.0;
 
         match side & 3 {
             0 => [
@@ -776,12 +778,12 @@ impl Raster {
                 coords[0] + corner_exp,
                 coords[3] - corner_exp,
                 coords[2] - corner_exp,
-                coords[3] - 2.0,
+                coords[3],
             ],
             2 => [
                 coords[0],
                 coords[1] + corner_size,
-                coords[2] - 2.0,
+                coords[2],
                 coords[3] - corner_size,
             ],
             _ => unimplemented!(),
@@ -804,6 +806,9 @@ impl Raster {
             Corner::BottomRight,
             Corner::BottomLeft,
         ];
+
+        // Adjust the radius to be inside the quad
+        let radius = radius - 1.0;
 
         // As we use pre-multiplied alpha we need to adjust the color based on the alpha value
         let color = premultiply_alpha(color);
