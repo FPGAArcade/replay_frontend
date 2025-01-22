@@ -93,7 +93,11 @@ fn main() {
     };
 
     let mut core = flowi_core::Ui::new(Box::new(Renderer::new(&application_settings, None)));
-    let text = core.generate_text("This is a test!").unwrap();
+    let font = core.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap();
+
+    let text_to_render = "Hello, World!";
+
+    core.queue_generate_text(text_to_render, font);
 
     let mut raster = Raster::new();
     raster.scissor_rect = f32x4::new(0.0, 0.0, RENDER_WIDTH as f32, RENDER_HEIGHT as f32);
@@ -137,25 +141,28 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in tile_output.iter_mut() {
-            *i = 0;
+            *i = 0x7fff;
         }
 
-        render_shapes(
-            &mut tile_output_u32,
-            &mut tile_output,
-            &text.data,
-            text.width as _,
-            &raster,
-            shape,
-            &[10.0, 10.0, 228.0, 80.0],
-            i16x8::new(
-                0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
-            ),
-            i16x8::new(
-                0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
-            ),
-            &linear_to_srgb_table,
-        );
+        if let Some(text) = core.get_text(text_to_render, font) {
+            render_shapes(
+                &mut tile_output_u32,
+                &mut tile_output,
+                &text.data,
+                text.width as _,
+                &raster,
+                shape,
+                &[10.0, 10.0, 228.0, 80.0],
+                i16x8::new(
+                    0, 0x7fff, 0, 0x7fff, 0, 0x7fff, 0, 0x7fff,
+                ),
+                i16x8::new(
+                    0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
+                ),
+                &linear_to_srgb_table,
+            );
+        }
+
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
@@ -163,6 +170,8 @@ fn main() {
 
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);
+
+        core.update();
     }
 }
 
