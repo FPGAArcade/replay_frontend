@@ -59,7 +59,9 @@ fn main() {
 
     let mut flowi_app = Application::new(&settings); //.unwrap();
 
-    let _ = flowi_app.ui.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48);
+    let _ = flowi_app
+        .ui
+        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48);
 
     /*
     let fonts = Fonts {

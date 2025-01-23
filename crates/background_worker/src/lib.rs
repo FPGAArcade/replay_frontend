@@ -1,8 +1,8 @@
-use std::sync::{Arc, Mutex};
 use crossbeam_channel::bounded;
-use std::thread;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::any::Any;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread;
 use thiserror::Error;
 
 pub use crossbeam_channel::{Receiver, Sender};
@@ -31,7 +31,11 @@ pub type WorkerResult = Result<BoxAnySend, CallbackError>;
 
 // Type alias for the callback function with state.
 type CallbackWithState = (
-    Box<dyn Fn(BoxAnySend, Arc<Mutex<AnySend>>) -> Result<BoxAnySend, CallbackError> + Send + 'static>,
+    Box<
+        dyn Fn(BoxAnySend, Arc<Mutex<AnySend>>) -> Result<BoxAnySend, CallbackError>
+            + Send
+            + 'static,
+    >,
     Arc<Mutex<AnySend>>,
 );
 
@@ -44,15 +48,21 @@ pub struct WorkSystem {
 impl WorkSystem {
     pub fn new(num_workers: usize) -> Self {
         let (sender, receiver) = bounded(num_workers);
-        let callbacks: Arc<Mutex<Vec<Option<CallbackWithState>>>> = Arc::new(Mutex::new(Vec::new()));
+        let callbacks: Arc<Mutex<Vec<Option<CallbackWithState>>>> =
+            Arc::new(Mutex::new(Vec::new()));
 
         for _ in 0..num_workers {
-            let worker_receiver: Receiver<(usize, BoxAnySend, Sender<Result<BoxAnySend, CallbackError>>)> = receiver.clone();
+            let worker_receiver: Receiver<(
+                usize,
+                BoxAnySend,
+                Sender<Result<BoxAnySend, CallbackError>>,
+            )> = receiver.clone();
             let worker_callbacks = Arc::clone(&callbacks);
 
             thread::spawn(move || {
                 while let Ok((id, data, response_sender)) = worker_receiver.recv() {
-                    if let Some(Some((callback, state))) = worker_callbacks.lock().unwrap().get(id) {
+                    if let Some(Some((callback, state))) = worker_callbacks.lock().unwrap().get(id)
+                    {
                         let result = callback(data, Arc::clone(state));
                         let _ = response_sender.send(result);
                     } else {
@@ -71,7 +81,9 @@ impl WorkSystem {
 
     pub fn register_callback_with_state<F>(&self, callback: F, state: Arc<Mutex<AnySend>>) -> usize
     where
-        F: Fn(BoxAnySend, Arc<Mutex<AnySend>>) -> Result<BoxAnySend, CallbackError> + Send + 'static,
+        F: Fn(BoxAnySend, Arc<Mutex<AnySend>>) -> Result<BoxAnySend, CallbackError>
+            + Send
+            + 'static,
     {
         let id = self.id_counter.fetch_add(1, Ordering::Relaxed);
         let mut callbacks = self.callbacks.lock().unwrap();
@@ -82,10 +94,22 @@ impl WorkSystem {
         id
     }
 
-    pub fn add_work<T: Any + Send>(&self, id: usize, data: T) -> Receiver<Result<BoxAnySend, CallbackError>> {
+    pub fn add_work<T: Any + Send>(
+        &self,
+        id: usize,
+        data: T,
+    ) -> Receiver<Result<BoxAnySend, CallbackError>> {
         let (response_sender, response_receiver) = bounded(1);
-        if self.callbacks.lock().unwrap().get(id).map_or(false, |callback| callback.is_some()) {
-            self.sender.send((id, Box::new(data), response_sender)).expect("Failed to send work to the channel");
+        if self
+            .callbacks
+            .lock()
+            .unwrap()
+            .get(id)
+            .map_or(false, |callback| callback.is_some())
+        {
+            self.sender
+                .send((id, Box::new(data), response_sender))
+                .expect("Failed to send work to the channel");
         } else {
             let _ = response_sender.send(Err(CallbackError::CallbackNotFound(id)));
         }
@@ -105,9 +129,13 @@ mod tests {
 
         let callback_id = system.register_callback_with_state(
             |data, state| {
-                let input = *data.downcast::<usize>().map_err(|_| CallbackError::InvalidDataType)?;
+                let input = *data
+                    .downcast::<usize>()
+                    .map_err(|_| CallbackError::InvalidDataType)?;
                 let mut counter = state.lock().unwrap();
-                let counter = counter.downcast_mut::<usize>().ok_or(CallbackError::InvalidStateType)?;
+                let counter = counter
+                    .downcast_mut::<usize>()
+                    .ok_or(CallbackError::InvalidStateType)?;
                 *counter += input;
                 Ok(Box::new(*counter))
             },
@@ -136,9 +164,13 @@ mod tests {
 
         let callback_id = system.register_callback_with_state(
             |data, state| {
-                let input = *data.downcast::<String>().map_err(|_| CallbackError::InvalidDataType)?;
+                let input = *data
+                    .downcast::<String>()
+                    .map_err(|_| CallbackError::InvalidDataType)?;
                 let mut state = state.lock().unwrap();
-                let state = state.downcast_mut::<String>().ok_or(CallbackError::InvalidStateType)?;
+                let state = state
+                    .downcast_mut::<String>()
+                    .ok_or(CallbackError::InvalidStateType)?;
                 state.push_str(&input);
                 Ok(Box::new(state.clone()))
             },
@@ -167,7 +199,8 @@ mod tests {
 
         let callback_id = system.register_callback_with_state(
             |data, _state| {
-                data.downcast::<String>().map_err(|_| CallbackError::InvalidDataType)?;
+                data.downcast::<String>()
+                    .map_err(|_| CallbackError::InvalidDataType)?;
                 Ok(Box::new(()))
             },
             state,
@@ -189,4 +222,3 @@ mod tests {
         assert!(matches!(result, Err(CallbackError::CallbackNotFound(999))));
     }
 }
-

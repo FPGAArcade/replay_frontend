@@ -563,8 +563,11 @@ impl i16x8 {
     }
 
     #[inline(always)]
-    pub fn splat(self, lane: u8) -> Self {
-        self.shuffle([lane, lane, lane, lane, lane, lane, lane, lane])
+    pub fn splat<const LANE: u8>(self) -> Self {
+        let l0 = LANE * 2;
+        let l1 = (LANE * 2) + 1;
+        let table = [l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1];
+        self.table_shuffle(table)
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -650,29 +653,36 @@ impl i16x8 {
     }
 
     #[inline(always)]
-    pub fn shuffle(self, table: [u8; 8]) -> Self {
-        // Convert 8 bytes into 16 where each pair of bytes in the expanded table 
-        // represents one of the 8 original 16-bit values from the vector
-        let mut expanded_table = [0u8; 16];
-        for i in 0..8 {
-            let index = table[i] as usize & 0x7;
-            expanded_table[i * 2] = (index * 2) as u8; 
-            expanded_table[i * 2 + 1] = (index * 2 + 1) as u8;
-        }
-
+    fn table_shuffle(self, table: [u8; 16]) -> Self {
         #[cfg(target_arch = "aarch64")]
         unsafe {
-            let mask = vld1q_u8(expanded_table.as_ptr());
+            let mask = vld1q_u8(table.as_ptr());
             let result = vqtbl1q_s8(vreinterpretq_s8_s16(self.v), mask);
-            Self { v: vreinterpretq_s16_s8(result) }
+            Self {
+                v: vreinterpretq_s16_s8(result),
+            }
         }
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            let mask = _mm_loadu_si128(expanded_table.as_ptr() as *const __m128i);
+            let mask = _mm_loadu_si128(table.as_ptr() as *const __m128i);
             let result = _mm_shuffle_epi8(self.v, mask);
             Self { v: result }
         }
     }
+
+    #[inline(always)]
+    pub fn shuffle<const MASK: u32>(self) -> Self {
+        // Convert u32 into a byte array where each byte represents an i16 selection
+        let mut expanded_table = [0u8; 16];
+        for i in 0..8 {
+            let nibble = ((MASK >> (4 * (7 - i))) & 0xF) as u8; // Extract nibble from mask
+            expanded_table[i * 2] = (nibble * 2) as u8;         // Lower byte of the i16
+            expanded_table[i * 2 + 1] = (nibble * 2 + 1) as u8; // Upper byte of the i16
+        }
+
+        self.table_shuffle(expanded_table)
+    }
+
 
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
@@ -1541,7 +1551,7 @@ mod simd_tests {
     fn test_i16x_splat_0() {
         // Test splatting a specific lane of an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.splat(0).to_array();
+        let result = vec.splat::<0>().to_array();
         assert_eq!(result, [1, 1, 1, 1, 1, 1, 1, 1]);
     }
 
@@ -1549,7 +1559,7 @@ mod simd_tests {
     fn test_i16x_splat_1() {
         // Test splatting a specific lane of an i16x8 register
         let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8]);
-        let result = vec.splat(1).to_array();
+        let result = vec.splat::<1>().to_array();
         assert_eq!(result, [2, 2, 2, 2, 2, 2, 2, 2]);
     }
 
@@ -1557,7 +1567,7 @@ mod simd_tests {
     fn test_i16x_splat_2() {
         // Test splatting a specific lane of an i16x8 register
         let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8]);
-        let result = vec.splat(2).to_array();
+        let result = vec.splat::<2>().to_array();
         assert_eq!(result, [3, 3, 3, 3, 3, 3, 3, 3]);
     }
 
@@ -1582,7 +1592,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_0123_0123() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle([0,1,2,3, 0,1,2,3]).to_array();
+        let result = vec.shuffle::<0x0123_0123>().to_array();
         assert_eq!(result, [1, 2, 3, 4, 1, 2, 3, 4]);
     }
 
@@ -1590,7 +1600,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_4567_4567() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle([4,5,6,7, 4,5,6,7]).to_array();
+        let result = vec.shuffle::<0x4567_4567>().to_array();
         assert_eq!(result, [5, 6, 7, 8, 5, 6, 7, 8]);
     }
 
@@ -1622,7 +1632,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_1111_3333() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle([1,1,1,1, 3,3,3,3]).to_array();
+        let result = vec.shuffle::<0x1111_3333>().to_array();
         assert_eq!(result, [2, 2, 2, 2, 4, 4, 4, 4]);
     }
 
@@ -1630,7 +1640,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_5555_7777() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle([5,5,5,5, 7,7,7,7]).to_array();
+        let result = vec.shuffle::<0x5555_7777>().to_array();
         assert_eq!(result, [6, 6, 6, 6, 8, 8, 8, 8]);
     }
 
@@ -1758,7 +1768,7 @@ mod simd_tests {
     #[test]
     fn test_i16x8_shuffle_3333_7777() {
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle([3,3,3,3, 7,7,7,7]).to_array();
+        let result = vec.shuffle::<0x3333_7777>().to_array();
         assert_eq!(result, [4, 4, 4, 4, 8, 8, 8, 8]);
     }
 

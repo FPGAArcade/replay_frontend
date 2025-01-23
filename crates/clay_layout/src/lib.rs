@@ -185,9 +185,13 @@ impl<'a> Clay<'a> {
     }
 
     pub unsafe fn set_measure_text_function_unsafe(
-        callback: unsafe extern "C" fn(Clay_StringSlice, *mut Clay_TextElementConfig, usize) -> Clay_Dimensions,
-        user_data: usize) 
-    {
+        callback: unsafe extern "C" fn(
+            Clay_StringSlice,
+            *mut Clay_TextElementConfig,
+            usize,
+        ) -> Clay_Dimensions,
+        user_data: usize,
+    ) {
         Clay_SetMeasureTextFunction(Some(callback), user_data);
     }
 
@@ -430,7 +434,7 @@ mod tests {
                 .height(Sizing::Fixed(100.0))
                 .padding(Padding::all(10))
                 .end(),
-            Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
+            Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
         {
             clay.with(None, [
                 Layout::new()
@@ -438,7 +442,7 @@ mod tests {
                     .height(Sizing::Fixed(100.0))
                     .padding(Padding::all(10))
                     .end(),
-                Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
+                Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
             {
                 clay.with(Some("rect_under_rect"), [
                     Layout::new()
@@ -446,7 +450,7 @@ mod tests {
                         .height(Sizing::Fixed(100.0))
                         .padding(Padding::all(10))
                         .end(),
-                    Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
+                    Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
                     {
                         clay.text("test", Text::new()
                             .color(Color::rgb(255., 255., 255.))
@@ -462,7 +466,7 @@ mod tests {
             BorderContainer::new()
                 .all_directions(2, Color::rgb(255., 255., 0.))
                 .corner_radius(CornerRadius::All(25.))
-                .end()], |clay| 
+                .end()], |clay|
         {
             clay.with(Some("rect_under_border"), [
                 Layout::new()

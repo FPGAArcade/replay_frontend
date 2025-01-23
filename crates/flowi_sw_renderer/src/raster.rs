@@ -109,7 +109,7 @@ fn sample_aligned_texture(
 }
 
 fn blend_color(source: i16x8, dest: i16x8) -> i16x8 {
-    let one_minus_alpha = i16x8::new_splat(0x7fff) - source.shuffle([3,3,3,3, 7,7,7,7]);
+    let one_minus_alpha = i16x8::new_splat(0x7fff) - source.shuffle::<0x3333_7777>();
     i16x8::lerp(source, dest, one_minus_alpha)
 }
 
@@ -226,11 +226,11 @@ fn process_pixels<
         if COUNT >= PIXEL_COUNT_3 {
             // distance to the circle center. So we need to splat distance for each radius
             // calculated to get the correct blending value.
-            color_0 = i16x8::mul_high(color_0, c_blend.shuffle([0,0,0,0, 2,2,2,2]));
-            color_1 = i16x8::mul_high(color_1, c_blend.shuffle([4,4,4,4, 6,6,6,6]));
+            color_0 = i16x8::mul_high(color_0, c_blend.shuffle::<0x0000_2222>());
+            color_1 = i16x8::mul_high(color_1, c_blend.shuffle::<0x2222_4444>());
         } else {
             // Only one or two pixels so we only need one shuffle/mul
-            color_0 = i16x8::mul_high(color_0, c_blend.shuffle([0,0,0,0, 2,2,2,2]));
+            color_0 = i16x8::mul_high(color_0, c_blend.shuffle::<0x0000_2222>());
         }
     }
 
@@ -326,8 +326,8 @@ pub(crate) fn render_internal<
         let xy_diff = x1y1x1y1 - x0y0x0y0;
         let xy_step = f32x4::new_splat(32767.0) / xy_diff;
 
-        xi_step = xy_step.as_i32x4().as_i16x8().splat(0);
-        yi_step = xy_step.as_i32x4().as_i16x8().splat(2);
+        xi_step = xy_step.as_i32x4().as_i16x8().splat::<0>();
+        yi_step = xy_step.as_i32x4().as_i16x8().splat::<2>();
 
         // The way we step across x is that we do two pixels at a time. Because of this we need
         // to adjust the stepping value to be times two and then adjust the starting value so that
@@ -335,8 +335,8 @@ pub(crate) fn render_internal<
         // start: 0,1
         // step:  2,2
 
-        let clip_x0 = clip_diff.as_i16x8().splat(0);
-        let clip_y0 = clip_diff.as_i16x8().splat(2);
+        let clip_x0 = clip_diff.as_i16x8().splat::<0>();
+        let clip_y0 = clip_diff.as_i16x8().splat::<1>();
 
         xi_start = xi_step * clip_x0;
         yi_start = yi_step * clip_y0;
@@ -353,8 +353,8 @@ pub(crate) fn render_internal<
         let uv_fraction = (x0y0x1y1_adjust - x0y0x1y1) * f32x4::new_splat(0x7fff as f32);
         let uv_fraction = i16x8::new_splat(0x7fff) - uv_fraction.as_i32x4().as_i16x8();
 
-        fixed_u_fraction = uv_fraction.splat(0);
-        fixed_v_fraction = uv_fraction.splat(2);
+        fixed_u_fraction = uv_fraction.splat::<0>();
+        fixed_v_fraction = uv_fraction.splat::<2>();
 
         texture_width = texture_sizes[0] as usize;
 
@@ -430,8 +430,8 @@ pub(crate) fn render_internal<
 
         if COLOR_MODE == COLOR_MODE_LERP {
             let left_right_colors = i16x8::lerp_diff(top_colors, color_top_bottom_diff, yi_start);
-            let right_colors = left_right_colors.shuffle([4,5,6,7, 4,5,6,7]);
-            left_colors = left_right_colors.shuffle([0,1,2,3, 0,1,2,3]);
+            let right_colors = left_right_colors.shuffle::<0x4567_4567>();
+            left_colors = left_right_colors.shuffle::<0x0123_0123>();
             color_diff = right_colors - left_colors;
         }
 
@@ -619,16 +619,16 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
             //
             let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr);
 
-            let te_01 = text_8_pixels.shuffle([0,0,0,0, 1,1,1,1]);
+            let te_01 = text_8_pixels.shuffle::<0x0000_1111>();
             let bg_01 = i16x8::load_unaligned_ptr(tile_line_ptr);
 
-            let te_23 = text_8_pixels.shuffle([2,2,2,2, 3,3,3,3]);
+            let te_23 = text_8_pixels.shuffle::<0x2222_3333>();
             let bg_23 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(8) });
 
-            let te_45 = text_8_pixels.shuffle([4,4,4,4, 5,5,5,5]);
+            let te_45 = text_8_pixels.shuffle::<0x4444_5555>();
             let bg_45 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(16) });
 
-            let te_67 = text_8_pixels.shuffle([6,6,6,6, 7,7,7,7]);
+            let te_67 = text_8_pixels.shuffle::<0x6666_7777>();
             let bg_67 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(24) });
 
             let c0 = i16x8::lerp(bg_01, color, te_01);
@@ -983,4 +983,3 @@ impl Raster {
         );
     }
 }
-

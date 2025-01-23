@@ -93,7 +93,9 @@ fn main() {
     };
 
     let mut core = flowi_core::Ui::new(Box::new(Renderer::new(&application_settings, None)));
-    let font = core.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap();
+    let font = core
+        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48)
+        .unwrap();
 
     let text_to_render = "Hello";
 
@@ -151,7 +153,12 @@ fn main() {
                 text.width as _,
                 &raster,
                 shape,
-                &[0.0, 0.0, RENDER_WIDTH.min(text.width as _) as _, HEIGHT.min(text.height as _) as _],
+                &[
+                    0.0,
+                    0.0,
+                    RENDER_WIDTH.min(text.width as _) as _,
+                    HEIGHT.min(text.height as _) as _,
+                ],
                 i16x8::new(
                     0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
                 ),

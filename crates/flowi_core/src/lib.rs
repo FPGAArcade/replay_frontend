@@ -9,23 +9,23 @@ pub mod render;
 pub mod signal;
 pub mod widgets;
 
-use internal_error::InternalResult;
 use arena_allocator::Arena;
-use clay_layout::{
-    color::Color, math::Dimensions, Clay, TypedConfig, elements::text::TextElementConfig,
-    Clay_StringSlice, Clay_TextElementConfig, Clay_Dimensions
-};
 use background_worker::WorkSystem;
+use clay_layout::{
+    color::Color, elements::text::TextElementConfig, math::Dimensions, Clay, Clay_Dimensions,
+    Clay_StringSlice, Clay_TextElementConfig, TypedConfig,
+};
 use fileorama::Fileorama;
+use internal_error::InternalResult;
 pub use io_handler::IoHandler;
 use signal::Signal;
 use std::cell::UnsafeCell;
 
-use font::{FontHandle, CachedString};
+use font::{CachedString, FontHandle};
 
 pub use clay_layout::{
     //color::Color,
-    elements::{rectangle::Rectangle, CornerRadius, text::Text},
+    elements::{rectangle::Rectangle, text::Text, CornerRadius},
     fixed,
     grow,
     id::Id,
@@ -85,11 +85,13 @@ impl<'a> Ui<'a> {
             state: UnsafeCell::new(state),
         });
 
-
         // This is a hack. To be fixed later
         unsafe {
             let raw_ptr = Box::into_raw(data);
-            clay_layout::Clay::set_measure_text_function_unsafe(Self::measure_text_trampoline, raw_ptr as usize);
+            clay_layout::Clay::set_measure_text_function_unsafe(
+                Self::measure_text_trampoline,
+                raw_ptr as usize,
+            );
             Box::from_raw(raw_ptr)
         }
     }
@@ -97,24 +99,27 @@ impl<'a> Ui<'a> {
     unsafe extern "C" fn measure_text_trampoline(
         text_slice: Clay_StringSlice,
         config: *mut Clay_TextElementConfig,
-        user_data: usize) -> Clay_Dimensions
-    {
+        user_data: usize,
+    ) -> Clay_Dimensions {
         let text = core::str::from_utf8_unchecked(core::slice::from_raw_parts(
             text_slice.chars as *const u8,
             text_slice.length as _,
         ));
-    
+
         let text_config = Text::from(*config);
         let ui = &*(user_data as *const Ui);
 
         ui.measure_text(text, &text_config).into()
     }
 
-    fn measure_text(&self, text: &str, _config: &Text) -> Dimensions { 
+    fn measure_text(&self, text: &str, _config: &Text) -> Dimensions {
         let state = unsafe { &mut *self.state.get() };
         // TODO: Proper error handling
-        let size = state.text_generator.measure_text_size(text, state.active_font).unwrap();
-        Dimensions::new(size.0 as _, size.1 as _) 
+        let size = state
+            .text_generator
+            .measure_text_size(text, state.active_font)
+            .unwrap();
+        Dimensions::new(size.0 as _, size.1 as _)
     }
 
     pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
@@ -128,7 +133,12 @@ impl<'a> Ui<'a> {
         state.button_id = 0;
     }
 
-    pub fn with_layout<F: FnOnce(&Ui), const N: usize>(&self, id: Option<&'a str>, configs: [TypedConfig; N], f: F) {
+    pub fn with_layout<F: FnOnce(&Ui), const N: usize>(
+        &self,
+        id: Option<&'a str>,
+        configs: [TypedConfig; N],
+        f: F,
+    ) {
         let state = unsafe { &mut *self.state.get() };
 
         state.layout.with(id, configs, |_clay| {
@@ -153,9 +163,15 @@ impl<'a> Ui<'a> {
         state.text_generator.load_font(path, size, &state.bg_worker)
     }
 
-    pub fn queue_generate_text(&mut self, text: &str, font_id: FontHandle) -> Option<font::CachedString> {
+    pub fn queue_generate_text(
+        &mut self,
+        text: &str,
+        font_id: FontHandle,
+    ) -> Option<font::CachedString> {
         let state = unsafe { &mut *self.state.get() };
-        state.text_generator.queue_generate_text(text, font_id, &state.bg_worker)
+        state
+            .text_generator
+            .queue_generate_text(text, font_id, &state.bg_worker)
     }
 
     #[rustfmt::skip]

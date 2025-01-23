@@ -1,9 +1,9 @@
 use crate::internal_error::{InternalError, InternalResult};
-use std::borrow::Cow;
+use background_worker::{AnySend, BoxAnySend, CallbackError, Receiver, WorkSystem, WorkerResult};
 use cosmic_text::{Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use background_worker::{WorkSystem, BoxAnySend, Receiver, AnySend, WorkerResult, CallbackError};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub(crate) struct GeneratorConfig {
@@ -101,7 +101,7 @@ pub(crate) struct TextGenerator {
     /// These are for messure texts on the main thread.
     sync_font_system: FontSystem,
     sync_loaded_fonts: LoadedFonts,
-    inflight_text_generations: Vec<InflightGeneration>, 
+    inflight_text_generations: Vec<InflightGeneration>,
     font_id_counter: u64,
     load_font_async_id: usize,
     gen_text_async_id: usize,
@@ -109,7 +109,7 @@ pub(crate) struct TextGenerator {
 
 pub(crate) struct LoadConfig {
     pub(crate) font_id: FontHandle,
-    pub(crate) size: i32, 
+    pub(crate) size: i32,
     pub(crate) font_path: Cow<'static, str>,
 }
 
@@ -122,20 +122,20 @@ fn load_font(
     font_system: &mut FontSystem,
 ) -> InternalResult<()> {
     let font_db = font_system.db_mut();
-    
+
     // Load the font from the given path. This assumes that the path points to a valid font file.
     let ids = font_db.load_font_source(cosmic_text::fontdb::Source::File(font_path.into()));
 
-    // Check if a font ID was obtained from loading the font. 
+    // Check if a font ID was obtained from loading the font.
     // If not, an error is returned since we can't proceed without an ID.
     let face_id = *ids.last().ok_or(InternalError::GenericError {
         text: format!("Font id not found for font {}", font_path),
     })?;
 
-    // Retrieve the font face based on the ID. 
+    // Retrieve the font face based on the ID.
     // If the face cannot be found, an error is returned.
     let face = font_db.face(face_id).ok_or(InternalError::GenericError {
-        text: format!("Font face not found for font {}", font_path), 
+        text: format!("Font face not found for font {}", font_path),
     })?;
 
     let family_name = face.families[0].0.as_str();
@@ -157,7 +157,6 @@ fn load_font(
     );
     Ok(())
 }
-
 
 fn measure_string_size(
     text: &str,
@@ -202,7 +201,7 @@ fn generate_text(
     font_info: &FontInfo,
     line_height: f32,
     state: &mut AsyncState,
-) -> WorkerResult { 
+) -> WorkerResult {
     // Define metrics for the text
     let metrics = Metrics::new(font_info.size as _, line_height);
 
@@ -219,7 +218,7 @@ fn generate_text(
 
     // Shape the text to compute layout without rendering
     buffer.shape_until_scroll(&mut state.font_system, true);
-    
+
     // Get the layout runs which contain size information
     let layout_runs = buffer.layout_runs();
 
@@ -231,7 +230,7 @@ fn generate_text(
         height += run.line_height;
     }
 
-    let width = width as usize; 
+    let width = width as usize;
     let height = height as usize;
 
     let mut output = vec![0; width * height];
@@ -277,7 +276,6 @@ fn job_generate_text(data: BoxAnySend, state: Arc<Mutex<AnySend>>) -> WorkerResu
     }
 }
 
-
 fn job_load_font(data: BoxAnySend, state: Arc<Mutex<AnySend>>) -> WorkerResult {
     let config = data.downcast::<Box<LoadConfig>>().unwrap();
     let locked_state = state.lock();
@@ -290,7 +288,8 @@ fn job_load_font(data: BoxAnySend, state: Arc<Mutex<AnySend>>) -> WorkerResult {
         config.size,
         &mut state.loaded_fonts,
         &mut state.font_system,
-    ).unwrap();
+    )
+    .unwrap();
 
     // TODO: Error handling
     Ok(Box::new(()))
@@ -300,8 +299,10 @@ impl TextGenerator {
     pub(crate) fn new(bg_worker: &WorkSystem) -> Self {
         let async_state: Arc<Mutex<AnySend>> = Arc::new(Mutex::new(AsyncState::new()));
 
-        let load_font_async_id = bg_worker.register_callback_with_state(job_load_font, async_state.clone());
-        let gen_text_async_id = bg_worker.register_callback_with_state(job_generate_text, async_state.clone());
+        let load_font_async_id =
+            bg_worker.register_callback_with_state(job_load_font, async_state.clone());
+        let gen_text_async_id =
+            bg_worker.register_callback_with_state(job_generate_text, async_state.clone());
 
         Self {
             async_state,
@@ -315,13 +316,18 @@ impl TextGenerator {
         }
     }
 
-    pub fn load_font(&mut self, path: &str, font_size: i32, bg_worker: &WorkSystem) -> InternalResult<FontHandle> {
+    pub fn load_font(
+        &mut self,
+        path: &str,
+        font_size: i32,
+        bg_worker: &WorkSystem,
+    ) -> InternalResult<FontHandle> {
         let font_id = self.font_id_counter;
         // First we load the font sync so we know it loaded fine, if it's ok we
         // will also schedle it to be loaded async to be used for rendering later.
         // We load it on the main thread also for text measurement.
         load_font(
-            font_id, 
+            font_id,
             path,
             font_size,
             &mut self.sync_loaded_fonts,
@@ -329,11 +335,14 @@ impl TextGenerator {
         )?;
 
         // Start loading the font async.
-        bg_worker.add_work(self.load_font_async_id, Box::new(LoadConfig {
-            font_id,
-            size: font_size,
-            font_path: Cow::Owned(path.to_string()),
-        }));
+        bg_worker.add_work(
+            self.load_font_async_id,
+            Box::new(LoadConfig {
+                font_id,
+                size: font_size,
+                font_path: Cow::Owned(path.to_string()),
+            }),
+        );
 
         Ok(font_id)
     }
@@ -352,7 +361,12 @@ impl TextGenerator {
         }
     }
 
-    pub fn queue_generate_text(&mut self, text: &str, font_id: FontHandle, bg_worker: &WorkSystem) -> Option<CachedString> {
+    pub fn queue_generate_text(
+        &mut self,
+        text: &str,
+        font_id: FontHandle,
+        bg_worker: &WorkSystem,
+    ) -> Option<CachedString> {
         let gen_config = GeneratorConfig {
             font_handle: font_id,
             text: text.to_string(),
@@ -406,7 +420,7 @@ impl TextGenerator {
         };
 
         self.cached_strings.get(&gen_config).map(|s| &**s)
-    } 
+    }
 }
 
 #[cfg(test)]
@@ -458,7 +472,9 @@ mod tests {
     fn test_load_sync() {
         let worker = WorkSystem::new(2);
         let mut state = TextGenerator::new(&worker);
-        let font_id = state.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 56, &worker).unwrap();
+        let font_id = state
+            .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 56, &worker)
+            .unwrap();
 
         let text = "Hello, World!";
         let size = state.measure_text_size(text, font_id).unwrap();
