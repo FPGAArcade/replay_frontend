@@ -653,6 +653,14 @@ impl i16x8 {
         }
     }
 
+    #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
+    pub fn merge(v0: Self, v1: Self) -> Self {
+        Self {
+            v: unsafe { vcombine_s16(vget_low_s16(v0.v), vget_low_s16(v1.v)) },
+        }
+    }
+
     #[inline(always)]
     fn table_shuffle(self, table: [u8; 16]) -> Self {
         #[cfg(target_arch = "aarch64")]
