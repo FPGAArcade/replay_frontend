@@ -562,6 +562,7 @@ impl i16x8 {
         }
     }
 
+    #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     pub fn splat<const LANE: u8>(self) -> Self {
         let l0 = LANE * 2;
