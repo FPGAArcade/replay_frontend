@@ -562,55 +562,9 @@ impl i16x8 {
         }
     }
 
-    #[cfg(target_arch = "aarch64")]
     #[inline(always)]
-    pub fn splat_0000_0000(self) -> Self {
-        self.splat::<0>()
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn splat_1111_1111(self) -> Self {
-        self.splat::<1>()
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn splat_2222_2222(self) -> Self {
-        self.splat::<2>()
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn splat_0000_0000(self) -> Self {
-        unsafe {
-            let lower = _mm_shufflelo_epi16(self.v, 0b00_00_00_00);
-            Self {
-                v: _mm_shuffle_epi32(lower, 0b00_00_00_00),
-            }
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn splat_1111_1111(self) -> Self {
-        unsafe {
-            let lower = _mm_shufflelo_epi16(self.v, 0b01_01_01_01);
-            Self {
-                v: _mm_shuffle_epi32(lower, 0b00_00_00_00),
-            }
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn splat_2222_2222(self) -> Self {
-        unsafe {
-            let lower = _mm_shufflelo_epi16(self.v, 0b10_10_10_10);
-            Self {
-                v: _mm_shuffle_epi32(lower, 0b00_00_00_00),
-            }
-        }
+    pub fn splat(self, lane: u8) -> Self {
+        self.shuffle([lane, lane, lane, lane, lane, lane, lane, lane])
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -626,38 +580,6 @@ impl i16x8 {
     pub fn rotate_4(self) -> Self {
         Self {
             v: unsafe { _mm_shuffle_epi32(self.v, 0b01_00_11_10) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_0123_0123(self) -> Self {
-        Self {
-            v: unsafe { vcombine_s16(vget_low_s16(self.v), vget_low_s16(self.v)) },
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_0123_0123(self) -> Self {
-        Self {
-            v: unsafe { _mm_shuffle_epi32(self.v, 0b01_00_01_00) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_4567_4567(self) -> Self {
-        Self {
-            v: unsafe { vcombine_s16(vget_high_s16(self.v), vget_high_s16(self.v)) },
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_4567_4567(self) -> Self {
-        Self {
-            v: unsafe { _mm_shuffle_epi32(self.v, 0b11_10_11_10) },
         }
     }
 
@@ -693,42 +615,6 @@ impl i16x8 {
 
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
-    pub fn shuffle_1111_3333(self) -> Self {
-        let data = [2, 3, 2, 3, 2, 3, 2, 3, 6, 7, 6, 7, 6, 7, 6, 7];
-        Self::tablebased_shuffle(self, self, data)
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_1111_3333(self) -> Self {
-        unsafe {
-            // pshuflw xmm0, xmm0, 245
-            let temp = _mm_shufflelo_epi16(self.v, 245);
-            let v = _mm_shuffle_epi32(temp, 80);
-            Self { v }
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_3333_7777(self) -> Self {
-        let data = [6, 7, 6, 7, 6, 7, 6, 7, 14, 15, 14, 15, 14, 15, 14, 15];
-
-        Self::tablebased_shuffle(self, self, data)
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_3333_7777(self) -> Self {
-        unsafe {
-            Self {
-                v: _mm_shufflehi_epi16(_mm_shufflelo_epi16(self.v, 0xFF), 0xFF),
-            }
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
     fn tablebased_shuffle(self, v1: Self, data: [u8; 16]) -> Self {
         unsafe {
             // Define the shuffle mask as a NEON vector.
@@ -750,77 +636,6 @@ impl i16x8 {
         }
     }
 
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_0000_2222(self) -> Self {
-        let data = [
-            0, 1, 0, 1, 0, 1, 0, 1, // Duplicate 0th element
-            4, 5, 4, 5, 4, 5, 4, 5, // Duplicate 2nd element
-        ];
-
-        Self::tablebased_shuffle(self, self, data)
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_0000_2222(self) -> Self {
-        unsafe {
-            let temp = _mm_shufflelo_epi16(self.v, 160);
-            let v = _mm_shuffle_epi32(temp, 80);
-            Self { v }
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_4444_6666(self) -> Self {
-        let data = [
-            8, 9, 8, 9, 8, 9, 8, 9, // Duplicate 4th element
-            12, 13, 12, 13, 12, 13, 12, 13, // Duplicate 6th element
-        ];
-
-        Self::tablebased_shuffle(self, self, data)
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_4444_6666(self) -> Self {
-        unsafe {
-            let temp = _mm_shufflehi_epi16(self.v, 160);
-            let v = _mm_shuffle_epi32(temp, 250);
-            Self { v }
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_5555_7777(self) -> Self {
-        let data = [
-            10, 11, 10, 11, 10, 11, 10, 11, // Duplicate 5th element
-            14, 15, 14, 15, 14, 15, 14, 15, // Duplicate 7th element
-        ];
-
-        Self::tablebased_shuffle(self, self, data)
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_5555_7777(self) -> Self {
-        unsafe {
-            let temp = _mm_shufflehi_epi16(self.v, 245);
-            let v = _mm_shuffle_epi32(temp, 250);
-            Self { v }
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn merge(v0: Self, v1: Self) -> Self {
-        Self {
-            v: unsafe { vcombine_s16(vget_low_s16(v0.v), vget_low_s16(v1.v)) },
-        }
-    }
-
     #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     pub fn merge(v0: Self, v1: Self) -> Self {
@@ -835,30 +650,14 @@ impl i16x8 {
     }
 
     #[inline(always)]
-    pub fn shuffle(self, table: [u8; 16]) -> Self {
-        #[cfg(target_arch = "aarch64")]
-        unsafe {
-            let mask = vld1q_u8(table.as_ptr());
-            let result = vqtbl1q_s8(vreinterpretq_s8_s16(self.v), mask);
-            Self { v: vreinterpretq_s16_s8(result) }
-        }
-        #[cfg(target_arch = "x86_64")]
-        unsafe {
-            let mask = _mm_loadu_si128(table.as_ptr() as *const __m128i);
-            let result = _mm_shuffle_epi8(self.v, mask);
-            Self { v: result }
-        }
-    }
-
-    #[inline(always)]
-    pub fn shuffle_16(self, table: [u8; 8]) -> Self {
+    pub fn shuffle(self, table: [u8; 8]) -> Self {
         // Convert 8 bytes into 16 where each pair of bytes in the expanded table 
         // represents one of the 8 original 16-bit values from the vector
         let mut expanded_table = [0u8; 16];
         for i in 0..8 {
-            let index = table[i] as usize & 0x7; // Ensure index wraps around to 0-7 for 8 elements
-            expanded_table[i * 2] = (index * 2) as u8; // Lower byte
-            expanded_table[i * 2 + 1] = (index * 2 + 1) as u8; // Upper byte
+            let index = table[i] as usize & 0x7;
+            expanded_table[i * 2] = (index * 2) as u8; 
+            expanded_table[i * 2 + 1] = (index * 2 + 1) as u8;
         }
 
         #[cfg(target_arch = "aarch64")]
@@ -1742,7 +1541,7 @@ mod simd_tests {
     fn test_i16x_splat_0() {
         // Test splatting a specific lane of an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.splat_0000_0000().to_array();
+        let result = vec.splat(0).to_array();
         assert_eq!(result, [1, 1, 1, 1, 1, 1, 1, 1]);
     }
 
@@ -1750,7 +1549,7 @@ mod simd_tests {
     fn test_i16x_splat_1() {
         // Test splatting a specific lane of an i16x8 register
         let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8]);
-        let result = vec.splat_1111_1111().to_array();
+        let result = vec.splat(1).to_array();
         assert_eq!(result, [2, 2, 2, 2, 2, 2, 2, 2]);
     }
 
@@ -1758,7 +1557,7 @@ mod simd_tests {
     fn test_i16x_splat_2() {
         // Test splatting a specific lane of an i16x8 register
         let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8]);
-        let result = vec.splat_2222_2222().to_array();
+        let result = vec.splat(2).to_array();
         assert_eq!(result, [3, 3, 3, 3, 3, 3, 3, 3]);
     }
 
@@ -1783,7 +1582,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_0123_0123() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle_0123_0123().to_array();
+        let result = vec.shuffle([0,1,2,3, 0,1,2,3]).to_array();
         assert_eq!(result, [1, 2, 3, 4, 1, 2, 3, 4]);
     }
 
@@ -1791,7 +1590,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_4567_4567() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle_4567_4567().to_array();
+        let result = vec.shuffle([4,5,6,7, 4,5,6,7]).to_array();
         assert_eq!(result, [5, 6, 7, 8, 5, 6, 7, 8]);
     }
 
@@ -1823,7 +1622,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_1111_3333() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle_1111_3333().to_array();
+        let result = vec.shuffle([1,1,1,1, 3,3,3,3]).to_array();
         assert_eq!(result, [2, 2, 2, 2, 4, 4, 4, 4]);
     }
 
@@ -1831,7 +1630,7 @@ mod simd_tests {
     fn test_i16x8_shuffle_5555_7777() {
         // Test shuffling an i16x8 register
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle_5555_7777().to_array();
+        let result = vec.shuffle([5,5,5,5, 7,7,7,7]).to_array();
         assert_eq!(result, [6, 6, 6, 6, 8, 8, 8, 8]);
     }
 
@@ -1959,7 +1758,7 @@ mod simd_tests {
     #[test]
     fn test_i16x8_shuffle_3333_7777() {
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
-        let result = vec.shuffle_3333_7777().to_array();
+        let result = vec.shuffle([3,3,3,3, 7,7,7,7]).to_array();
         assert_eq!(result, [4, 4, 4, 4, 8, 8, 8, 8]);
     }
 
