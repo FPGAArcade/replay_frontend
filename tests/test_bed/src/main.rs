@@ -18,8 +18,7 @@ pub(crate) struct App {
 
 #[rustfmt::skip]
 fn main_loop(ui: &Ui, _app: &mut App) {
-    ui.with_layout([
-        Id::new("main_container"),
+    ui.with_layout(Some("main_container"), [
         Layout::new()
             .width(grow!())
             .height(grow!())
@@ -28,8 +27,7 @@ fn main_loop(ui: &Ui, _app: &mut App) {
             .child_gap(16)
             .end()], |ui| 
    {
-        ui.with_layout([
-            Id::new("buttons"),
+        ui.with_layout(Some("buttons"), [
             Layout::new()
                 .width(grow!())
                 .child_gap(16)
@@ -40,8 +38,7 @@ fn main_loop(ui: &Ui, _app: &mut App) {
             ui.button("Test");
         });
 
-        ui.with_layout([
-            Id::new("buttons2"),
+        ui.with_layout(Some("buttons2"), [
             Layout::new()
                 .width(grow!())
                 .height(fixed!(160.0))

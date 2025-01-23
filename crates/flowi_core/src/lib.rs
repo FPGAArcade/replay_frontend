@@ -92,10 +92,10 @@ impl<'a> Ui<'a> {
         state.button_id = 0;
     }
 
-    pub fn with_layout<F: FnOnce(&Ui), const N: usize>(&self, configs: [TypedConfig; N], f: F) {
+    pub fn with_layout<F: FnOnce(&Ui), const N: usize>(&self, id: Option<&'a str>, configs: [TypedConfig; N], f: F) {
         let state = unsafe { &mut *self.state.get() };
 
-        state.layout.with(configs, |_clay| {
+        state.layout.with(id, configs, |_clay| {
             f(self);
         });
     }
@@ -126,8 +126,7 @@ impl<'a> Ui<'a> {
     pub fn button(&self, _text: &str) -> Signal {
         let state = unsafe { &mut *self.state.get() };
 
-        state.layout.with([
-            Id::new_index("TestButton", state.button_id),
+        state.layout.with_id_index(Some(("TestButton", state.button_id)), [
             Layout::new()
                 .width(fixed!(160.0))
                 .height(fixed!(40.0))

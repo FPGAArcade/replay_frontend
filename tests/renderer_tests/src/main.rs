@@ -4,8 +4,8 @@ use flowi_sw_renderer::{BlendMode, Corner, Raster, Renderer, TileInfo};
 use minifb::{Key, Window, WindowOptions};
 use simd::*;
 
-const WIDTH: usize = 1920;
-const HEIGHT: usize = 1080;
+const WIDTH: usize = 1280;
+const HEIGHT: usize = 720;
 
 const RENDER_WIDTH: usize = WIDTH / 4;
 const RENDER_HEIGHT: usize = HEIGHT / 4;
@@ -95,26 +95,25 @@ fn main() {
     let mut core = flowi_core::Ui::new(Box::new(Renderer::new(&application_settings, None)));
     let font = core.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap();
 
-    let text_to_render = "Hello,\nWorld!";
+    let text_to_render = "Hello";
 
     core.queue_generate_text(text_to_render, font);
 
     let mut raster = Raster::new();
     raster.scissor_rect = f32x4::new(0.0, 0.0, RENDER_WIDTH as f32, RENDER_HEIGHT as f32);
 
+    /*
     let mut text_test = vec![0i16; 128 * 128];
 
     for y in 0..128 {
         for x in 0..128 {
-            /*
             if (x & 1) == 0 {
                 text_test[y * 128 + x] = 0x7fff;
             }
-            */
-
             text_test[y * 128 + x] = (((y ^ x) as i16) * 64) & 0x7fff;
         }
     }
+    */
 
     let radius = 31.0; // actually 16
 
@@ -166,7 +165,7 @@ fn main() {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
-        let zoom = 4;
+        let zoom = 1;
 
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);

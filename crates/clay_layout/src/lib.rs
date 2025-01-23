@@ -12,14 +12,13 @@ pub mod render_commands;
 
 mod mem;
 
+use crate::elements::text::Text;
 use elements::{text::TextElementConfig, ElementConfigType};
 use errors::Error;
-//use math::{BoundingBox, Dimensions, Vector2};
+use math::{BoundingBox, Dimensions, Vector2};
 use render_commands::RenderCommand;
 
 use crate::bindings::*;
-
-pub use math::{BoundingBox, Dimensions, Vector2};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -29,23 +28,44 @@ pub struct TypedConfig {
     pub config_type: ElementConfigType,
 }
 
-pub type MeasureTextFunction = fn(text: &str, config: TextElementConfig) -> Dimensions;
-
-// Is used to store the current callback for measuring text
-static mut MEASURE_TEXT_HANDLER: Option<MeasureTextFunction> = None;
-
-// Converts the args and calls `MEASURE_TEXT_HANDLER`. Passed to clay with `Clay_SetMeasureTextFunction`
-unsafe extern "C" fn measure_text_handle(
-    str: *mut Clay_String,
+#[cfg(feature = "std")]
+unsafe extern "C" fn measure_text_trampoline_user_data<'a, F, T>(
+    text_slice: Clay_StringSlice,
     config: *mut Clay_TextElementConfig,
-) -> Clay_Dimensions {
-    match MEASURE_TEXT_HANDLER {
-        Some(func) => func((*str.as_ref().unwrap()).into(), config.into()).into(),
-        None => Clay_Dimensions {
-            width: 0.0,
-            height: 0.0,
-        },
-    }
+    user_data: usize,
+) -> Clay_Dimensions
+where
+    F: Fn(&str, &Text, &'a mut T) -> Dimensions + 'a,
+    T: 'a,
+{
+    let text = core::str::from_utf8_unchecked(core::slice::from_raw_parts(
+        text_slice.chars as *const u8,
+        text_slice.length as _,
+    ));
+
+    let closure_and_data: &mut (F, T) = &mut *(user_data as *mut (F, T));
+    let text_config = Text::from(*config);
+    let (callback, data) = closure_and_data;
+    callback(text, &text_config, data).into()
+}
+
+#[cfg(feature = "std")]
+unsafe extern "C" fn measure_text_trampoline<'a, F>(
+    text_slice: Clay_StringSlice,
+    config: *mut Clay_TextElementConfig,
+    user_data: usize,
+) -> Clay_Dimensions
+where
+    F: Fn(&str, &Text) -> Dimensions + 'a,
+{
+    let text = core::str::from_utf8_unchecked(core::slice::from_raw_parts(
+        text_slice.chars as *const u8,
+        text_slice.length as _,
+    ));
+
+    let callback: &mut F = &mut *(user_data as *mut F);
+    let text_config = Text::from(*config);
+    callback(text, &text_config).into()
 }
 
 unsafe extern "C" fn error_handler(error_data: Clay_ErrorData) {
@@ -58,6 +78,7 @@ pub struct DataRef<'a> {
     _phantom: core::marker::PhantomData<&'a ()>,
 }
 
+#[allow(dead_code)]
 pub struct Clay<'a> {
     /// Memory used internally by clay
     #[cfg(feature = "std")]
@@ -69,6 +90,8 @@ pub struct Clay<'a> {
     _memory: *const core::ffi::c_void,
     /// Phantom data to keep the lifetime of the memory
     _phantom: core::marker::PhantomData<&'a ()>,
+    /// Stores the raw pointer to the callback data for later cleanup
+    text_measure_callback: Option<*const core::ffi::c_void>,
 }
 
 impl<'a> Clay<'a> {
@@ -96,6 +119,7 @@ impl<'a> Clay<'a> {
             _memory: memory,
             context,
             _phantom: core::marker::PhantomData,
+            text_measure_callback: None,
         }
     }
 
@@ -126,6 +150,7 @@ impl<'a> Clay<'a> {
             _memory: memory,
             context,
             _phantom: core::marker::PhantomData,
+            text_measure_callback: None,
         }
     }
 
@@ -134,12 +159,50 @@ impl<'a> Clay<'a> {
         unsafe { Clay_MinMemorySize() as usize }
     }
 
-    /// Sets the function used by clay to measure dimensions of strings of `Text` elements
-    pub fn measure_text_function(&self, func: MeasureTextFunction) {
+    /// Set the callback for text measurement with user data
+    #[cfg(feature = "std")]
+    pub fn set_measure_text_function_user_data<F, T>(&mut self, userdata: T, callback: F)
+    where
+        F: Fn(&str, &Text, &'a mut T) -> Dimensions + 'static,
+        T: 'a,
+    {
+        // Box the callback and userdata together
+        let boxed = Box::new((callback, userdata));
+
+        // Get a raw pointer to the boxed data
+        let user_data_ptr = Box::into_raw(boxed) as usize;
+
+        // Register the callback with the external C function
         unsafe {
-            MEASURE_TEXT_HANDLER = Some(func);
-            Clay_SetMeasureTextFunction(Some(measure_text_handle));
+            Clay_SetMeasureTextFunction(
+                Some(measure_text_trampoline_user_data::<F, T>),
+                user_data_ptr,
+            );
         }
+
+        // Store the raw pointer for later cleanup
+        self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
+    }
+
+    /// Set the callback for text measurement
+    #[cfg(feature = "std")]
+    pub fn set_measure_text_function<F>(&mut self, callback: F)
+    where
+        F: Fn(&str, &Text) -> Dimensions + 'static,
+    {
+        // Box the callback and userdata together
+        let boxed = Box::new(callback);
+
+        // Get a raw pointer to the boxed data
+        let user_data_ptr = Box::into_raw(boxed) as usize;
+
+        // Register the callback with the external C function
+        unsafe {
+            Clay_SetMeasureTextFunction(Some(measure_text_trampoline::<F>), user_data_ptr);
+        }
+
+        // Store the raw pointer for later cleanup
+        self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
     }
 
     /// Sets the maximum number of element that clay supports
@@ -226,16 +289,40 @@ impl<'a> Clay<'a> {
     /// ```
     /// // TODO: Add Example
     /// ```
-    pub fn with<F: FnOnce(&Clay), const N: usize>(&self, configs: [TypedConfig; N], f: F) {
+    pub fn with<F: FnOnce(&Clay), const N: usize>(
+        &self,
+        id: Option<&'a str>,
+        configs: [TypedConfig; N],
+        f: F,
+    ) {
+        // Mapping `id: Option<&str>` to `Option<(&str, u32)>` with index being zero
+        let id: Option<(&str, u32)> = id.map(|name| (name, 0));
+        self.with_id_index(id, configs, f)
+    }
+
+    /// Create an element, passing it's config and a function to add childrens
+    /// ```
+    /// // TODO: Add Example
+    /// ```
+    pub fn with_id_index<F: FnOnce(&Clay), const N: usize>(
+        &self,
+        id: Option<(&'a str, u32)>,
+        configs: [TypedConfig; N],
+        f: F,
+    ) {
         unsafe {
             Clay_SetCurrentContext(self.context);
             Clay__OpenElement()
         };
 
+        if let Some((id_name, index)) = id {
+            unsafe {
+                Clay__AttachId(Clay__HashString(id_name.into(), index, 0));
+            }
+        }
+
         for config in configs {
-            if config.config_type == ElementConfigType::Id as _ {
-                unsafe { Clay__AttachId(config.id) };
-            } else if config.config_type == ElementConfigType::Layout as _ {
+            if config.config_type == ElementConfigType::Layout as _ {
                 unsafe { Clay__AttachLayoutConfig(config.config_memory as _) };
             } else {
                 unsafe {
@@ -264,6 +351,17 @@ impl<'a> Clay<'a> {
     }
 }
 
+#[cfg(feature = "std")]
+impl Drop for Clay<'_> {
+    fn drop(&mut self) {
+        unsafe {
+            if let Some(ptr) = self.text_measure_callback {
+                let _ = Box::from_raw(ptr as *mut (usize, usize));
+            }
+        }
+    }
+}
+
 impl From<&str> for Clay_String {
     fn from(value: &str) -> Self {
         Self {
@@ -289,7 +387,6 @@ mod tests {
     use elements::{
         containers::border::BorderContainer, rectangle::Rectangle, text::Text, CornerRadius,
     };
-    use id::Id;
     use layout::{padding::Padding, sizing::Sizing, Layout};
 
     use super::*;
@@ -302,69 +399,71 @@ mod tests {
     */
 
     #[test]
+    #[rustfmt::skip]
     fn test_begin() {
-        let clay = Clay::new(Dimensions::new(800.0, 600.0));
+        let mut callback_data = 0u32;
 
-        clay.measure_text_function(|_, _| Dimensions::default());
+        let mut clay = Clay::new(Dimensions::new(800.0, 600.0));
+
+        clay.set_measure_text_function_user_data(&mut callback_data, |text, _config, data| {
+            println!(
+                "set_measure_text_function_user_data {:?} count {:?}",
+                text, data
+            );
+            **data += 1;
+            Dimensions::default()
+        });
 
         clay.begin();
 
-        clay.with(
-            [
-                Id::new("parent_rect"),
+        clay.with(Some("parent_rect"), [
+            Layout::new()
+                .width(Sizing::Fixed(100.0))
+                .height(Sizing::Fixed(100.0))
+                .padding(Padding::all(10))
+                .end(),
+            Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
+        {
+            clay.with(None, [
                 Layout::new()
                     .width(Sizing::Fixed(100.0))
                     .height(Sizing::Fixed(100.0))
                     .padding(Padding::all(10))
                     .end(),
-                Rectangle::new().color(Color::rgb(255., 255., 255.)).end(),
-                // FloatingContainer::new().end(Id::new("tegfddgftds"))
-            ],
-            |clay| {
-                clay.with(
-                    [
-                        Id::new("rect_under_rect"),
-                        Layout::new()
-                            .width(Sizing::Fixed(100.0))
-                            .height(Sizing::Fixed(100.0))
-                            .padding(Padding::all(10))
-                            .end(),
-                        Rectangle::new().color(Color::rgb(255., 255., 255.)).end(),
-                    ],
-                    |_clay| {},
-                );
-                clay.text(
-                    "test",
-                    Text::new()
-                        .color(Color::rgb(255., 255., 255.))
-                        .font_size(24)
+                Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
+            {
+                clay.with(Some("rect_under_rect"), [
+                    Layout::new()
+                        .width(Sizing::Fixed(100.0))
+                        .height(Sizing::Fixed(100.0))
+                        .padding(Padding::all(10))
                         .end(),
+                    Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
+                    {
+                        clay.text("test", Text::new()
+                            .color(Color::rgb(255., 255., 255.))
+                            .font_size(24)
+                            .end());
+                    },
                 );
-            },
-        );
-        clay.with(
-            [
-                Id::new_index("Border_container", 1),
-                Layout::new().padding(Padding::all(16)).end(),
-                BorderContainer::new()
-                    .all_directions(2, Color::rgb(255., 255., 0.))
-                    .corner_radius(CornerRadius::All(25.))
+            });
+        });
+
+        clay.with_id_index(Some(("Border_container", 1)), [
+            Layout::new().padding(Padding::all(16)).end(),
+            BorderContainer::new()
+                .all_directions(2, Color::rgb(255., 255., 0.))
+                .corner_radius(CornerRadius::All(25.))
+                .end()], |clay| 
+        {
+            clay.with(Some("rect_under_border"), [
+                Layout::new()
+                    .width(Sizing::Fixed(50.0))
+                    .height(Sizing::Fixed(50.0))
                     .end(),
-            ],
-            |clay| {
-                clay.with(
-                    [
-                        Id::new("rect_under_border"),
-                        Layout::new()
-                            .width(Sizing::Fixed(50.0))
-                            .height(Sizing::Fixed(50.0))
-                            .end(),
-                        Rectangle::new().color(Color::rgb(0., 255., 255.)).end(),
-                    ],
-                    |_clay| {},
-                );
-            },
-        );
+                Rectangle::new().color(Color::rgb(0., 255., 255.)).end()], |_clay| {},
+            );
+        });
 
         let items = clay.end();
 

@@ -10,6 +10,3 @@ rustflags = ["-C", "target-feature=+sse4.2,+ssse3"]
 
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+sse4.2,+ssse3"]
-
-[target.aarch64-apple-darwin]
-rustflags = ["-C", "target-feature=+neon,+neon_fp16,+neon_v8_2_a"]
