@@ -18,7 +18,7 @@ use errors::Error;
 use math::{BoundingBox, Dimensions, Vector2};
 use render_commands::RenderCommand;
 
-use crate::bindings::*;
+pub use crate::bindings::*;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -182,6 +182,13 @@ impl<'a> Clay<'a> {
 
         // Store the raw pointer for later cleanup
         self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
+    }
+
+    pub unsafe fn set_measure_text_function_unsafe(
+        callback: unsafe extern "C" fn(Clay_StringSlice, *mut Clay_TextElementConfig, usize) -> Clay_Dimensions,
+        user_data: usize) 
+    {
+        Clay_SetMeasureTextFunction(Some(callback), user_data);
     }
 
     /// Set the callback for text measurement

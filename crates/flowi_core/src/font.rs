@@ -338,7 +338,7 @@ impl TextGenerator {
         Ok(font_id)
     }
 
-    pub(crate) fn messure_text_size(
+    pub(crate) fn measure_text_size(
         &mut self,
         text: &str,
         font_id: FontHandle,
