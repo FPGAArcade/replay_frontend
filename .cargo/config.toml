@@ -1,6 +1,6 @@
 [target.aarch64-unknown-linux-gnu]
 linker = "aarch64-linux-gnu-gcc"
-rustflags = ["-C", "target-cpu=cortex-a76", "-C", "target-feature=+neon,+neon_fp16,+neon_v8_2_a,+crc,+fcma,+crypto"]
+rustflags = ["-C", "target-cpu=cortex-a76"]
 
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "target-feature=+sse4.2,+ssse3"]

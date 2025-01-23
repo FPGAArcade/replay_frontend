@@ -70,8 +70,8 @@ mod posix {
         let err_code = get_last_error_code();
         let mut buf = [0i8; 256];
         unsafe {
-            strerror_r(err_code, buf.as_mut_ptr(), buf.len());
-            let c_str = CStr::from_ptr(buf.as_ptr());
+            strerror_r(err_code, buf.as_mut_ptr() as _, buf.len());
+            let c_str = CStr::from_ptr(buf.as_ptr() as _);
             c_str.to_string_lossy().into_owned()
         }
     }

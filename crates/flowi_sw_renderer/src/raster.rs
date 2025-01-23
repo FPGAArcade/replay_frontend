@@ -619,19 +619,16 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
             //
             let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr);
 
-            let te_01 = text_8_pixels.shuffle([0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 2, 3, 2, 3, 2, 3]);
+            let te_01 = text_8_pixels.shuffle_16([0,0,0,0, 1,1,1,1]);
             let bg_01 = i16x8::load_unaligned_ptr(tile_line_ptr);
 
-            let te_23 = text_8_pixels.shuffle([4, 5, 4, 5, 4, 5, 4, 5, 6, 7, 6, 7, 6, 7, 6, 7]);
+            let te_23 = text_8_pixels.shuffle_16([2,2,2,2, 3,3,3,3]);
             let bg_23 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(8) });
 
-            let te_45 =
-                text_8_pixels.shuffle([8, 9, 8, 9, 8, 9, 8, 9, 10, 11, 10, 11, 10, 11, 10, 11]);
+            let te_45 = text_8_pixels.shuffle_16([4,4,4,4, 5,5,5,5]);
             let bg_45 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(16) });
 
-            let te_67 = text_8_pixels.shuffle([
-                12, 13, 12, 13, 12, 13, 12, 13, 14, 15, 14, 15, 14, 15, 14, 15,
-            ]);
+            let te_67 = text_8_pixels.shuffle_16([6,6,6,6, 7,7,7,7]);
             let bg_67 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(24) });
 
             let c0 = i16x8::lerp(bg_01, color, te_01);

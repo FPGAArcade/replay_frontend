@@ -850,6 +850,31 @@ impl i16x8 {
         }
     }
 
+    #[inline(always)]
+    pub fn shuffle_16(self, table: [u8; 8]) -> Self {
+        // Convert 8 bytes into 16 where each pair of bytes in the expanded table 
+        // represents one of the 8 original 16-bit values from the vector
+        let mut expanded_table = [0u8; 16];
+        for i in 0..8 {
+            let index = table[i] as usize & 0x7; // Ensure index wraps around to 0-7 for 8 elements
+            expanded_table[i * 2] = (index * 2) as u8; // Lower byte
+            expanded_table[i * 2 + 1] = (index * 2 + 1) as u8; // Upper byte
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            let mask = vld1q_u8(expanded_table.as_ptr());
+            let result = vqtbl1q_s8(vreinterpretq_s8_s16(self.v), mask);
+            Self { v: vreinterpretq_s16_s8(result) }
+        }
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            let mask = _mm_loadu_si128(expanded_table.as_ptr() as *const __m128i);
+            let result = _mm_shuffle_epi8(self.v, mask);
+            Self { v: result }
+        }
+    }
+
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
     pub fn pack_bytes(self) -> Self {

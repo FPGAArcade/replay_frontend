@@ -79,7 +79,6 @@ pub fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
     table
 }
 
-#[derive(Clone, Copy)]
 pub struct RenderPrimitive {
     pub aabb: f32x4,
     pub color: i16x8,
@@ -217,7 +216,7 @@ impl FlowiRenderer for Renderer {
             //self.raster.scissor_rect = tile_aabb;
 
             for primitive_index in tile.data.iter() {
-                let primitive = self.primitives[*primitive_index];
+                let primitive = &self.primitives[*primitive_index];
                 let color = primitive.color;
 
                 // TODO: Fix this
