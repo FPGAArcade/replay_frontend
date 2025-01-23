@@ -9,15 +9,16 @@ pub mod render;
 pub mod signal;
 pub mod widgets;
 
+use internal_error::InternalResult;
 use arena_allocator::Arena;
 use clay_layout::{color::Color, math::Dimensions, Clay, TypedConfig};
+use background_worker::WorkSystem;
 use fileorama::Fileorama;
 pub use io_handler::IoHandler;
-use primitives::Primitive;
 use signal::Signal;
 use std::cell::UnsafeCell;
 
-use font::FontHandle;
+use font::{FontHandle, CachedString};
 
 pub use clay_layout::{
     //color::Color,
@@ -45,6 +46,7 @@ struct State<'a> {
     pub(crate) layout: Clay<'a>,
     pub(crate) button_id: u32,
     pub(crate) renderer: Box<dyn Renderer>,
+    pub(crate) bg_worker: WorkSystem,
 }
 
 #[allow(dead_code)]
@@ -57,12 +59,13 @@ impl<'a> Ui<'a> {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
         crate::image_api::install_image_loader(&vfs);
+        let bg_worker = WorkSystem::new(2);
 
         let reserve_size = 1024 * 1024 * 1024;
         let state = State {
             vfs,
             io_handler,
-            text_generator: font::TextGenerator::new(),
+            text_generator: font::TextGenerator::new(&bg_worker),
             hot_item: 0,
             input: input::Input::new(),
             current_frame: 0,
@@ -70,6 +73,7 @@ impl<'a> Ui<'a> {
             layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
             button_id: 0,
             renderer,
+            bg_worker,
         };
 
         Box::new(Ui {
@@ -108,16 +112,14 @@ impl<'a> Ui<'a> {
         state.current_frame += 1;
     }
 
-    fn generate_primitives(&mut self) {}
-
-    pub fn load_font(&mut self, path: &str, size: i32) -> FontHandle {
+    pub fn load_font(&mut self, path: &str, size: i32) -> InternalResult<FontHandle> {
         let state = unsafe { &mut *self.state.get() };
-        state.text_generator.load_font_async(path, size)
+        state.text_generator.load_font(path, size, &state.bg_worker)
     }
 
-    pub fn generate_text(&mut self, text: &str) -> Option<font::CachedString> {
+    pub fn queue_generate_text(&mut self, text: &str, font_id: FontHandle) -> Option<font::CachedString> {
         let state = unsafe { &mut *self.state.get() };
-        state.text_generator.generate_text(text)
+        state.text_generator.queue_generate_text(text, font_id, &state.bg_worker)
     }
 
     #[rustfmt::skip]
@@ -164,6 +166,16 @@ impl<'a> Ui<'a> {
     pub fn renderer(&mut self) -> &Box<dyn Renderer> {
         let state = unsafe { &mut *self.state.get() };
         &state.renderer
+    }
+
+    pub fn update(&mut self) {
+        let state = unsafe { &mut *self.state.get() };
+        state.text_generator.update();
+    }
+
+    pub fn get_text(&self, text: &str, handle: FontHandle) -> Option<&CachedString> {
+        let state = unsafe { &mut *self.state.get() };
+        state.text_generator.get_text(text, handle)
     }
 
     /*
