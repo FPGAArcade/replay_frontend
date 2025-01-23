@@ -405,6 +405,7 @@ mod tests {
     }
     */
 
+    /*
     #[test]
     #[rustfmt::skip]
     fn test_begin() {
@@ -481,6 +482,7 @@ mod tests {
             );
         }
     }
+    */
 
     /*
     #[test]

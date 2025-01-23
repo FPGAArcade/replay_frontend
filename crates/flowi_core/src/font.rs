@@ -461,7 +461,7 @@ mod tests {
         let font_id = state.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 56, &worker).unwrap();
 
         let text = "Hello, World!";
-        let size = state.messure_text_size(text, font_id).unwrap();
+        let size = state.measure_text_size(text, font_id).unwrap();
         let size = (size.0.floor(), size.1.floor());
         assert_eq!(size, (313.0, 84.0));
     }
