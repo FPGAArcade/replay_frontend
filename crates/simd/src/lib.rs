@@ -839,7 +839,7 @@ impl i16x8 {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             let mask = vld1q_u8(table.as_ptr());
-            let result = vqtbl1q_s16(self.v, mask);
+            let result = vqtbl1q_s8(self.v, mask);
             Self { v: result }
         }
         #[cfg(target_arch = "x86_64")]
