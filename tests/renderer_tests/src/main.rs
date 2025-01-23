@@ -95,7 +95,7 @@ fn main() {
     let mut core = flowi_core::Ui::new(Box::new(Renderer::new(&application_settings, None)));
     let font = core.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap();
 
-    let text_to_render = "Hello, World!";
+    let text_to_render = "Hello,\nWorld!";
 
     core.queue_generate_text(text_to_render, font);
 
@@ -141,7 +141,7 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in tile_output.iter_mut() {
-            *i = 0x7fff;
+            *i = 0x4000;
         }
 
         if let Some(text) = core.get_text(text_to_render, font) {
@@ -152,9 +152,9 @@ fn main() {
                 text.width as _,
                 &raster,
                 shape,
-                &[10.0, 10.0, 228.0, 80.0],
+                &[0.0, 0.0, RENDER_WIDTH.min(text.width as _) as _, HEIGHT.min(text.height as _) as _],
                 i16x8::new(
-                    0, 0x7fff, 0, 0x7fff, 0, 0x7fff, 0, 0x7fff,
+                    0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
                 ),
                 i16x8::new(
                     0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
@@ -166,7 +166,7 @@ fn main() {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
-        let zoom = 1;
+        let zoom = 4;
 
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);
