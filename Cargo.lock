@@ -533,6 +533,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "flowi-renderer"
+version = "0.1.0"
+dependencies = [
+ "raw-window-handle",
+]
+
+[[package]]
 name = "flowi_core"
 version = "0.1.0"
 dependencies = [
