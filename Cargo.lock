@@ -549,6 +549,7 @@ dependencies = [
  "clay-layout",
  "cosmic-text",
  "fileorama",
+ "flowi-renderer",
  "glam",
  "log",
  "notify",
@@ -566,7 +567,7 @@ dependencies = [
 name = "flowi_sw_renderer"
 version = "0.1.0"
 dependencies = [
- "flowi_core",
+ "flowi-renderer",
  "raw-window-handle",
  "simd",
 ]

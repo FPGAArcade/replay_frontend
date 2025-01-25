@@ -12,8 +12,11 @@ pub mod widgets;
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
-    color::Color, elements::text::TextElementConfig, math::Dimensions, Clay, Clay_Dimensions,
+    math::Dimensions, Clay, Clay_Dimensions,
     Clay_StringSlice, Clay_TextElementConfig, TypedConfig,
+    render_commands::RenderCommand as ClayRenderCommand,
+    color::Color as ClayColor,
+    render_commands::RenderCommandConfig,
 };
 use fileorama::Fileorama;
 use internal_error::InternalResult;
@@ -24,16 +27,14 @@ use std::cell::UnsafeCell;
 use font::{CachedString, FontHandle};
 
 pub use clay_layout::{
-    //color::Color,
     elements::{rectangle::Rectangle, text::Text, CornerRadius},
     fixed,
     grow,
     id::Id,
     layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
-    render_commands::{RenderCommand, RenderCommandConfig, RenderCommandType},
 };
 
-pub use render::FlowiRenderer as Renderer;
+use flowi_renderer::{Renderer, RenderCommand, Color};
 
 type FlowiKey = u64;
 
@@ -146,11 +147,71 @@ impl<'a> Ui<'a> {
         });
     }
 
+    fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
+        let bounding_box = render_command.bounding_box;
+        [
+            bounding_box.x,
+            bounding_box.y,
+            bounding_box.x + bounding_box.width,
+            bounding_box.y + bounding_box.height,
+        ]
+    }
+
+    fn color(color: ClayColor) -> flowi_renderer::Color {
+        flowi_renderer::Color { r: color.r, g: color.g, b: color.b, a: color.a }
+    }
+
+    fn translate_clay_render_commands(commands: impl Iterator<Item = ClayRenderCommand<'a>>) -> Vec<RenderCommand<'a>> { 
+        // TODO: Arena
+        let mut primitives = Vec::with_capacity(1024);
+        for command in commands {
+            match command.config {
+                RenderCommandConfig::Rectangle(config) => {
+                    let rect = RenderCommand::DrawRect {
+                        bounding_box: Self::bounding_box(&command), 
+                        color: Self::color(config.color), 
+                    };
+
+                    primitives.push(rect)
+                }
+                RenderCommandConfig::Text(text, config) => {
+                    let text = RenderCommand::DrawText {
+                        bounding_box: Self::bounding_box(&command),
+                        text,
+                        font_size: config.font_size,
+                        font_handle: config.font_id as _,
+                        color: Self::color(config.color),
+                    };
+
+                    primitives.push(text)
+                }
+                /*
+                RenderCommandConfig::Image(image) => {
+                    let image = RenderCommand::DrawImage {
+                        bounding_box: Self::bounding_box(&command),
+                        rounded_corners: [0.0, 0.0, 0.0, 0.0],
+                        color: Self::color(image.color),
+                        width: image.width,
+                        height: image.height,
+                        handle: image.handle as _,
+                        rounding: false,
+                    };
+
+                    primitives.push(image)
+                }
+                */
+                _ => { },
+            }
+        }
+
+        Vec::new()
+    }
+
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
 
         // TODO: Fix me
-        let primitives = state.layout.end().collect::<Vec<_>>();
+        let primitives = Self::translate_clay_render_commands(state.layout.end());
         state.renderer.render(&primitives);
 
         // Generate primitives from all boxes
@@ -184,7 +245,7 @@ impl<'a> Ui<'a> {
                 .height(fixed!(40.0))
                 .padding(Padding::all(8)).end(),
              Rectangle::new()
-                .color(Color::rgba(244.0, 200.0, 200.0, 255.0))
+                .color(ClayColor::rgba(244.0, 200.0, 200.0, 255.0))
                 .corner_radius(CornerRadius::All(8.0))
                 .end()], |_ui|
             {
@@ -194,7 +255,7 @@ impl<'a> Ui<'a> {
                 state.layout.text(text, Text::new()
                     .font_id(font_id as u16)
                     .font_size(16)
-                    .color(Color::rgba(255.0, 255.0, 255.0, 255.0))
+                    .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
                     .line_height(16)
                     .end());
             },
