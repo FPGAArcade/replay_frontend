@@ -34,7 +34,7 @@ pub use clay_layout::{
     layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
 };
 
-use flowi_renderer::{Renderer, RenderCommand, Color};
+use flowi_renderer::{Renderer, RenderCommand, Color, DrawRectData, DrawTextData, DrawImage, DrawBorderData, RenderType, StringSlice};
 
 type FlowiKey = u64;
 
@@ -161,50 +161,76 @@ impl<'a> Ui<'a> {
         flowi_renderer::Color { r: color.r, g: color.g, b: color.b, a: color.a }
     }
 
-    fn translate_clay_render_commands(commands: impl Iterator<Item = ClayRenderCommand<'a>>) -> Vec<RenderCommand<'a>> { 
+    fn translate_clay_render_commands(commands: impl Iterator<Item = ClayRenderCommand<'a>>) -> Vec<RenderCommand> { 
         // TODO: Arena
         let mut primitives = Vec::with_capacity(1024);
         for command in commands {
-            match command.config {
-                RenderCommandConfig::Rectangle(config) => {
-                    let rect = RenderCommand::DrawRect {
-                        bounding_box: Self::bounding_box(&command), 
-                        color: Self::color(config.color), 
-                    };
+            let cmd = RenderCommand {
+                bounding_box: Self::bounding_box(&command),
+                render_type: match command.config {
+                    RenderCommandConfig::Rectangle(config) => {
+                        RenderType::DrawRect(DrawRectData {
+                            color: Self::color(config.color),
+                        })
+                    }
 
-                    primitives.push(rect)
-                }
-                RenderCommandConfig::Text(text, config) => {
-                    let text = RenderCommand::DrawText {
-                        bounding_box: Self::bounding_box(&command),
-                        text,
-                        font_size: config.font_size,
-                        font_handle: config.font_id as _,
-                        color: Self::color(config.color),
-                    };
+                    RenderCommandConfig::Text(text, config) => {
+                        RenderType::DrawText(DrawTextData {
+                            text: StringSlice::from_str(text),
+                            font_size: config.font_size,
+                            font_handle: config.font_id as _,
+                            color: Self::color(config.color),
+                        })
+                    }
 
-                    primitives.push(text)
-                }
-                /*
-                RenderCommandConfig::Image(image) => {
-                    let image = RenderCommand::DrawImage {
-                        bounding_box: Self::bounding_box(&command),
-                        rounded_corners: [0.0, 0.0, 0.0, 0.0],
-                        color: Self::color(image.color),
-                        width: image.width,
-                        height: image.height,
-                        handle: image.handle as _,
-                        rounding: false,
-                    };
+                    RenderCommandConfig::Image(image) => {
+                        RenderType::DrawImage(DrawImage {
+                            rounded_corners: [0.0, 0.0, 0.0, 0.0],
+                            color: Color::new(255.0, 255.0, 255.0, 255.0),
+                            width: image.source_dimensions.width as _,
+                            height: image.source_dimensions.height as _,
+                            handle: image.data as _,
+                            rounding: false,
+                        })
+                    }
 
-                    primitives.push(image)
+                    RenderCommandConfig::Border(border) => {
+                        let outer_radius = match border.corner_radius {
+                            CornerRadius::All(radius) => [radius, radius, radius, radius],
+                            CornerRadius::Individual { top_left, top_right, bottom_left, bottom_right } => [top_left, top_right, bottom_left, bottom_right],
+                        };
+
+                        let inner_radius = [
+                            outer_radius[0] - border.left.width as f32, 
+                            outer_radius[1] - border.right.width as f32, 
+                            outer_radius[2] - border.top.width as f32, 
+                            outer_radius[3] - border.bottom.width as f32
+                        ];
+
+                        RenderType::DrawBorder(DrawBorderData {
+                            outer_radius,
+                            inner_radius,
+                            color: Self::color(border.left.color),
+                        })
+                    }
+
+                    RenderCommandConfig::ScissorStart() => { 
+                        RenderType::ScissorStart
+                    }
+
+                    RenderCommandConfig::ScissorEnd() => { 
+                        RenderType::ScissorEnd
+                    }
+
+                    RenderCommandConfig::Custom(_) => RenderType::Custom, 
+                    _ => RenderType::None,
                 }
-                */
-                _ => { },
-            }
+            };
+
+            primitives.push(cmd);
         }
 
-        Vec::new()
+        primitives
     }
 
     pub fn end(&mut self) {

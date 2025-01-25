@@ -3,6 +3,7 @@ use raw_window_handle::RawWindowHandle;
 pub type ImageHandle = u64;
 pub type FontHandle = u64;
 
+#[derive(Debug)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
@@ -10,49 +11,85 @@ pub struct Color {
     pub a: f32,
 }
 
-/// Enum representing different rendering commands.
-/// The bounding box is represented as [x0, y0, x1, x1].
-pub enum RenderCommand<'a> {
-    /// Command to draw a rectangle.
-    DrawRect {
-        bounding_box: [f32; 4],
-        color: Color,
-    },
+impl Color {
+    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { r, g, b, a }
+    }
+}
 
-    /// Command to draw a rounded rectangle.
-    DrawRectRounded {
-        bounding_box: [f32; 4],
-        corners: [f32; 4],
-        color: Color,
-    },
+#[derive(Debug)]
+pub struct StringSlice {
+    pub ptr: *const u8,
+    pub len: u32,
+}
 
-    /// Command to draw a border.
-    DrawBorder {
-        bounding_box: [f32; 4],
-        outer_radius: [f32; 4],
-        inner_radius: [f32; 4],
-        color: Color,
-    },
+impl StringSlice {
+    pub fn from_str(s: &str) -> Self {
+        Self {
+            ptr: s.as_ptr(),
+            len: s.len() as u32,
+        }
+    }
 
-    /// Command to draw text.
-    DrawText {
-        bounding_box: [f32; 4],
-        text: &'a str,
-        font_size: u16,
-        font_handle: FontHandle,
-        color: Color,
-    },
+    pub fn as_str(&self) -> &str {
+        unsafe { core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.ptr, self.len as usize)) }
+    }
+}
 
-    /// Command to draw an image.
-    DrawImage {
-        bounding_box: [f32; 4],
-        rounded_corners: [f32; 4],
-        color: Color,
-        width: u32,
-        height: u32,
-        handle: ImageHandle,
-        rounding: bool,
-    },
+#[derive(Debug)]
+pub struct DrawRectData {
+    pub color: Color,
+}
+
+#[derive(Debug)]
+pub struct DrawRectRoundedData {
+    pub color: Color,
+    pub corners: [f32; 4],
+}
+
+#[derive(Debug)]
+pub struct DrawBorderData {
+    pub color: Color,
+    pub outer_radius: [f32; 4],
+    pub inner_radius: [f32; 4],
+}
+
+#[derive(Debug)]
+pub struct DrawImage {
+    pub color: Color,
+    pub width: u32,
+    pub height: u32,
+    pub handle: ImageHandle,
+    pub rounded_corners: [f32; 4],
+    pub rounding: bool,
+}
+
+#[derive(Debug)]
+pub struct DrawTextData {
+    pub text: StringSlice,
+    pub font_size: u16,
+    pub font_handle: FontHandle,
+    pub color: Color,
+}
+
+#[derive(Debug)]
+pub enum RenderType {
+    DrawRect(DrawRectData),
+    DrawRectRounded(DrawRectRoundedData),
+    DrawBorder(DrawBorderData),
+    DrawText(DrawTextData),
+    DrawImage(DrawImage),
+    ScissorStart,
+    ScissorEnd,
+    Custom,
+    None,
+}
+
+#[derive(Debug)]
+pub struct RenderCommand {
+    /// The bounding box is represented as [x0, y0, x1, x1].
+    pub bounding_box: [f32; 4],
+    pub render_type: RenderType,
 }
 
 /// Supported images formats.
@@ -63,8 +100,9 @@ pub enum ImageFormat {
     I16,
 }
 
-pub struct Image<'a> {
-    pub data: &'a [u8],
+pub struct Image {
+    // This is static because lifetime is held by other systems.
+    pub data: core::ffi::c_void,
     pub width: u32,
     pub height: u32,
     pub format: ImageFormat,

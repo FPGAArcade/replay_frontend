@@ -4,7 +4,7 @@ pub mod raster;
 pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
-use flowi_renderer::{SoftwareRenderData, RenderCommand};
+use flowi_renderer::{SoftwareRenderData, RenderCommand, RenderType};
 
 pub struct TileInfo {
     pub offsets: f32x4,
@@ -25,8 +25,6 @@ pub struct Renderer {
     raster: Raster,
     linear_to_srgb_table: [u8; 1 << SRGB_BIT_COUNT],
     srgb_to_linear_table: [u16; 1 << 8],
-    // TODO: Arena
-    primitives: Vec<RenderPrimitive>,
     // TODO: Arena
     tiles: Vec<Tile>,
     tile_buffers: [Vec<i16>; 2],
@@ -76,17 +74,159 @@ pub fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
     table
 }
 
-pub struct RenderPrimitive {
-    pub aabb: f32x4,
-    pub color: i16x8,
-    pub corner_radius: f32x4,
-}
-
 pub struct Tile {
     aabb: f32x4,
     data: Vec<usize>,
     tile_index: usize,
 }
+    
+pub fn get_color_from_floats_0_255(r: f32, g: f32, b: f32, a: f32, srgb_to_linear_table: &[u16; 1 << 8]) -> i16x8 {
+    let r = srgb_to_linear_table[(r as u8) as usize] as i16;
+    let g = srgb_to_linear_table[(g as u8) as usize] as i16;
+    let b = srgb_to_linear_table[(b as u8) as usize] as i16;
+    let a = (a as i16) << 7;
+
+    i16x8::new(r, g, b, a, r, g, b, a)
+}
+
+
+// Reference implementation. This will run in hw on the device.
+#[inline(never)]
+pub fn copy_tile_linear_to_srgb(
+    linear_to_srgb_table: &[u8; 4096],
+    output: &mut [u8],
+    tile: &[i16],
+    tile_info: &Tile,
+    width: usize,
+) {
+    let x0 = tile_info.aabb.extract::<0>() as usize;
+    let y0 = tile_info.aabb.extract::<1>() as usize;
+    let x1 = tile_info.aabb.extract::<2>() as usize;
+    let y1 = tile_info.aabb.extract::<3>() as usize;
+
+    let tile_width = x1 - x0;
+    let tile_height = y1 - y0;
+
+    let mut tile_ptr = tile.as_ptr();
+    let mut output_index = ((y0 * width) + x0) * 3;
+
+    for _y in 0..tile_height {
+        let mut current_index = output_index;
+        for _x in 0..(tile_width >> 1) {
+            let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr);
+            let rgba_rgba = rgba_rgba.shift_right::<LINEAR_TO_SRGB_SHIFT>();
+
+            let r0 = rgba_rgba.extract::<0>() as u16;
+            let g0 = rgba_rgba.extract::<1>() as u16;
+            let b0 = rgba_rgba.extract::<2>() as u16;
+
+            let r1 = rgba_rgba.extract::<4>() as u16;
+            let g1 = rgba_rgba.extract::<5>() as u16;
+            let b1 = rgba_rgba.extract::<6>() as u16;
+
+            unsafe {
+                let r0 = *linear_to_srgb_table.get_unchecked(r0 as usize);
+                let g0 = *linear_to_srgb_table.get_unchecked(g0 as usize);
+                let b0 = *linear_to_srgb_table.get_unchecked(b0 as usize);
+
+                let r1 = *linear_to_srgb_table.get_unchecked(r1 as usize);
+                let g1 = *linear_to_srgb_table.get_unchecked(g1 as usize);
+                let b1 = *linear_to_srgb_table.get_unchecked(b1 as usize);
+
+                tile_ptr = tile_ptr.add(8);
+
+                *output.get_unchecked_mut(current_index + 0) = r0;
+                *output.get_unchecked_mut(current_index + 1) = g0;
+                *output.get_unchecked_mut(current_index + 2) = b0;
+                *output.get_unchecked_mut(current_index + 3) = r1;
+                *output.get_unchecked_mut(current_index + 4) = g1;
+                *output.get_unchecked_mut(current_index + 5) = b1;
+            }
+
+            current_index += 6;
+        }
+
+        output_index += width * 3;
+    }
+}
+
+fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
+    let mut tile_info = TileInfo {
+        offsets: f32x4::new_splat(0.0),
+        width: 192,
+        _height: 90,
+    };
+
+    renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, 192.0, 90.0);
+
+    for tile in renderer.tiles.iter_mut() {
+        let tile_aabb = tile.aabb;
+        tile_info.offsets = tile_aabb.shuffle_0101();
+
+        let tile_buffer = &mut renderer.tile_buffers[tile.tile_index];
+
+        // TODO: We should here support clearing the buffer with another color, bg image or have a
+        // check during the binning if we need to clear at all.
+        for t in tile_buffer.iter_mut() {
+            *t = 0;
+        }
+
+        for index in tile.data.iter() {
+            let render_cmd = &commands[*index];
+
+            match &render_cmd.render_type {
+                RenderType::DrawRect(rect) => {
+                    let color = get_color_from_floats_0_255(
+                        rect.color.r,
+                        rect.color.g,
+                        rect.color.b,
+                        rect.color.a,
+                        &renderer.srgb_to_linear_table,
+                    );
+
+                renderer.raster.render_solid_quad(
+                    tile_buffer,
+                    &tile_info,
+                    &render_cmd.bounding_box,
+                    color,
+                    raster::BlendMode::None);
+                }
+
+                _ => {}
+            }
+
+            /*
+            self.raster.render_solid_quad(
+                tile_buffer,
+                &tile_info,
+                &coords,
+                color,
+                raster::BlendMode::None);
+
+            self.raster.render_solid_quad_rounded(
+                tile_buffer,
+                &tile_info,
+                &render_command.coords,
+                color,
+                16.0,
+                raster::BlendMode::None,
+            );
+            */
+        }
+
+        // Rasterize the primitives for this tile
+        copy_tile_linear_to_srgb(
+            &renderer.linear_to_srgb_table,
+            &mut renderer.output,
+            &tile_buffer,
+            tile,
+            renderer.screen_width,
+        );
+    }
+}
+
+
+
 
 impl flowi_renderer::Renderer for Renderer {
     fn new(_window: Option<&RawWindowHandle>) -> Self {
@@ -124,7 +264,6 @@ impl flowi_renderer::Renderer for Renderer {
             linear_to_srgb_table: build_linear_to_srgb_table(),
             srgb_to_linear_table: build_srgb_to_linear_table(),
             raster: Raster::new(),
-            primitives: Vec::with_capacity(8192),
             tile_buffers: [t0, t1],
             tiles,
             screen_width: screen_size.0,
@@ -141,127 +280,13 @@ impl flowi_renderer::Renderer for Renderer {
     }
 
     fn render(&mut self, commands: &[RenderCommand]) {
-        self.primitives.clear();
-
-        /*
-        for command in commands {
-            let aabb = f32x4::new(
-                command.bounding_box.x,
-                command.bounding_box.y,
-                command.bounding_box.x + command.bounding_box.width,
-                command.bounding_box.y + command.bounding_box.height,
-            );
-
-            match &command.config {
-                RenderCommandConfig::Rectangle(rectangle) => {
-                    let color = self.get_color_from_floats_0_255(
-                        rectangle.color.r,
-                        rectangle.color.g,
-                        rectangle.color.b,
-                        rectangle.color.a,
-                    );
-
-                    let corner_radius = match rectangle.corner_radius {
-                        CornerRadius::All(radius) => f32x4::new(radius, radius, radius, radius),
-
-                        CornerRadius::Individual {
-                            top_left,
-                            top_right,
-                            bottom_left,
-                            bottom_right,
-                        } => f32x4::new(top_left, top_right, bottom_left, bottom_right),
-                    };
-
-                    let primitive = RenderPrimitive {
-                        aabb,
-                        color,
-                        corner_radius,
-                    };
-
-                    self.add_primitive(primitive);
-                }
-
-                _ => {}
-            }
-        }
-        */
-
-        Self::bin_primitives(&mut self.tiles, &self.primitives);
-
-        let mut tile_info = TileInfo {
-            offsets: f32x4::new_splat(0.0),
-            width: 192,
-            _height: 90,
-        };
-
-        self.raster.scissor_rect = f32x4::new(0.0, 0.0, 192.0, 90.0);
-
-        for tile in self.tiles.iter_mut() {
-            let mut coords = [0f32; 4];
-
-            let tile_buffer = &mut self.tile_buffers[tile.tile_index];
-
-            for t in tile_buffer.iter_mut() {
-                *t = 0;
-            }
-
-            // TODO: Correct clearing of of the buffer
-            //tile_buffer.clear();
-
-            let tile_aabb = tile.aabb;
-            let tile_buffer = &mut self.tile_buffers[tile.tile_index];
-            tile_info.offsets = tile_aabb.shuffle_0101();
-
-            //self.raster.scissor_rect = tile_aabb;
-
-            for primitive_index in tile.data.iter() {
-                let primitive = &self.primitives[*primitive_index];
-                let color = primitive.color;
-
-                // TODO: Fix this
-                let coords_vec = primitive.aabb;
-
-                // TODO: Fix this
-                coords_vec.store_unaligned(&mut coords);
-
-                /*
-                self.raster.render_solid_quad(
-                    tile_buffer,
-                    &tile_info,
-                    &coords,
-                    color,
-                    raster::BlendMode::None);
-                */
-
-                self.raster.render_solid_quad_rounded(
-                    tile_buffer,
-                    &tile_info,
-                    &coords,
-                    color,
-                    16.0,
-                    raster::BlendMode::None,
-                );
-            }
-
-            // Rasterize the primitives for this tile
-            Self::copy_tile_linear_to_srgb(
-                &self.linear_to_srgb_table,
-                &mut self.output,
-                &tile_buffer,
-                tile,
-                self.screen_width,
-            );
-        }
+        Self::bin_primitives(&mut self.tiles, commands);
+        render_tiles(self, commands);
     }
 }
 
 impl Renderer {
     pub fn begin_frame(&mut self) {
-        self.primitives.clear();
-    }
-
-    pub fn add_primitive(&mut self, primitive: RenderPrimitive) {
-        self.primitives.push(primitive);
     }
 
     /*
@@ -337,7 +362,7 @@ impl Renderer {
     }
     */
 
-    pub fn get_color_from_floats_0_255(&self, r: f32, g: f32, b: f32, a: f32) -> i16x8 {
+    pub fn get_color_from_floats_0_255(&mut self, r: f32, g: f32, b: f32, a: f32) -> i16x8 {
         let r = self.get_color_from_float_0_255(r);
         let g = self.get_color_from_float_0_255(g);
         let b = self.get_color_from_float_0_255(b);
@@ -355,13 +380,14 @@ impl Renderer {
     ///
     /// # Parameters
     /// - `tiles`: A mutable slice of `Tile` objects to bin the primitives into.
-    /// - `primitives`: A slice of `RenderPrimitive` objects to be binned.
-    fn bin_primitives(tiles: &mut [Tile], primitives: &[RenderPrimitive]) {
+    /// - `commands`: RenderCommands to be binned 
+    fn bin_primitives(tiles: &mut [Tile], commands: &[RenderCommand]) {
         for tile in tiles.iter_mut() {
             let tile_aabb = tile.aabb;
             tile.data.clear();
-            for (i, primitive) in primitives.iter().enumerate() {
-                if f32x4::test_intersect(tile_aabb, primitive.aabb) {
+            for (i, command) in commands.iter().enumerate() {
+                let prim_aabb = f32x4::load_unaligned(&command.bounding_box); 
+                if f32x4::test_intersect(tile_aabb, prim_aabb) {
                     tile.data.push(i);
                 }
             }
@@ -387,63 +413,4 @@ impl Renderer {
     }
     */
 
-    // Reference implementation. This will run in hw on the device.
-    #[inline(never)]
-    pub fn copy_tile_linear_to_srgb(
-        linear_to_srgb_table: &[u8; 4096],
-        output: &mut [u8],
-        tile: &[i16],
-        tile_info: &Tile,
-        width: usize,
-    ) {
-        let x0 = tile_info.aabb.extract::<0>() as usize;
-        let y0 = tile_info.aabb.extract::<1>() as usize;
-        let x1 = tile_info.aabb.extract::<2>() as usize;
-        let y1 = tile_info.aabb.extract::<3>() as usize;
-
-        let tile_width = x1 - x0;
-        let tile_height = y1 - y0;
-
-        let mut tile_ptr = tile.as_ptr();
-        let mut output_index = ((y0 * width) + x0) * 3;
-
-        for _y in 0..tile_height {
-            let mut current_index = output_index;
-            for _x in 0..(tile_width >> 1) {
-                let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr);
-                let rgba_rgba = rgba_rgba.shift_right::<LINEAR_TO_SRGB_SHIFT>();
-
-                let r0 = rgba_rgba.extract::<0>() as u16;
-                let g0 = rgba_rgba.extract::<1>() as u16;
-                let b0 = rgba_rgba.extract::<2>() as u16;
-
-                let r1 = rgba_rgba.extract::<4>() as u16;
-                let g1 = rgba_rgba.extract::<5>() as u16;
-                let b1 = rgba_rgba.extract::<6>() as u16;
-
-                unsafe {
-                    let r0 = *linear_to_srgb_table.get_unchecked(r0 as usize);
-                    let g0 = *linear_to_srgb_table.get_unchecked(g0 as usize);
-                    let b0 = *linear_to_srgb_table.get_unchecked(b0 as usize);
-
-                    let r1 = *linear_to_srgb_table.get_unchecked(r1 as usize);
-                    let g1 = *linear_to_srgb_table.get_unchecked(g1 as usize);
-                    let b1 = *linear_to_srgb_table.get_unchecked(b1 as usize);
-
-                    tile_ptr = tile_ptr.add(8);
-
-                    *output.get_unchecked_mut(current_index + 0) = r0;
-                    *output.get_unchecked_mut(current_index + 1) = g0;
-                    *output.get_unchecked_mut(current_index + 2) = b0;
-                    *output.get_unchecked_mut(current_index + 3) = r1;
-                    *output.get_unchecked_mut(current_index + 4) = g1;
-                    *output.get_unchecked_mut(current_index + 5) = b1;
-                }
-
-                current_index += 6;
-            }
-
-            output_index += width * 3;
-        }
-    }
 }
