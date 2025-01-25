@@ -1,5 +1,7 @@
-use flowi_core::render::{DummyRenderer, FlowiRenderer};
-use flowi_sw_renderer::{BlendMode, Corner, Raster, Renderer, TileInfo};
+use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
+use flowi_sw_renderer::Renderer as SofwareRenderer;
+
+use flowi_renderer::Renderer;
 
 use minifb::{Key, Window, WindowOptions};
 use simd::*;
@@ -92,10 +94,8 @@ fn main() {
         height: HEIGHT,
     };
 
-    let mut core = flowi_core::Ui::new(Box::new(Renderer::new(&application_settings, None)));
-    let font = core
-        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48)
-        .unwrap();
+    let mut core = flowi_core::Ui::new(Box::new(SofwareRenderer::new(None)));
+    let font = core.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap();
 
     let text_to_render = "Hello";
 
@@ -153,12 +153,7 @@ fn main() {
                 text.width as _,
                 &raster,
                 shape,
-                &[
-                    0.0,
-                    0.0,
-                    RENDER_WIDTH.min(text.width as _) as _,
-                    HEIGHT.min(text.height as _) as _,
-                ],
+                &[0.0, 0.0, RENDER_WIDTH.min(text.width as _) as _, HEIGHT.min(text.height as _) as _],
                 i16x8::new(
                     0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
                 ),

@@ -1,6 +1,7 @@
 use crate::application::Window;
 use flowi_core::input::{Input, Key};
-use flowi_core::{render::SoftwareRenderData, ApplicationSettings};
+use flowi_renderer::SoftwareRenderData;
+use flowi_core::ApplicationSettings;
 
 use sdl2::{
     //controller::{Axis, Button, GameController},

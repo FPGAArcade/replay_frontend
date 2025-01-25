@@ -556,7 +556,7 @@ impl i16x8 {
 
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
-    fn splat<const LANE: i32>(self) -> Self {
+    pub fn splat<const LANE: i32>(self) -> Self {
         Self {
             v: unsafe { vdupq_laneq_s16(self.v, LANE) },
         }
