@@ -1,5 +1,5 @@
 use crate::internal_error::{InternalError, InternalResult};
-use background_worker::{AnySend, BoxAnySend, CallbackError, Receiver, WorkSystem, WorkerResult};
+use background_worker::{AnySend, BoxAnySend, Receiver, WorkSystem, WorkerResult};
 use cosmic_text::{Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache};
 use std::borrow::Cow;
 use std::collections::HashMap;
