@@ -3,7 +3,7 @@ use raw_window_handle::RawWindowHandle;
 pub type ImageHandle = u64;
 pub type FontHandle = u64;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
@@ -24,7 +24,7 @@ pub struct StringSlice {
 }
 
 impl StringSlice {
-    pub fn from_str(s: &str) -> Self {
+    pub fn new(s: &str) -> Self {
         Self {
             ptr: s.as_ptr(),
             len: s.len() as u32,
@@ -32,31 +32,25 @@ impl StringSlice {
     }
 
     pub fn as_str(&self) -> &str {
-        unsafe { core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.ptr, self.len as usize)) }
+        unsafe {
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.ptr, self.len as usize))
+        }
     }
 }
 
 #[derive(Debug)]
-pub struct DrawRectData {
-    pub color: Color,
-}
-
-#[derive(Debug)]
 pub struct DrawRectRoundedData {
-    pub color: Color,
     pub corners: [f32; 4],
 }
 
 #[derive(Debug)]
 pub struct DrawBorderData {
-    pub color: Color,
     pub outer_radius: [f32; 4],
     pub inner_radius: [f32; 4],
 }
 
 #[derive(Debug)]
 pub struct DrawImage {
-    pub color: Color,
     pub width: u32,
     pub height: u32,
     pub handle: ImageHandle,
@@ -69,12 +63,11 @@ pub struct DrawTextData {
     pub text: StringSlice,
     pub font_size: u16,
     pub font_handle: FontHandle,
-    pub color: Color,
 }
 
 #[derive(Debug)]
 pub enum RenderType {
-    DrawRect(DrawRectData),
+    DrawRect,
     DrawRectRounded(DrawRectRoundedData),
     DrawBorder(DrawBorderData),
     DrawText(DrawTextData),
@@ -89,6 +82,10 @@ pub enum RenderType {
 pub struct RenderCommand {
     /// The bounding box is represented as [x0, y0, x1, x1].
     pub bounding_box: [f32; 4],
+    /// Color of the render command. This may not apply to all commands, but is common enough
+    /// so it's placed outside of each specific type
+    pub color: Color,
+    /// The type of render command.
     pub render_type: RenderType,
 }
 
@@ -132,20 +129,27 @@ pub trait Renderer {
     ///
     /// This is a generated text matching the text, font and size as input. It's expected that the
     /// backend will save away this data as it sees fit and use it later when rendering text.
-    /// 
+    ///
     /// # Parameters
     /// - `_text`: The text to be set.
     /// - `_font_size`: The size of the font.
     /// - `_font_id`: The handle to the font.
     /// - `_text_buffer`: The buffer containing the text data.
-    fn set_text_buffer(&mut self, _text: &str, _font_size: i16, _handle: FontHandle, _image: &Image) {}
+    fn set_text_buffer(
+        &mut self,
+        _text: &str,
+        _font_size: i16,
+        _handle: FontHandle,
+        _image: &Image,
+    ) {
+    }
 
     /// Sets the image with the given handle. The renderer needs to keep track of this image as the handle
     /// will later be refereed to during `[Renderer::render]`.
     fn set_image(&mut self, _handle: ImageHandle, _image: &Image) {}
 
     /// If the renderer returns this it's expected that it has filled this buffer.
-    fn software_renderer_info<'a>(&'a self) -> Option<SoftwareRenderData<'a>> {
+    fn software_renderer_info(&self) -> Option<SoftwareRenderData> {
         None
     }
 

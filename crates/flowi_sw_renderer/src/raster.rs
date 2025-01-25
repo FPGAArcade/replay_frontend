@@ -20,8 +20,8 @@ const BLEND_MODE_BG_COLOR: usize = 1;
 const ROUND_MODE_NONE: usize = 0;
 const ROUND_MODE_ENABLED: usize = 1;
 
-const TEXT_COLOR_MODE_NONE: usize = 0;
-const TEXT_COLOR_MODE_COLOR: usize = 1;
+//const TEXT_COLOR_MODE_NONE: usize = 0;
+//const TEXT_COLOR_MODE_COLOR: usize = 1;
 
 #[derive(Copy, Clone)]
 pub enum Corner {
@@ -654,6 +654,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
 }
 
 impl Raster {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             scissor_rect: f32x4::new_splat(0.0),
@@ -897,7 +898,7 @@ impl Raster {
         tile_info: &TileInfo,
         coords: &[f32],
         color: i16x8,
-        radius: f32,
+        raddii: &[f32; 4],
         blend_mode: BlendMode,
     ) {
         let corners = [
@@ -907,13 +908,11 @@ impl Raster {
             Corner::BottomLeft,
         ];
 
-        // Adjust the radius to be inside the quad
-        let radius = radius - 1.0;
-
         // As we use pre-multiplied alpha we need to adjust the color based on the alpha value
         let color = premultiply_alpha(color);
 
-        for corner in &corners {
+        for (index, corner) in corners.iter().enumerate() {
+            let radius = raddii[index] - 1.0;
             let corner_coords = Self::get_corner_coords(*corner, coords, radius);
             self.render_solid_rounded_corner(
                 output,
@@ -926,7 +925,9 @@ impl Raster {
             );
         }
 
-        for side in 0..3 {
+        for (side, _) in corners.iter().enumerate() {
+            // TODO: Fix me
+            let radius = raddii[side] - 1.0; 
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);
         }

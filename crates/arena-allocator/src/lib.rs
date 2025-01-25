@@ -514,6 +514,12 @@ impl Arena {
         self.current.alloc_raw(size, alignment)
     }
 
+    /// More docs gose here
+    ///
+    /// # Saftey 
+    /// TODO
+    /// 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn alloc_raw(
         &mut self,
         size: usize,
@@ -550,6 +556,7 @@ impl Arena {
         Ok(&mut *t)
     }
 
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn alloc_ptr<T: Sized>(&mut self) -> Result<*mut T, ArenaError> {
         self.current.alloc()
     }
@@ -621,7 +628,7 @@ impl Arena {
     /// In release mode, the memory protection mechanism is disabled to ensure optimal performance,
     /// but in debug mode, the additional checks help identify improper memory usage patterns.
     #[cfg(debug_assertions)]
-    pub fn rewind<'a>(&'a mut self) {
+    pub fn rewind(&mut self) {
         self.current.protect();
 
         std::mem::swap(&mut self.current, &mut self.prev);
@@ -755,7 +762,7 @@ impl<T: Default + Sized> TypedArena<T> {
         self.arena.current.pos -= core::mem::size_of::<T>();
     }
 
-    pub fn push<'a>(&mut self, item: T)
+    pub fn push(&mut self, item: T)
     where
         T: Sized,
     {

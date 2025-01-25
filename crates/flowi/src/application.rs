@@ -6,9 +6,9 @@ use crate::sdl_window::Sdl2Window;
 
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
-use flowi_renderer::SoftwareRenderData;
 use flowi_core::ApplicationSettings;
 use flowi_core::Ui;
+use flowi_renderer::SoftwareRenderData;
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 
 use flowi_renderer::Renderer;

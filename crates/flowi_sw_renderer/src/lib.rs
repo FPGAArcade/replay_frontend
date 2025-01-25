@@ -4,7 +4,7 @@ pub mod raster;
 pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
-use flowi_renderer::{SoftwareRenderData, RenderCommand, RenderType};
+use flowi_renderer::{Color, RenderCommand, RenderType, SoftwareRenderData};
 
 pub struct TileInfo {
     pub offsets: f32x4,
@@ -79,19 +79,19 @@ pub struct Tile {
     data: Vec<usize>,
     tile_index: usize,
 }
-    
-pub fn get_color_from_floats_0_255(r: f32, g: f32, b: f32, a: f32, srgb_to_linear_table: &[u16; 1 << 8]) -> i16x8 {
-    let r = srgb_to_linear_table[(r as u8) as usize] as i16;
-    let g = srgb_to_linear_table[(g as u8) as usize] as i16;
-    let b = srgb_to_linear_table[(b as u8) as usize] as i16;
-    let a = (a as i16) << 7;
+
+pub fn get_color_from_floats_0_255(color: Color, srgb_to_linear_table: &[u16; 1 << 8]) -> i16x8 {
+    let r = srgb_to_linear_table[(color.r as u8) as usize] as i16;
+    let g = srgb_to_linear_table[(color.g as u8) as usize] as i16;
+    let b = srgb_to_linear_table[(color.b as u8) as usize] as i16;
+    let a = (color.a as i16) << 7;
 
     i16x8::new(r, g, b, a, r, g, b, a)
 }
 
-
 // Reference implementation. This will run in hw on the device.
 #[inline(never)]
+#[allow(clippy::identity_op)]
 pub fn copy_tile_linear_to_srgb(
     linear_to_srgb_table: &[u8; 4096],
     output: &mut [u8],
@@ -173,23 +173,29 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
         for index in tile.data.iter() {
             let render_cmd = &commands[*index];
+            let color =
+                get_color_from_floats_0_255(render_cmd.color, &renderer.srgb_to_linear_table);
 
             match &render_cmd.render_type {
-                RenderType::DrawRect(rect) => {
-                    let color = get_color_from_floats_0_255(
-                        rect.color.r,
-                        rect.color.g,
-                        rect.color.b,
-                        rect.color.a,
-                        &renderer.srgb_to_linear_table,
+                RenderType::DrawRect => {
+                    renderer.raster.render_solid_quad(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        color,
+                        raster::BlendMode::None,
                     );
+                }
 
-                renderer.raster.render_solid_quad(
-                    tile_buffer,
-                    &tile_info,
-                    &render_cmd.bounding_box,
-                    color,
-                    raster::BlendMode::None);
+                RenderType::DrawRectRounded(rect) => {
+                    renderer.raster.render_solid_quad_rounded(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        color,
+                        &rect.corners,
+                        raster::BlendMode::None,
+                    );
                 }
 
                 _ => {}
@@ -218,15 +224,12 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
         copy_tile_linear_to_srgb(
             &renderer.linear_to_srgb_table,
             &mut renderer.output,
-            &tile_buffer,
+            tile_buffer,
             tile,
             renderer.screen_width,
         );
     }
 }
-
-
-
 
 impl flowi_renderer::Renderer for Renderer {
     fn new(_window: Option<&RawWindowHandle>) -> Self {
@@ -271,7 +274,7 @@ impl flowi_renderer::Renderer for Renderer {
         }
     }
 
-    fn software_renderer_info<'a>(&'a self) -> Option<SoftwareRenderData<'a>> {
+    fn software_renderer_info(&self) -> Option<SoftwareRenderData<'_>> {
         Some(SoftwareRenderData {
             buffer: self.output.as_slice(),
             width: 1920,
@@ -286,8 +289,7 @@ impl flowi_renderer::Renderer for Renderer {
 }
 
 impl Renderer {
-    pub fn begin_frame(&mut self) {
-    }
+    pub fn begin_frame(&mut self) {}
 
     /*
     pub fn flush_frame(&mut self, output: &mut [u32]) {
@@ -362,15 +364,6 @@ impl Renderer {
     }
     */
 
-    pub fn get_color_from_floats_0_255(&mut self, r: f32, g: f32, b: f32, a: f32) -> i16x8 {
-        let r = self.get_color_from_float_0_255(r);
-        let g = self.get_color_from_float_0_255(g);
-        let b = self.get_color_from_float_0_255(b);
-        let a = self.get_color_from_float_0_255(a);
-
-        i16x8::new(r, g, b, a, r, g, b, a)
-    }
-
     /// Bins the render primitives into the provided tiles.
     ///
     /// This function iterates over each tile and clears its data. Then, it iterates
@@ -380,37 +373,17 @@ impl Renderer {
     ///
     /// # Parameters
     /// - `tiles`: A mutable slice of `Tile` objects to bin the primitives into.
-    /// - `commands`: RenderCommands to be binned 
+    /// - `commands`: RenderCommands to be binned
     fn bin_primitives(tiles: &mut [Tile], commands: &[RenderCommand]) {
         for tile in tiles.iter_mut() {
             let tile_aabb = tile.aabb;
             tile.data.clear();
             for (i, command) in commands.iter().enumerate() {
-                let prim_aabb = f32x4::load_unaligned(&command.bounding_box); 
+                let prim_aabb = f32x4::load_unaligned(&command.bounding_box);
                 if f32x4::test_intersect(tile_aabb, prim_aabb) {
                     tile.data.push(i);
                 }
             }
         }
     }
-
-    fn get_color_from_float_0_255(&self, color: f32) -> i16 {
-        let color = color.max(0.0).min(255.0) as usize;
-        self.srgb_to_linear_table[color & 0xff] as i16
-    }
-
-    /*
-    fn copy_tile_srgb(&self,
-        output: &mut [u32],
-        tile: &[i16],
-        linear_to_srgb: &[u8; 4096],
-        tile_width: usize,
-        tile_height: usize,
-        width: usize,
-    ) {
-
-
-    }
-    */
-
 }

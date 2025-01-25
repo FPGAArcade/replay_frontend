@@ -174,16 +174,15 @@ impl<'a> Clay<'a> {
 
         // Register the callback with the external C function
         unsafe {
-            Clay_SetMeasureTextFunction(
-                Some(measure_text_trampoline_user_data::<F, T>),
-                user_data_ptr,
-            );
+            Self::set_measure_text_function_unsafe(measure_text_trampoline_user_data::<F, T>, user_data_ptr);
         }
 
         // Store the raw pointer for later cleanup
         self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
     }
 
+    /// # Safety
+    /// This function is unsafe because it sets a callback function without any error checking 
     pub unsafe fn set_measure_text_function_unsafe(
         callback: unsafe extern "C" fn(
             Clay_StringSlice,

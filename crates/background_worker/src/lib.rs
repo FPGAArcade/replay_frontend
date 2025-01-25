@@ -39,6 +39,7 @@ type CallbackWithState = (
     Arc<Mutex<AnySend>>,
 );
 
+#[allow(clippy::type_complexity)]
 pub struct WorkSystem {
     sender: Sender<(usize, BoxAnySend, Sender<Result<BoxAnySend, CallbackError>>)>,
     callbacks: Arc<Mutex<Vec<Option<CallbackWithState>>>>,
@@ -46,6 +47,7 @@ pub struct WorkSystem {
 }
 
 impl WorkSystem {
+    #[allow(clippy::type_complexity)]
     pub fn new(num_workers: usize) -> Self {
         let (sender, receiver) = bounded(num_workers);
         let callbacks: Arc<Mutex<Vec<Option<CallbackWithState>>>> =
@@ -105,7 +107,7 @@ impl WorkSystem {
             .lock()
             .unwrap()
             .get(id)
-            .map_or(false, |callback| callback.is_some())
+            .is_some_and(|callback| callback.is_some())
         {
             self.sender
                 .send((id, Box::new(data), response_sender))

@@ -1,5 +1,5 @@
-use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
 use flowi_sw_renderer::Renderer as SofwareRenderer;
+use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
 
 use flowi_renderer::Renderer;
 
@@ -95,7 +95,9 @@ fn main() {
     };
 
     let mut core = flowi_core::Ui::new(Box::new(SofwareRenderer::new(None)));
-    let font = core.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap();
+    let font = core
+        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48)
+        .unwrap();
 
     let text_to_render = "Hello";
 
@@ -153,7 +155,12 @@ fn main() {
                 text.width as _,
                 &raster,
                 shape,
-                &[0.0, 0.0, RENDER_WIDTH.min(text.width as _) as _, HEIGHT.min(text.height as _) as _],
+                &[
+                    0.0,
+                    0.0,
+                    RENDER_WIDTH.min(text.width as _) as _,
+                    HEIGHT.min(text.height as _) as _,
+                ],
                 i16x8::new(
                     0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
                 ),
@@ -254,12 +261,13 @@ fn render_shapes(
         }
 
         Shape::RoundRect => {
+            let radius = [radius, radius, radius, radius]; 
             raster.render_solid_quad_rounded(
                 temp_output,
                 &tile_info,
                 coords,
                 color_top,
-                radius,
+                &radius,
                 BlendMode::None,
             );
         }
