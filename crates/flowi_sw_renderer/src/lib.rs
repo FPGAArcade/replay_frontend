@@ -158,10 +158,16 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
     };
 
     renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, 192.0, 90.0);
+        
+    //dbg!("---------------------------------");
 
     for tile in renderer.tiles.iter_mut() {
         let tile_aabb = tile.aabb;
         tile_info.offsets = tile_aabb.shuffle_0101();
+
+        if tile.data.is_empty() {
+            continue;
+        }
 
         let tile_buffer = &mut renderer.tile_buffers[tile.tile_index];
 
@@ -178,6 +184,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
             match &render_cmd.render_type {
                 RenderType::DrawRect => {
+                    //dbg!("DrawRect {:?}", render_cmd.bounding_box);
                     renderer.raster.render_solid_quad(
                         tile_buffer,
                         &tile_info,
@@ -188,6 +195,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawRectRounded(rect) => {
+                    //dbg!("DrawRectRounded {:?}", render_cmd.bounding_box);
+                    //dbg!("DrawRectRounded");
                     renderer.raster.render_solid_quad_rounded(
                         tile_buffer,
                         &tile_info,
@@ -203,12 +212,21 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         continue;
                     }
 
+                    let coords = [
+                        render_cmd.bounding_box[0],
+                        render_cmd.bounding_box[1],
+                        render_cmd.bounding_box[0] + buffer.width as f32,
+                        render_cmd.bounding_box[1] + buffer.height as f32,
+                    ];
+
+                    //dbg!("DrawTextBuffer {:?}", coords);
+
                     renderer.raster.render_text_texture(
                         tile_buffer,
                         buffer.data.0 as _,
                         &tile_info,
                         buffer.width as _,
-                        &render_cmd.bounding_box,
+                        &coords,
                         color,
                     );
                 }

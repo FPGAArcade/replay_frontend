@@ -23,8 +23,8 @@ opt-level = 3
 [profile.dev.package.resvg]
 opt-level = 3
 
-[profile.dev.package.flowi_sw_renderer]
-opt-level = 3
+#[profile.dev.package.flowi_sw_renderer]
+#opt-level = 3
 
 [profile.release]
 opt-level = 3

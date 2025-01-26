@@ -12,7 +12,7 @@ pub mod widgets;
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
-    color::Color as ClayColor, math::Dimensions,
+    math::Dimensions,
     render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig,
     Clay, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig, TypedConfig,
 };
@@ -29,6 +29,9 @@ pub use clay_layout::{
     fixed, grow,
     id::Id,
     layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
+    layout::alignment::LayoutAlignmentX,
+    layout::alignment::LayoutAlignmentY,
+    color::Color as ClayColor,
 };
 
 use flowi_renderer::{
@@ -120,6 +123,8 @@ impl<'a> Ui<'a> {
             .text_generator
             .measure_text_size(text, state.active_font)
             .unwrap();
+
+        dbg!(size);
         Dimensions::new(size.0 as _, size.1 as _)
     }
 
@@ -311,22 +316,23 @@ impl<'a> Ui<'a> {
         state.layout.with_id_index(Some(("TestButton", state.button_id)), [
             Layout::new()
                 .width(fixed!(160.0))
-                .height(fixed!(40.0))
-                .padding(Padding::all(8)).end(),
+                //.height(fixed!(40.0))
+                .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
+                .padding(Padding::all(30)).end(),
              Rectangle::new()
-                .color(ClayColor::rgba(244.0, 200.0, 200.0, 255.0))
-                .corner_radius(CornerRadius::All(8.0))
+                .color(ClayColor::rgba(44.0, 40.0, 40.0, 255.0))
+                .corner_radius(CornerRadius::All(16.0))
                 .end()], |_ui|
             {
                 let font_id = state.active_font;
                 // TODO: Fix me
-                let _ = state.text_generator.queue_generate_text(text, 48, font_id, &state.bg_worker);
+                let _ = state.text_generator.queue_generate_text(text, 36, font_id, &state.bg_worker);
 
                 state.layout.text(text, Text::new()
                     .font_id(font_id as u16)
-                    .font_size(48)
+                    .font_size(36)
                     .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
-                    .line_height(16)
+                    //.line_height(80)
                     .end());
             },
         );

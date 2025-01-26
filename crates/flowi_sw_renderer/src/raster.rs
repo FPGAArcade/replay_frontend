@@ -587,7 +587,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     let clip_y = clip_diff.extract::<1>() as usize;
 
     // Adjust for clipping
-    let text_data = unsafe { text_data.add((clip_y * texture_width + clip_x) * 4) };
+    let text_data = unsafe { text_data.add(clip_y * texture_width + clip_x) };
 
     let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
     let max_box = x0y0x1y1_int.max(scissor_rect.as_i32x4());
@@ -599,10 +599,12 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
 
     let ylen = y1 - y0;
     let xlen = x1 - x0;
+
     let tile_width = tile_info.width as usize;
+    let output = &mut output[((y0 as usize * tile_width + x0 as usize) * 4)..];
+    let mut output_ptr = output.as_mut_ptr();
 
     let mut text_data = text_data;
-    let mut output_ptr = output.as_mut_ptr();
     let mut tile_line_ptr = output_ptr;
     let mut text_line_ptr = text_data;
 
