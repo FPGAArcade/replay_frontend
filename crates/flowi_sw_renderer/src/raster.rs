@@ -227,7 +227,7 @@ fn process_pixels<
             // distance to the circle center. So we need to splat distance for each radius
             // calculated to get the correct blending value.
             color_0 = i16x8::mul_high(color_0, c_blend.shuffle::<0x0000_2222>());
-            color_1 = i16x8::mul_high(color_1, c_blend.shuffle::<0x2222_4444>());
+            color_1 = i16x8::mul_high(color_1, c_blend.shuffle::<0x4444_6666>());
         } else {
             // Only one or two pixels so we only need one shuffle/mul
             color_0 = i16x8::mul_high(color_0, c_blend.shuffle::<0x0000_2222>());
@@ -336,7 +336,7 @@ pub(crate) fn render_internal<
         // step:  2,2
 
         let clip_x0 = clip_diff.as_i16x8().splat::<0>();
-        let clip_y0 = clip_diff.as_i16x8().splat::<1>();
+        let clip_y0 = clip_diff.as_i16x8().splat::<2>();
 
         xi_start = xi_step * clip_x0;
         yi_start = yi_step * clip_y0;

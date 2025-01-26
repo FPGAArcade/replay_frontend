@@ -135,7 +135,7 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut shape = Shape::TextBuffer;
+    let mut shape = Shape::RoundedTopLeft;
     let mut render_mode = RenderMode::Flat;
     let mut blend_mode = BlendMode::None;
 
@@ -174,7 +174,7 @@ fn main() {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
-        let zoom = 1;
+        let zoom = 16;
 
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);
