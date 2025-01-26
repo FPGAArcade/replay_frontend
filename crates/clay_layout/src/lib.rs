@@ -184,20 +184,6 @@ impl<'a> Clay<'a> {
         self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
     }
 
-    /// Set the callback for text measurement with user data.
-    /// # Safety
-    /// This function is unsafe because it sets a callback function without any error checking
-    pub unsafe fn set_measure_text_function_unsafe(
-        callback: unsafe extern "C" fn(
-            Clay_StringSlice,
-            *mut Clay_TextElementConfig,
-            usize,
-        ) -> Clay_Dimensions,
-        user_data: usize,
-    ) {
-        Clay_SetMeasureTextFunction(Some(callback), user_data);
-    }
-
     /// Set the callback for text measurement
     #[cfg(feature = "std")]
     pub fn set_measure_text_function<F>(&mut self, callback: F)
@@ -212,11 +198,25 @@ impl<'a> Clay<'a> {
 
         // Register the callback with the external C function
         unsafe {
-            Clay_SetMeasureTextFunction(Some(measure_text_trampoline::<F>), user_data_ptr);
+            Self::set_measure_text_function_unsafe(measure_text_trampoline::<F>, user_data_ptr);
         }
 
         // Store the raw pointer for later cleanup
         self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
+    }
+
+    /// Set the callback for text measurement with user data.
+    /// # Safety
+    /// This function is unsafe because it sets a callback function without any error checking
+    pub unsafe fn set_measure_text_function_unsafe(
+        callback: unsafe extern "C" fn(
+            Clay_StringSlice,
+            *mut Clay_TextElementConfig,
+            usize,
+        ) -> Clay_Dimensions,
+        user_data: usize,
+    ) {
+        Clay_SetMeasureTextFunction(Some(callback), user_data);
     }
 
     /// Sets the maximum number of element that clay supports
@@ -384,8 +384,20 @@ impl From<&str> for Clay_String {
         }
     }
 }
+
 impl From<Clay_String> for &str {
     fn from(value: Clay_String) -> Self {
+        unsafe {
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(
+                value.chars as *const u8,
+                value.length as _,
+            ))
+        }
+    }
+}
+
+impl From<Clay_StringSlice> for &str {
+    fn from(value: Clay_StringSlice) -> Self {
         unsafe {
             core::str::from_utf8_unchecked(core::slice::from_raw_parts(
                 value.chars as *const u8,
@@ -412,7 +424,6 @@ mod tests {
     }
     */
 
-    /*
     #[test]
     #[rustfmt::skip]
     fn test_begin() {
@@ -437,7 +448,7 @@ mod tests {
                 .height(Sizing::Fixed(100.0))
                 .padding(Padding::all(10))
                 .end(),
-            Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
+            Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
         {
             clay.with(None, [
                 Layout::new()
@@ -445,7 +456,7 @@ mod tests {
                     .height(Sizing::Fixed(100.0))
                     .padding(Padding::all(10))
                     .end(),
-                Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
+                Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
             {
                 clay.with(Some("rect_under_rect"), [
                     Layout::new()
@@ -453,7 +464,7 @@ mod tests {
                         .height(Sizing::Fixed(100.0))
                         .padding(Padding::all(10))
                         .end(),
-                    Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
+                    Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay| 
                     {
                         clay.text("test", Text::new()
                             .color(Color::rgb(255., 255., 255.))
@@ -469,7 +480,7 @@ mod tests {
             BorderContainer::new()
                 .all_directions(2, Color::rgb(255., 255., 0.))
                 .corner_radius(CornerRadius::All(25.))
-                .end()], |clay|
+                .end()], |clay| 
         {
             clay.with(Some("rect_under_border"), [
                 Layout::new()
@@ -489,7 +500,6 @@ mod tests {
             );
         }
     }
-    */
 
     /*
     #[test]

@@ -20,10 +20,9 @@ fn main() {
         Rectangle::new()
             .color((0xFF, 0x00, 0x00).into())
             .corner_radius(CornerRadius::All(5.))
-            .end()], |_| 
-    {
-        // ...
-    });
+            .end() ],
+        |_| {},
+    );
 
     // Return the list of render commands of your layout
     let render_commands = clay.end();
