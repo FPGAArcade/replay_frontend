@@ -276,7 +276,7 @@ impl DisplayInfo {
 
         // Give the buffer to the surface and commit
         surface.attach(Some(buffer), 0, 0);
-        surface.damage(0, 0, i32::max_value(), i32::max_value());
+        surface.damage(0, 0, i32::MAX, i32::MAX);
         surface.commit();
 
         let xdg_config = Rc::new(RefCell::new(None));
@@ -348,10 +348,7 @@ impl DisplayInfo {
         fd.seek(SeekFrom::Start(0))?;
 
         let slice = unsafe {
-            std::slice::from_raw_parts(
-                buffer.as_ptr() as *const u8,
-                buffer.len() * std::mem::size_of::<u32>(),
-            )
+            std::slice::from_raw_parts(buffer.as_ptr() as *const u8, std::mem::size_of_val(buffer))
         };
 
         fd.write_all(slice)?;
@@ -363,8 +360,7 @@ impl DisplayInfo {
         }
 
         self.surface.attach(Some(buf), 0, 0);
-        self.surface
-            .damage(0, 0, i32::max_value(), i32::max_value());
+        self.surface.damage(0, 0, i32::MAX, i32::MAX);
         self.surface.commit();
 
         Ok(())

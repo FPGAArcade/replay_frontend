@@ -525,11 +525,19 @@ name = "flowi"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.7.0",
+ "flowi-renderer",
  "flowi_core",
  "flowi_sw_renderer",
  "glam",
  "raw-window-handle",
  "sdl2",
+]
+
+[[package]]
+name = "flowi-renderer"
+version = "0.1.0"
+dependencies = [
+ "raw-window-handle",
 ]
 
 [[package]]
@@ -542,6 +550,7 @@ dependencies = [
  "clay-layout",
  "cosmic-text",
  "fileorama",
+ "flowi-renderer",
  "glam",
  "log",
  "notify",
@@ -559,7 +568,7 @@ dependencies = [
 name = "flowi_sw_renderer"
 version = "0.1.0"
 dependencies = [
- "flowi_core",
+ "flowi-renderer",
  "raw-window-handle",
  "simd",
 ]
@@ -1520,6 +1529,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 name = "renderer_tests"
 version = "0.1.0"
 dependencies = [
+ "flowi-renderer",
  "flowi_core",
  "flowi_sw_renderer",
  "minifb",

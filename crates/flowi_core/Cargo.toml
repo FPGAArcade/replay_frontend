@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+flowi-renderer = { path = "../flowi-renderer" }
 arena-allocator = { path = "../arena-allocator" }
 background-worker = { path = "../background_worker" }
 bitflags = "2.7.0"

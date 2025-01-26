@@ -171,6 +171,7 @@ impl f32x4 {
         }
     }
 
+    /*
     #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     pub fn add(self, rhs: Self) -> Self {
@@ -178,7 +179,9 @@ impl f32x4 {
             v: unsafe { _mm_add_ps(self.v, rhs.v) },
         }
     }
+    */
 
+    /*
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
     pub fn sub(self, rhs: Self) -> Self {
@@ -194,7 +197,9 @@ impl f32x4 {
             v: unsafe { _mm_sub_ps(self.v, rhs.v) },
         }
     }
+    */
 
+    /*
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
     pub fn mul(self, rhs: Self) -> Self {
@@ -210,6 +215,7 @@ impl f32x4 {
             v: unsafe { _mm_mul_ps(self.v, rhs.v) },
         }
     }
+    */
 
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
@@ -567,7 +573,9 @@ impl i16x8 {
     pub fn splat<const LANE: u8>(self) -> Self {
         let l0 = LANE * 2;
         let l1 = (LANE * 2) + 1;
-        let table = [l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1];
+        let table = [
+            l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1, l0, l1,
+        ];
         self.table_shuffle(table)
     }
 
@@ -685,13 +693,12 @@ impl i16x8 {
         let mut expanded_table = [0u8; 16];
         for i in 0..8 {
             let nibble = ((MASK >> (4 * (7 - i))) & 0xF) as u8; // Extract nibble from mask
-            expanded_table[i * 2] = (nibble * 2) as u8;         // Lower byte of the i16
-            expanded_table[i * 2 + 1] = (nibble * 2 + 1) as u8; // Upper byte of the i16
+            expanded_table[i * 2] = nibble * 2; // Lower byte of the i16
+            expanded_table[i * 2 + 1] = nibble * 2 + 1; // Upper byte of the i16
         }
 
         self.table_shuffle(expanded_table)
     }
-
 
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
@@ -1175,7 +1182,12 @@ impl Sub for f32x4 {
 
     #[inline(always)]
     fn sub(self, rhs: Self) -> Self {
-        self.sub(rhs)
+        Self {
+            #[cfg(target_arch = "aarch64")]
+            v: unsafe { vsubq_f32(self.v, rhs.v) },
+            #[cfg(target_arch = "x86_64")]
+            v: unsafe { _mm_sub_ps(self.v, rhs.v) },
+        }
     }
 }
 
@@ -1184,7 +1196,12 @@ impl Add for f32x4 {
 
     #[inline(always)]
     fn add(self, rhs: Self) -> Self {
-        self.add(rhs)
+        Self {
+            #[cfg(target_arch = "aarch64")]
+            v: unsafe { vaddq_f32(self.v, rhs.v) },
+            #[cfg(target_arch = "x86_64")]
+            v: unsafe { _mm_add_ps(self.v, rhs.v) },
+        }
     }
 }
 
@@ -1193,7 +1210,12 @@ impl Mul for f32x4 {
 
     #[inline(always)]
     fn mul(self, rhs: Self) -> Self {
-        self.mul(rhs)
+        Self {
+            #[cfg(target_arch = "aarch64")]
+            v: unsafe { vmulq_f32(self.v, rhs.v) },
+            #[cfg(target_arch = "x86_64")]
+            v: unsafe { _mm_mul_ps(self.v, rhs.v) },
+        }
     }
 }
 

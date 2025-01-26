@@ -1,6 +1,7 @@
 use crate::internal_error::{InternalError, InternalResult};
-use background_worker::{AnySend, BoxAnySend, CallbackError, Receiver, WorkSystem, WorkerResult};
+use background_worker::{AnySend, BoxAnySend, Receiver, WorkSystem, WorkerResult};
 use cosmic_text::{Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache};
+use flowi_renderer::RawVoidPtr;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -9,6 +10,7 @@ use std::sync::{Arc, Mutex};
 pub(crate) struct GeneratorConfig {
     font_handle: FontHandle,
     text: String,
+    size: u32,
     sub_pixel_steps_x: u32,
     sub_pixel_steps_y: u32,
 }
@@ -48,7 +50,8 @@ struct FontFaceInfo {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct CachedString {
-    pub data: Vec<i16>,
+    pub data: RawVoidPtr,
+    pub id: u64,
     pub stride: u32,
     pub width: u32,
     pub height: u32,
@@ -57,7 +60,7 @@ pub struct CachedString {
 }
 
 type LoadedFonts = HashMap<FontHandle, FontInfo>;
-type CachedStrings = HashMap<GeneratorConfig, Box<CachedString>>;
+type CachedStrings = HashMap<GeneratorConfig, CachedString>;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -103,6 +106,7 @@ pub(crate) struct TextGenerator {
     sync_loaded_fonts: LoadedFonts,
     inflight_text_generations: Vec<InflightGeneration>,
     font_id_counter: u64,
+    text_buffers_id: u64,
     load_font_async_id: usize,
     gen_text_async_id: usize,
 }
@@ -254,12 +258,13 @@ fn generate_text(
     );
 
     Ok(Box::new(CachedString {
-        data: output,
+        data: RawVoidPtr(Box::into_raw(output.into_boxed_slice()) as _),
         stride: width as u32,
         width: width as u32,
         height: height as u32,
         sub_pixel_step_x: 1,
         sub_pixel_step_y: 1,
+        id: 0,
     }))
 }
 
@@ -313,6 +318,7 @@ impl TextGenerator {
             load_font_async_id,
             gen_text_async_id,
             inflight_text_generations: Vec::new(),
+            text_buffers_id: 1,
         }
     }
 
@@ -364,6 +370,7 @@ impl TextGenerator {
     pub fn queue_generate_text(
         &mut self,
         text: &str,
+        size: u32,
         font_id: FontHandle,
         bg_worker: &WorkSystem,
     ) -> Option<CachedString> {
@@ -372,12 +379,13 @@ impl TextGenerator {
             text: text.to_string(),
             sub_pixel_steps_x: 1,
             sub_pixel_steps_y: 1,
+            size,
         };
 
         // First check if we have the text cached.
         // TODO: Fix this. We should not clone because it will clone the whole text buffer.
         if let Some(cached_string) = self.cached_strings.get(&gen_config) {
-            return Some(*cached_string.clone());
+            return Some(cached_string.clone());
         } else {
             // Queue the text generation if it's not cached.
             let inflight = InflightGeneration {
@@ -397,11 +405,15 @@ impl TextGenerator {
             let inflight = &self.inflight_text_generations[i];
             if let Ok(data) = inflight.receiver.try_recv() {
                 match data {
-                    Ok(data) => {
-                        let data = data.downcast::<CachedString>().unwrap();
-                        self.cached_strings.insert(inflight.config.clone(), data);
+                    Ok(mut data) => {
+                        let data = data.downcast_mut::<CachedString>().unwrap();
+                        data.id = self.text_buffers_id;
+                        self.cached_strings
+                            .insert(inflight.config.clone(), data.clone());
                         self.inflight_text_generations.remove(i);
+                        self.text_buffers_id += 1;
                     }
+
                     Err(e) => {
                         println!("Error generating text: {:?}", e);
                         i += 1;
@@ -411,15 +423,18 @@ impl TextGenerator {
         }
     }
 
-    pub fn get_text(&self, text: &str, font_id: FontHandle) -> Option<&CachedString> {
+    pub fn get_text(&self, text: &str, size: u32, font_id: FontHandle) -> Option<&CachedString> {
         let gen_config = GeneratorConfig {
             font_handle: font_id,
             text: text.to_string(),
             sub_pixel_steps_x: 1,
             sub_pixel_steps_y: 1,
+            size,
         };
 
-        self.cached_strings.get(&gen_config).map(|s| &**s)
+        //dbg!("{}", &gen_config);
+
+        self.cached_strings.get(&gen_config).map(|s| &*s)
     }
 }
 

@@ -171,7 +171,7 @@ pub struct Handle {
     pub recv: crossbeam_channel::Receiver<RecvMsg>,
 }
 
-impl<'a> Progress<'a> {
+impl Progress<'_> {
     pub fn step(&mut self) -> Result<(), Error> {
         self.current += self.step;
         let f = self.current.clamp(0.0, 1.0);

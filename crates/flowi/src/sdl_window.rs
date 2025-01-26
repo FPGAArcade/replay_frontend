@@ -1,6 +1,7 @@
 use crate::application::Window;
 use flowi_core::input::{Input, Key};
-use flowi_core::{render::SoftwareRenderData, ApplicationSettings};
+use flowi_core::ApplicationSettings;
+use flowi_renderer::SoftwareRenderData;
 
 use sdl2::{
     //controller::{Axis, Button, GameController},
@@ -308,7 +309,7 @@ impl Window for Sdl2Window {
         let height = 1080; //core::cmp::max(settings.height as u32, 600);
 
         let window = video_subsystem
-            .window("Flowi", width, height)
+            .window("R2 test-bed", width, height)
             .position_centered()
             .build()
             .expect("Failed to create SDL window.");

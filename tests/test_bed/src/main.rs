@@ -1,6 +1,8 @@
 use flowi::Application;
+use flowi::Renderer;
 use flowi::Ui;
-use flowi::{fixed, grow, Id, Layout, LayoutDirection, Padding};
+use flowi::{fixed, grow, Id, Layout, LayoutDirection, Padding, Alignment, LayoutAlignmentX, LayoutAlignmentY, Rectangle, ClayColor};
+
 /*
 pub struct Fonts {
     pub default: Font,
@@ -23,21 +25,28 @@ fn main_loop(ui: &Ui, _app: &mut App) {
             .width(grow!())
             .height(grow!())
             .direction(LayoutDirection::TopToBottom)
-            .padding(Padding::all(16))
+            .padding(Padding::all(8))
             .child_gap(16)
             .end()], |ui| 
    {
-        ui.with_layout(Some("buttons"), [
+        ui.with_layout(Some("header"), [
             Layout::new()
                 .width(grow!())
+                .height(fixed!(120.0))
+                .padding(Padding::all(8))
                 .child_gap(16)
-                .height(fixed!(160.0))
+                .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+                .end(),
+            Rectangle::new()
+                .color(ClayColor::rgba(100.0, 100.0, 100.0, 255.0))
                 .end()], |ui| 
         {
-            ui.button("Test");
-            ui.button("Test");
+            ui.button("Foo ");
+            ui.button("Bar ");
+            //ui.button("Test");
         });
 
+        /*
         ui.with_layout(Some("buttons2"), [
             Layout::new()
                 .width(grow!())
@@ -47,7 +56,7 @@ fn main_loop(ui: &Ui, _app: &mut App) {
             ui.button("Test");
             ui.button("Test");
         });
-
+        */
     });
 }
 
@@ -61,7 +70,7 @@ fn main() {
 
     let _ = flowi_app
         .ui
-        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48);
+        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 36);
 
     /*
     let fonts = Fonts {

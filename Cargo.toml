@@ -5,12 +5,13 @@ members = [
     "crates/background_worker",
     "crates/fileorama",
     "crates/fileorama",
+    "crates/flowi-renderer", 
     "crates/flowi_core", 
     "crates/flowi_sw_renderer", 
     "crates/simd",
-    "tests/test_bed",
-    "tests/renderer_tests",
     "main", 
+    "tests/renderer_tests",
+    "tests/test_bed",
 ]
 
 [profile.dev.package.zune-png]
@@ -22,8 +23,8 @@ opt-level = 3
 [profile.dev.package.resvg]
 opt-level = 3
 
-[profile.dev.package.flowi_sw_renderer]
-opt-level = 3
+#[profile.dev.package.flowi_sw_renderer]
+#opt-level = 3
 
 [profile.release]
 opt-level = 3

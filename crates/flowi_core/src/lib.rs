@@ -12,8 +12,9 @@ pub mod widgets;
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
-    color::Color, elements::text::TextElementConfig, math::Dimensions, Clay, Clay_Dimensions,
-    Clay_StringSlice, Clay_TextElementConfig, TypedConfig,
+    math::Dimensions,
+    render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig,
+    Clay, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig, TypedConfig,
 };
 use fileorama::Fileorama;
 use internal_error::InternalResult;
@@ -24,16 +25,19 @@ use std::cell::UnsafeCell;
 use font::{CachedString, FontHandle};
 
 pub use clay_layout::{
-    //color::Color,
     elements::{rectangle::Rectangle, text::Text, CornerRadius},
-    fixed,
-    grow,
+    fixed, grow,
     id::Id,
     layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
-    render_commands::{RenderCommand, RenderCommandConfig, RenderCommandType},
+    layout::alignment::LayoutAlignmentX,
+    layout::alignment::LayoutAlignmentY,
+    color::Color as ClayColor,
 };
 
-pub use render::FlowiRenderer as Renderer;
+use flowi_renderer::{
+    Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
+    RenderType, Renderer, StringSlice,
+};
 
 type FlowiKey = u64;
 
@@ -119,6 +123,8 @@ impl<'a> Ui<'a> {
             .text_generator
             .measure_text_size(text, state.active_font)
             .unwrap();
+
+        dbg!(size);
         Dimensions::new(size.0 as _, size.1 as _)
     }
 
@@ -146,11 +152,139 @@ impl<'a> Ui<'a> {
         });
     }
 
+    fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
+        let bb = render_command.bounding_box;
+        [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
+    }
+
+    fn color(color: ClayColor) -> flowi_renderer::Color {
+        flowi_renderer::Color {
+            r: color.r,
+            g: color.g,
+            b: color.b,
+            a: color.a,
+        }
+    }
+
+    fn translate_clay_render_commands(
+        state: &State,
+        commands: impl Iterator<Item = ClayRenderCommand<'a>>,
+    ) -> Vec<RenderCommand> {
+        // TODO: Arena
+        let mut primitives = Vec::with_capacity(1024);
+        for command in commands {
+            let (cmd, color) = match command.config {
+                RenderCommandConfig::Rectangle(config) => match config.corner_radius {
+                    CornerRadius::All(0.0) => (RenderType::DrawRect, Self::color(config.color)),
+                    CornerRadius::All(radius) => (
+                        RenderType::DrawRectRounded(DrawRectRoundedData {
+                            corners: [radius, radius, radius, radius],
+                        }),
+                        Self::color(config.color),
+                    ),
+                    CornerRadius::Individual {
+                        top_left,
+                        top_right,
+                        bottom_left,
+                        bottom_right,
+                    } => (
+                        RenderType::DrawRectRounded(DrawRectRoundedData {
+                            corners: [top_left, top_right, bottom_left, bottom_right],
+                        }),
+                        Self::color(config.color),
+                    ),
+                },
+
+                RenderCommandConfig::Text(text, config) => {
+                    let text = StringSlice::new(text);
+
+                    let gen = if let Some(text_data) = state.text_generator.get_text(
+                        text.as_str(),
+                        config.font_size as _,
+                        config.font_id as _,
+                    ) {
+                        DrawTextBufferData {
+                            data: text_data.data,
+                            handle: text_data.id,
+                            width: text_data.width as _,
+                            height: text_data.height as _,
+                        }
+                    } else {
+                        DrawTextBufferData::default()
+                    };
+
+                    (RenderType::DrawTextBuffer(gen), Self::color(config.color))
+                }
+
+                RenderCommandConfig::Image(image) => (
+                    RenderType::DrawImage(DrawImage {
+                        rounded_corners: [0.0, 0.0, 0.0, 0.0],
+                        width: image.source_dimensions.width as _,
+                        height: image.source_dimensions.height as _,
+                        handle: image.data as _,
+                        rounding: false,
+                    }),
+                    Color::new(1.0, 1.0, 1.0, 1.0),
+                ),
+
+                RenderCommandConfig::Border(border) => {
+                    let outer_radius = match border.corner_radius {
+                        CornerRadius::All(radius) => [radius, radius, radius, radius],
+                        CornerRadius::Individual {
+                            top_left,
+                            top_right,
+                            bottom_left,
+                            bottom_right,
+                        } => [top_left, top_right, bottom_left, bottom_right],
+                    };
+
+                    let inner_radius = [
+                        outer_radius[0] - border.left.width as f32,
+                        outer_radius[1] - border.right.width as f32,
+                        outer_radius[2] - border.top.width as f32,
+                        outer_radius[3] - border.bottom.width as f32,
+                    ];
+
+                    (
+                        RenderType::DrawBorder(DrawBorderData {
+                            outer_radius,
+                            inner_radius,
+                        }),
+                        Self::color(border.left.color),
+                    )
+                }
+
+                RenderCommandConfig::ScissorStart() => {
+                    (RenderType::ScissorStart, Color::new(1.0, 1.0, 1.0, 1.0))
+                }
+
+                RenderCommandConfig::ScissorEnd() => {
+                    (RenderType::ScissorEnd, Color::new(1.0, 1.0, 1.0, 1.0))
+                }
+
+                RenderCommandConfig::Custom(_) => {
+                    (RenderType::Custom, Color::new(1.0, 1.0, 1.0, 1.0))
+                }
+                _ => (RenderType::None, Color::new(1.0, 1.0, 1.0, 1.0)),
+            };
+
+            let cmd = RenderCommand {
+                bounding_box: Self::bounding_box(&command),
+                render_type: cmd,
+                color,
+            };
+
+            primitives.push(cmd);
+        }
+
+        primitives
+    }
+
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
 
         // TODO: Fix me
-        let primitives = state.layout.end().collect::<Vec<_>>();
+        let primitives = Self::translate_clay_render_commands(&state, state.layout.end());
         state.renderer.render(&primitives);
 
         // Generate primitives from all boxes
@@ -166,12 +300,13 @@ impl<'a> Ui<'a> {
     pub fn queue_generate_text(
         &mut self,
         text: &str,
+        font_size: u32,
         font_id: FontHandle,
     ) -> Option<font::CachedString> {
         let state = unsafe { &mut *self.state.get() };
         state
             .text_generator
-            .queue_generate_text(text, font_id, &state.bg_worker)
+            .queue_generate_text(text, font_size, font_id, &state.bg_worker)
     }
 
     #[rustfmt::skip]
@@ -181,21 +316,23 @@ impl<'a> Ui<'a> {
         state.layout.with_id_index(Some(("TestButton", state.button_id)), [
             Layout::new()
                 .width(fixed!(160.0))
-                .height(fixed!(40.0))
-                .padding(Padding::all(8)).end(),
+                //.height(fixed!(40.0))
+                .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
+                .padding(Padding::all(30)).end(),
              Rectangle::new()
-                .color(Color::rgba(244.0, 200.0, 200.0, 255.0))
-                .corner_radius(CornerRadius::All(8.0))
+                .color(ClayColor::rgba(44.0, 40.0, 40.0, 255.0))
+                .corner_radius(CornerRadius::All(16.0))
                 .end()], |_ui|
             {
                 let font_id = state.active_font;
-                state.text_generator.queue_generate_text(text, font_id, &state.bg_worker);
+                // TODO: Fix me
+                let _ = state.text_generator.queue_generate_text(text, 36, font_id, &state.bg_worker);
 
                 state.layout.text(text, Text::new()
                     .font_id(font_id as u16)
-                    .font_size(16)
-                    .color(Color::rgba(255.0, 255.0, 255.0, 255.0))
-                    .line_height(16)
+                    .font_size(36)
+                    .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
+                    //.line_height(80)
                     .end());
             },
         );
@@ -232,9 +369,9 @@ impl<'a> Ui<'a> {
         state.text_generator.update();
     }
 
-    pub fn get_text(&self, text: &str, handle: FontHandle) -> Option<&CachedString> {
+    pub fn get_text(&self, text: &str, size: u32, handle: FontHandle) -> Option<&CachedString> {
         let state = unsafe { &mut *self.state.get() };
-        state.text_generator.get_text(text, handle)
+        state.text_generator.get_text(text, size, handle)
     }
 
     /*

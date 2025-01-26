@@ -20,8 +20,8 @@ const BLEND_MODE_BG_COLOR: usize = 1;
 const ROUND_MODE_NONE: usize = 0;
 const ROUND_MODE_ENABLED: usize = 1;
 
-const TEXT_COLOR_MODE_NONE: usize = 0;
-const TEXT_COLOR_MODE_COLOR: usize = 1;
+//const TEXT_COLOR_MODE_NONE: usize = 0;
+//const TEXT_COLOR_MODE_COLOR: usize = 1;
 
 #[derive(Copy, Clone)]
 pub enum Corner {
@@ -227,7 +227,7 @@ fn process_pixels<
             // distance to the circle center. So we need to splat distance for each radius
             // calculated to get the correct blending value.
             color_0 = i16x8::mul_high(color_0, c_blend.shuffle::<0x0000_2222>());
-            color_1 = i16x8::mul_high(color_1, c_blend.shuffle::<0x2222_4444>());
+            color_1 = i16x8::mul_high(color_1, c_blend.shuffle::<0x4444_6666>());
         } else {
             // Only one or two pixels so we only need one shuffle/mul
             color_0 = i16x8::mul_high(color_0, c_blend.shuffle::<0x0000_2222>());
@@ -336,7 +336,7 @@ pub(crate) fn render_internal<
         // step:  2,2
 
         let clip_x0 = clip_diff.as_i16x8().splat::<0>();
-        let clip_y0 = clip_diff.as_i16x8().splat::<1>();
+        let clip_y0 = clip_diff.as_i16x8().splat::<2>();
 
         xi_start = xi_step * clip_x0;
         yi_start = yi_step * clip_y0;
@@ -555,6 +555,7 @@ pub(crate) fn render_internal<
 }
 
 #[allow(clippy::too_many_arguments)]
+#[inline(never)]
 pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     output: &mut [i16],
     scissor_rect: f32x4,
@@ -586,7 +587,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     let clip_y = clip_diff.extract::<1>() as usize;
 
     // Adjust for clipping
-    let text_data = unsafe { text_data.add((clip_y * texture_width + clip_x) * 4) };
+    let text_data = unsafe { text_data.add(clip_y * texture_width + clip_x) };
 
     let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
     let max_box = x0y0x1y1_int.max(scissor_rect.as_i32x4());
@@ -598,10 +599,12 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
 
     let ylen = y1 - y0;
     let xlen = x1 - x0;
+
     let tile_width = tile_info.width as usize;
+    let output = &mut output[((y0 as usize * tile_width + x0 as usize) * 4)..];
+    let mut output_ptr = output.as_mut_ptr();
 
     let mut text_data = text_data;
-    let mut output_ptr = output.as_mut_ptr();
     let mut tile_line_ptr = output_ptr;
     let mut text_line_ptr = text_data;
 
@@ -654,6 +657,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
 }
 
 impl Raster {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             scissor_rect: f32x4::new_splat(0.0),
@@ -897,7 +901,7 @@ impl Raster {
         tile_info: &TileInfo,
         coords: &[f32],
         color: i16x8,
-        radius: f32,
+        raddii: &[f32; 4],
         blend_mode: BlendMode,
     ) {
         let corners = [
@@ -907,13 +911,11 @@ impl Raster {
             Corner::BottomLeft,
         ];
 
-        // Adjust the radius to be inside the quad
-        let radius = radius - 1.0;
-
         // As we use pre-multiplied alpha we need to adjust the color based on the alpha value
         let color = premultiply_alpha(color);
 
-        for corner in &corners {
+        for (index, corner) in corners.iter().enumerate() {
+            let radius = raddii[index] - 1.0;
             let corner_coords = Self::get_corner_coords(*corner, coords, radius);
             self.render_solid_rounded_corner(
                 output,
@@ -927,6 +929,8 @@ impl Raster {
         }
 
         for side in 0..3 {
+            // TODO: Fix me
+            let radius = raddii[side] - 1.0;
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);
         }

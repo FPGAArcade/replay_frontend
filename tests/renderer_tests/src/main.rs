@@ -1,5 +1,7 @@
-use flowi_core::render::{DummyRenderer, FlowiRenderer};
-use flowi_sw_renderer::{BlendMode, Corner, Raster, Renderer, TileInfo};
+use flowi_sw_renderer::Renderer as SofwareRenderer;
+use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
+
+use flowi_renderer::Renderer;
 
 use minifb::{Key, Window, WindowOptions};
 use simd::*;
@@ -92,14 +94,14 @@ fn main() {
         height: HEIGHT,
     };
 
-    let mut core = flowi_core::Ui::new(Box::new(Renderer::new(&application_settings, None)));
+    let mut core = flowi_core::Ui::new(Box::new(SofwareRenderer::new(None)));
     let font = core
         .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48)
         .unwrap();
 
     let text_to_render = "Hello";
 
-    core.queue_generate_text(text_to_render, font);
+    core.queue_generate_text(text_to_render, 16, font);
 
     let mut raster = Raster::new();
     raster.scissor_rect = f32x4::new(0.0, 0.0, RENDER_WIDTH as f32, RENDER_HEIGHT as f32);
@@ -133,7 +135,7 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut shape = Shape::TextBuffer;
+    let mut shape = Shape::RoundedTopLeft;
     let mut render_mode = RenderMode::Flat;
     let mut blend_mode = BlendMode::None;
 
@@ -145,11 +147,11 @@ fn main() {
             *i = 0x4000;
         }
 
-        if let Some(text) = core.get_text(text_to_render, font) {
+        if let Some(text) = core.get_text(text_to_render, 16, font) {
             render_shapes(
                 &mut tile_output_u32,
                 &mut tile_output,
-                &text.data,
+                text.data.0 as _,
                 text.width as _,
                 &raster,
                 shape,
@@ -172,7 +174,7 @@ fn main() {
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
-        let zoom = 1;
+        let zoom = 16;
 
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);
@@ -184,7 +186,7 @@ fn main() {
 fn render_shapes(
     output: &mut [u32],
     temp_output: &mut [i16],
-    text_object: &[i16],
+    text_object: *const i16,
     text_object_width: usize,
     raster: &Raster,
     shape: Shape,
@@ -259,12 +261,13 @@ fn render_shapes(
         }
 
         Shape::RoundRect => {
+            let radius = [radius, radius, radius, radius];
             raster.render_solid_quad_rounded(
                 temp_output,
                 &tile_info,
                 coords,
                 color_top,
-                radius,
+                &radius,
                 BlendMode::None,
             );
         }
@@ -272,7 +275,7 @@ fn render_shapes(
         Shape::TextBuffer => {
             raster.render_text_texture(
                 temp_output,
-                text_object.as_ptr(),
+                text_object,
                 &tile_info,
                 text_object_width,
                 coords,
