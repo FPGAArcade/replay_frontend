@@ -2,6 +2,20 @@ use raw_window_handle::RawWindowHandle;
 
 pub type ImageHandle = u64;
 pub type FontHandle = u64;
+pub type TextHandle = u64;
+
+#[derive(Debug, Copy, Clone)]
+#[allow(dead_code)]
+pub struct RawVoidPtr(pub *const core::ffi::c_void);
+
+impl Default for RawVoidPtr {
+    fn default() -> Self {
+        Self(core::ptr::null())
+    }
+}
+
+unsafe impl Send for RawVoidPtr {}
+unsafe impl Sync for RawVoidPtr {}
 
 #[derive(Debug, Copy, Clone)]
 pub struct Color {
@@ -65,12 +79,20 @@ pub struct DrawTextData {
     pub font_handle: FontHandle,
 }
 
+#[derive(Debug, Default)]
+pub struct DrawTextBufferData {
+    pub data: RawVoidPtr,
+    pub handle: TextHandle,
+    pub width: u16,
+    pub height: u16,
+}
+
 #[derive(Debug)]
 pub enum RenderType {
     DrawRect,
     DrawRectRounded(DrawRectRoundedData),
     DrawBorder(DrawBorderData),
-    DrawText(DrawTextData),
+    DrawTextBuffer(DrawTextBufferData),
     DrawImage(DrawImage),
     ScissorStart,
     ScissorEnd,
@@ -129,20 +151,7 @@ pub trait Renderer {
     ///
     /// This is a generated text matching the text, font and size as input. It's expected that the
     /// backend will save away this data as it sees fit and use it later when rendering text.
-    ///
-    /// # Parameters
-    /// - `_text`: The text to be set.
-    /// - `_font_size`: The size of the font.
-    /// - `_font_id`: The handle to the font.
-    /// - `_text_buffer`: The buffer containing the text data.
-    fn set_text_buffer(
-        &mut self,
-        _text: &str,
-        _font_size: i16,
-        _handle: FontHandle,
-        _image: &Image,
-    ) {
-    }
+    fn set_text_buffer(&mut self, _handle: TextHandle, _image: &Image) {}
 
     /// Sets the image with the given handle. The renderer needs to keep track of this image as the handle
     /// will later be refereed to during `[Renderer::render]`.

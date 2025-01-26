@@ -516,9 +516,9 @@ impl Arena {
 
     /// More docs gose here
     ///
-    /// # Saftey 
+    /// # Saftey
     /// TODO
-    /// 
+    ///
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn alloc_raw(
         &mut self,

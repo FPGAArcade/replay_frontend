@@ -555,6 +555,7 @@ pub(crate) fn render_internal<
 }
 
 #[allow(clippy::too_many_arguments)]
+#[inline(never)]
 pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     output: &mut [i16],
     scissor_rect: f32x4,
@@ -925,9 +926,9 @@ impl Raster {
             );
         }
 
-        for (side, _) in corners.iter().enumerate() {
+        for side in 0..3 {
             // TODO: Fix me
-            let radius = raddii[side] - 1.0; 
+            let radius = raddii[side] - 1.0;
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);
         }

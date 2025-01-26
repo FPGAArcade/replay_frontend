@@ -198,6 +198,21 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                     );
                 }
 
+                RenderType::DrawTextBuffer(buffer) => {
+                    if buffer.data.0 == core::ptr::null() {
+                        continue;
+                    }
+
+                    renderer.raster.render_text_texture(
+                        tile_buffer,
+                        buffer.data.0 as _,
+                        &tile_info,
+                        buffer.width as _,
+                        &render_cmd.bounding_box,
+                        color,
+                    );
+                }
+
                 _ => {}
             }
 

@@ -101,7 +101,7 @@ fn main() {
 
     let text_to_render = "Hello";
 
-    core.queue_generate_text(text_to_render, font);
+    core.queue_generate_text(text_to_render, 16, font);
 
     let mut raster = Raster::new();
     raster.scissor_rect = f32x4::new(0.0, 0.0, RENDER_WIDTH as f32, RENDER_HEIGHT as f32);
@@ -147,11 +147,11 @@ fn main() {
             *i = 0x4000;
         }
 
-        if let Some(text) = core.get_text(text_to_render, font) {
+        if let Some(text) = core.get_text(text_to_render, 16, font) {
             render_shapes(
                 &mut tile_output_u32,
                 &mut tile_output,
-                &text.data,
+                text.data.0 as _,
                 text.width as _,
                 &raster,
                 shape,
@@ -186,7 +186,7 @@ fn main() {
 fn render_shapes(
     output: &mut [u32],
     temp_output: &mut [i16],
-    text_object: &[i16],
+    text_object: *const i16,
     text_object_width: usize,
     raster: &Raster,
     shape: Shape,
@@ -261,7 +261,7 @@ fn render_shapes(
         }
 
         Shape::RoundRect => {
-            let radius = [radius, radius, radius, radius]; 
+            let radius = [radius, radius, radius, radius];
             raster.render_solid_quad_rounded(
                 temp_output,
                 &tile_info,
@@ -275,7 +275,7 @@ fn render_shapes(
         Shape::TextBuffer => {
             raster.render_text_texture(
                 temp_output,
-                text_object.as_ptr(),
+                text_object,
                 &tile_info,
                 text_object_width,
                 coords,

@@ -32,8 +32,8 @@ pub use clay_layout::{
 };
 
 use flowi_renderer::{
-    Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextData, RenderCommand, RenderType,
-    Renderer, StringSlice,
+    Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
+    RenderType, Renderer, StringSlice,
 };
 
 type FlowiKey = u64;
@@ -148,13 +148,8 @@ impl<'a> Ui<'a> {
     }
 
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
-        let bounding_box = render_command.bounding_box;
-        [
-            bounding_box.x,
-            bounding_box.y,
-            bounding_box.x + bounding_box.width,
-            bounding_box.y + bounding_box.height,
-        ]
+        let bb = render_command.bounding_box;
+        [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
     }
 
     fn color(color: ClayColor) -> flowi_renderer::Color {
@@ -167,6 +162,7 @@ impl<'a> Ui<'a> {
     }
 
     fn translate_clay_render_commands(
+        state: &State,
         commands: impl Iterator<Item = ClayRenderCommand<'a>>,
     ) -> Vec<RenderCommand> {
         // TODO: Arena
@@ -194,14 +190,26 @@ impl<'a> Ui<'a> {
                     ),
                 },
 
-                RenderCommandConfig::Text(text, config) => (
-                    RenderType::DrawText(DrawTextData {
-                        text: StringSlice::new(text),
-                        font_size: config.font_size,
-                        font_handle: config.font_id as _,
-                    }),
-                    Self::color(config.color),
-                ),
+                RenderCommandConfig::Text(text, config) => {
+                    let text = StringSlice::new(text);
+
+                    let gen = if let Some(text_data) = state.text_generator.get_text(
+                        text.as_str(),
+                        config.font_size as _,
+                        config.font_id as _,
+                    ) {
+                        DrawTextBufferData {
+                            data: text_data.data,
+                            handle: text_data.id,
+                            width: text_data.width as _,
+                            height: text_data.height as _,
+                        }
+                    } else {
+                        DrawTextBufferData::default()
+                    };
+
+                    (RenderType::DrawTextBuffer(gen), Self::color(config.color))
+                }
 
                 RenderCommandConfig::Image(image) => (
                     RenderType::DrawImage(DrawImage {
@@ -271,7 +279,7 @@ impl<'a> Ui<'a> {
         let state = unsafe { &mut *self.state.get() };
 
         // TODO: Fix me
-        let primitives = Self::translate_clay_render_commands(state.layout.end());
+        let primitives = Self::translate_clay_render_commands(&state, state.layout.end());
         state.renderer.render(&primitives);
 
         // Generate primitives from all boxes
@@ -287,12 +295,13 @@ impl<'a> Ui<'a> {
     pub fn queue_generate_text(
         &mut self,
         text: &str,
+        font_size: u32,
         font_id: FontHandle,
     ) -> Option<font::CachedString> {
         let state = unsafe { &mut *self.state.get() };
         state
             .text_generator
-            .queue_generate_text(text, font_id, &state.bg_worker)
+            .queue_generate_text(text, font_size, font_id, &state.bg_worker)
     }
 
     #[rustfmt::skip]
@@ -310,11 +319,12 @@ impl<'a> Ui<'a> {
                 .end()], |_ui|
             {
                 let font_id = state.active_font;
-                state.text_generator.queue_generate_text(text, font_id, &state.bg_worker);
+                // TODO: Fix me
+                let _ = state.text_generator.queue_generate_text(text, 48, font_id, &state.bg_worker);
 
                 state.layout.text(text, Text::new()
                     .font_id(font_id as u16)
-                    .font_size(16)
+                    .font_size(48)
                     .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
                     .line_height(16)
                     .end());
@@ -353,9 +363,9 @@ impl<'a> Ui<'a> {
         state.text_generator.update();
     }
 
-    pub fn get_text(&self, text: &str, handle: FontHandle) -> Option<&CachedString> {
+    pub fn get_text(&self, text: &str, size: u32, handle: FontHandle) -> Option<&CachedString> {
         let state = unsafe { &mut *self.state.get() };
-        state.text_generator.get_text(text, handle)
+        state.text_generator.get_text(text, size, handle)
     }
 
     /*
