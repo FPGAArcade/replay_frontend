@@ -173,6 +173,7 @@ pub(crate) struct MouseState {
     pub(crate) down_duration: f32,
 }
 
+#[derive(Debug)]
 pub struct Input {
     pub(crate) mouse_position: Vec2,
     pub(crate) mouse_buttons: [MouseState; 5],
@@ -188,11 +189,15 @@ impl Input {
 
     /// Queue a new key down/up event.
     /// Key should be "translated" (as in, generally [Key::A] matches the key end-user would use to emit an 'A' character)
-    pub fn add_key_event(_key: Key, _down: bool) {}
+    pub fn add_key_event(&mut self, _key: Key, _down: bool) {
+
+    }
 
     /// Queue a new key down/up event for analog values (
     /// e.g. ImGuiKey_Gamepad_ values). Dead-zones should be handled by the backend.
-    pub fn add_key_analog_event(_key: Key, _down: bool, _value: f32) {}
+    pub fn add_key_analog_event(&mut self, _key: Key, _down: bool, _value: f32) {
+
+    }
 
     /// Queue a mouse position update. Use None to signify no mouse (e.g. app not focused and not hovered)
     pub fn add_mouse_pos_event(&mut self, pos: Option<(f32, f32)>) {
@@ -218,10 +223,10 @@ impl Input {
     pub fn add_mouse_source_event(_source: MouseSource) {}
 
     /// Queue a gain/loss of focus for the application (generally based on OS/platform focus of your window)
-    pub fn add_focus_event(_focused: bool) {}
+    pub fn add_focus_event(&mut self, _focused: bool) {}
 
     /// Queue a new character input
-    pub fn add_char_event(_c: i32) {}
+    pub fn add_char_event(&mut self, _c: i32) {}
 
     /// Update the state
     pub fn update(&mut self, delta_time: f32) {

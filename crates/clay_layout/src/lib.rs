@@ -279,7 +279,7 @@ impl<'a> Clay<'a> {
         unsafe { Clay_GetElementData(id.id) }
     }
 
-    pub fn get_bounding_box(&self, id: TypedConfig) -> Option<BoundingBox> {
+    pub fn bounding_box(&self, id: TypedConfig) -> Option<BoundingBox> {
         let element_data = Self::get_element_data(id);
 
         if element_data.found {
@@ -288,6 +288,18 @@ impl<'a> Clay<'a> {
             None
         }
     }
+
+    /*
+    pub fn active_element(&self) -> TypedConfig {
+        let id = unsafe { Clay_GetActiveElement() };
+
+        TypedConfig {
+            config_memory: core::ptr::null(),
+            id,
+            config_type: ElementConfigType::None,
+        }
+    }
+    */
 
     pub fn begin(&self) {
         unsafe { Clay_BeginLayout() };

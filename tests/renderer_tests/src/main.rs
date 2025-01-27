@@ -2,6 +2,7 @@ use flowi_sw_renderer::Renderer as SofwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
 
 use flowi_renderer::Renderer;
+use flowi_core::input::Input;
 
 use minifb::{Key, Window, WindowOptions};
 use simd::*;
@@ -13,6 +14,7 @@ const RENDER_WIDTH: usize = WIDTH / 4;
 const RENDER_HEIGHT: usize = HEIGHT / 4;
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 enum Shape {
     Quad,
     RoundRect,
@@ -24,6 +26,7 @@ enum Shape {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 enum RenderMode {
     Flat,
     Gradient,
@@ -71,6 +74,7 @@ fn zoom_buffer(output: &mut [u32], input: &[u32], zoom: usize) {
     }
 }
 
+#[allow(dead_code)]
 fn draw_pixel_grid(output: &mut [u32], zoom: usize) {
     assert!(zoom > 0, "Zoom size must be greater than 0");
 
@@ -89,7 +93,7 @@ fn main() {
     let mut tile_output = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
     let mut tile_output_u32 = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
     let linear_to_srgb_table = flowi_sw_renderer::build_linear_to_srgb_table();
-    let application_settings = flowi_core::ApplicationSettings {
+    let _application_settings = flowi_core::ApplicationSettings {
         width: WIDTH,
         height: HEIGHT,
     };
@@ -119,7 +123,7 @@ fn main() {
     }
     */
 
-    let radius = 31.0; // actually 16
+    //let radius = 31.0; // actually 16
 
     let mut window = Window::new(
         "Test - ESC to exit",
@@ -135,12 +139,13 @@ fn main() {
         panic!("{}", e);
     });
 
-    let mut shape = Shape::RoundedTopLeft;
-    let mut render_mode = RenderMode::Flat;
-    let mut blend_mode = BlendMode::None;
+    let shape = Shape::RoundedTopLeft;
+    let _render_mode = RenderMode::Flat;
+    let _blend_mode = BlendMode::None;
 
     // Limit to max ~60 fps update rate
     window.set_target_fps(60);
+    let mut input = Input::new();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in tile_output.iter_mut() {
@@ -179,7 +184,7 @@ fn main() {
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);
 
-        core.update();
+        core.update(&mut input);
     }
 }
 

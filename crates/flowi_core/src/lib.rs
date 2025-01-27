@@ -9,6 +9,8 @@ pub mod render;
 pub mod signal;
 pub mod widgets;
 
+use crate::input::Input;
+
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
@@ -21,6 +23,7 @@ use internal_error::InternalResult;
 pub use io_handler::IoHandler;
 use signal::Signal;
 use std::cell::UnsafeCell;
+use std::collections::HashMap;
 
 use font::{CachedString, FontHandle};
 
@@ -42,6 +45,11 @@ use flowi_renderer::{
 type FlowiKey = u64;
 
 #[allow(dead_code)]
+struct BoxState {
+    hot: f32,
+}
+
+#[allow(dead_code)]
 struct State<'a> {
     pub(crate) text_generator: font::TextGenerator,
     pub(crate) vfs: Fileorama,
@@ -54,6 +62,7 @@ struct State<'a> {
     pub(crate) button_id: u32,
     pub(crate) renderer: Box<dyn Renderer>,
     pub(crate) bg_worker: WorkSystem,
+    pub(crate) boxes: HashMap<u32, BoxState>, // TODO: Arena hashmap
     pub(crate) active_font: FontHandle,
 }
 
@@ -79,6 +88,7 @@ impl<'a> Ui<'a> {
             current_frame: 0,
             primitives: Arena::new(reserve_size).unwrap(),
             layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
+            boxes: HashMap::new(),
             button_id: 0,
             renderer,
             bg_worker,
@@ -313,7 +323,7 @@ impl<'a> Ui<'a> {
     pub fn button(&self, text: &str) -> Signal {
         let state = unsafe { &mut *self.state.get() };
 
-        state.layout.with_id_index(Some(("TestButton", state.button_id)), [
+        state.layout.with(Some(text), [
             Layout::new()
                 .width(fixed!(160.0))
                 //.height(fixed!(40.0))
@@ -364,7 +374,7 @@ impl<'a> Ui<'a> {
         &state.renderer
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, _input: &mut Input) {
         let state = unsafe { &mut *self.state.get() };
         state.text_generator.update();
     }

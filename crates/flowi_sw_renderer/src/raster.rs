@@ -928,9 +928,8 @@ impl Raster {
             );
         }
 
-        for side in 0..3 {
-            // TODO: Fix me
-            let radius = raddii[side] - 1.0;
+        for (side, radius) in raddii.iter().enumerate().take(3) { 
+            let radius = radius - 1.0;
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);
         }

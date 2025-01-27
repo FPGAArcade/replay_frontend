@@ -4,7 +4,7 @@ use flowi_core::ApplicationSettings;
 use flowi_renderer::SoftwareRenderData;
 
 use sdl2::{
-    //controller::{Axis, Button, GameController},
+    controller::{Axis, Button, GameController},
     event::Event,
     keyboard::Keycode,
     mouse::MouseButton,
@@ -119,12 +119,11 @@ pub(crate) struct Sdl2Window {
     event_pump: sdl2::EventPump,
     texture: Texture,
     time: f64,
-    shift: u8,
     should_close: bool,
 }
 
 impl Sdl2Window {
-    fn update_input(&mut self) {
+    fn update_input(&mut self, input: &mut Input) {
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::KeyDown {
@@ -136,7 +135,7 @@ impl Sdl2Window {
                         if key == Key::Escape {
                             self.should_close = true;
                         }
-                        Input::add_key_event(key, true);
+                        input.add_key_event(key, true);
                     } else {
                         println!("Unknown key: {:?}", keycode);
                     }
@@ -146,54 +145,47 @@ impl Sdl2Window {
                     ..
                 } => {
                     if let Some(key) = translate_sdl2_to_flowi_key(keycode) {
-                        Input::add_key_event(key, false);
+                        input.add_key_event(key, true);
                     }
                 }
-                //Event::MouseMotion { x, y, .. } => {
-                Event::MouseMotion { .. } => {
-                    //Input::add_mouse_pos_event(x as f32, y as f32);
+                Event::MouseMotion { x, y, .. } => {
+                    input.add_mouse_pos_event(Some((x as f32, y as f32)));
                 }
-                //Event::MouseButtonDown { mouse_btn, .. } => {
-                Event::MouseButtonDown { .. } => {
-                    /*
-                    Input::add_mouse_button_event(
+                Event::MouseButtonDown { mouse_btn, .. } => {
+                    input.add_mouse_button_event(
                         Self::translate_sdl2_mouse_button(mouse_btn),
                         true,
                     );
-                    */
                 }
-                //Event::MouseButtonUp { mouse_btn, .. } => {
-                Event::MouseButtonUp { .. } => {
-                    /*
-                    Input::add_mouse_button_event(
+                Event::MouseButtonUp { mouse_btn, .. } => {
+                    input.add_mouse_button_event(
                         Self::translate_sdl2_mouse_button(mouse_btn),
                         false,
                     );
-                    */
                 }
                 Event::Window {
                     win_event: sdl2::event::WindowEvent::FocusGained,
                     ..
                 } => {
-                    Input::add_focus_event(true);
+                    input.add_focus_event(true);
                 }
                 Event::Window {
                     win_event: sdl2::event::WindowEvent::FocusLost,
                     ..
                 } => {
-                    Input::add_focus_event(false);
+                    input.add_focus_event(false);
                 }
                 // Handle other events as needed
                 _ => {}
             }
         }
 
-        self.update_modifiers();
-        self.update_mouse_data();
+        self.update_modifiers(input);
+        self.update_mouse_data(input);
         //self.update_pad();
     }
 
-    fn update_modifiers(&mut self) {
+    fn update_modifiers(&mut self, input: &mut Input) {
         let keyboard_state = self.event_pump.keyboard_state();
         let ctrl = keyboard_state.is_scancode_pressed(sdl2::keyboard::Scancode::LCtrl)
             || keyboard_state.is_scancode_pressed(sdl2::keyboard::Scancode::RCtrl);
@@ -204,19 +196,19 @@ impl Sdl2Window {
         let super_key = keyboard_state.is_scancode_pressed(sdl2::keyboard::Scancode::LGui)
             || keyboard_state.is_scancode_pressed(sdl2::keyboard::Scancode::RGui);
 
-        Input::add_key_event(Key::LeftCtrl, ctrl);
-        Input::add_key_event(Key::LeftShift, shift);
-        Input::add_key_event(Key::LeftAlt, alt);
-        Input::add_key_event(Key::LeftSuper, super_key);
+        input.add_key_event(Key::LeftCtrl, ctrl);
+        input.add_key_event(Key::LeftShift, shift);
+        input.add_key_event(Key::LeftAlt, alt);
+        input.add_key_event(Key::LeftSuper, super_key);
     }
 
-    fn update_mouse_data(&mut self) {
+    fn update_mouse_data(&mut self, input: &mut Input) {
         // Assuming window focus is handled elsewhere or not relevant for SDL2
         let mouse_state = self.event_pump.mouse_state();
-        let _x = mouse_state.x();
-        let _y = mouse_state.y();
+        let x = mouse_state.x();
+        let y = mouse_state.y();
 
-        //Input::add_mouse_pos_event(x as f32, y as f32);
+        input.add_mouse_pos_event(Some((x as f32, y as f32)));
     }
 
     #[allow(dead_code)]
@@ -230,8 +222,7 @@ impl Sdl2Window {
         }
     }
 
-    /*
-    fn update_pad(&mut self, controller: &GameController) {
+    fn update_pad(&mut self, controller: &GameController, input: &mut Input) {
         let digital_buttons = [
             (Key::GamepadBack, Button::Back, 6),
             (Key::GamepadStart, Button::Start, 7),
@@ -265,8 +256,7 @@ impl Sdl2Window {
         // Digital buttons
         for (key, button, _index) in digital_buttons.iter() {
             let pressed = controller.button(*button);
-            // Assuming Input::add_key_event exists and handles the logic for key events
-            Input::add_key_event(*key, pressed);
+            input.add_key_event(*key, pressed);
         }
 
         // Analog buttons and sticks
@@ -274,29 +264,12 @@ impl Sdl2Window {
             let value = controller.axis(*axis) as i32;
             let normalized_value = (value - min) as f32 / (max - min) as f32;
             // Assuming Input::add_key_analog_event exists and handles the logic for analog input events
-            Input::add_key_analog_event(
+            input.add_key_analog_event(
                 *key,
                 normalized_value > 0.0,
                 normalized_value.clamp(0.0, 1.0),
             );
         }
-    }
-    */
-
-    fn update_texture(texture: &mut Texture, color_shift: u8) -> Result<(), String> {
-        texture
-            .with_lock(None, |buffer: &mut [u8], pitch: usize| {
-                for y in 0..1080 - 1 {
-                    for x in 0..1920 - 1 {
-                        let offset = y * pitch + x * 4;
-                        buffer[offset] = color_shift; // Red
-                        buffer[offset + 1] = 64; // Green
-                        buffer[offset + 2] = 255 - color_shift; // Blue
-                        buffer[offset + 3] = 0; // Alpha
-                    }
-                }
-            })
-            .map_err(|e| e.to_string())
     }
 }
 
@@ -341,14 +314,13 @@ impl Window for Sdl2Window {
             sdl_context,
             canvas,
             texture,
-            shift: 0,
             event_pump,
             time: 0.0,
             should_close: false,
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, input: &mut Input) {
         let current_time = f64::max(
             self.time + 0.00001,
             self.sdl_context.timer().unwrap().ticks() as f64 / 1000.0,
@@ -377,10 +349,7 @@ impl Window for Sdl2Window {
         // In SDL2, input and window events are handled through the event pump in the main loop
         // Thus, methods like update_input(), update_mouse_data(), update_modifiers(), and update_pad()
         // should be integrated into the main event loop or adapted accordingly.
-
-        self.update_input();
-
-        //Self::update_texture(&mut self.texture, self.shift).unwrap();
+        self.update_input(input);
 
         self.canvas
             .copy(
@@ -390,8 +359,6 @@ impl Window for Sdl2Window {
             )
             .unwrap();
         self.canvas.present();
-
-        self.shift = self.shift.wrapping_add(1);
     }
 
     fn present(&mut self) {

@@ -531,6 +531,7 @@ Clay_RenderCommandArray Clay_EndLayout(void);
 Clay_ElementId Clay_GetElementId(Clay_String idString);
 Clay_ElementId Clay_GetElementIdWithIndex(Clay_String idString, uint32_t index);
 Clay_ElementData Clay_GetElementData (Clay_ElementId id);
+uint32_t Clay_GetActiveElementId(void);
 bool Clay_Hovered(void);
 void Clay_OnHover(void (*onHoverFunction)(Clay_ElementId elementId, Clay_PointerData pointerData, intptr_t userData), intptr_t userData);
 bool Clay_PointerOver(Clay_ElementId elementId);
@@ -3982,6 +3983,18 @@ bool Clay_Hovered(void) {
         }
     }
     return false;
+}
+
+uint32_t Clay_GetActiveElementId(void) {
+    Clay_Context* context = Clay_GetCurrentContext();
+    if (context->booleanWarnings.maxElementsExceeded) {
+        return 0;
+    }
+    Clay_LayoutElement *openLayoutElement = Clay__GetOpenLayoutElement();
+    if (openLayoutElement->id == 0) {
+        Clay__GenerateIdForAnonymousElement(openLayoutElement);
+    }
+    return openLayoutElement->id;
 }
 
 void Clay_OnHover(void (*onHoverFunction)(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData), intptr_t userData) {

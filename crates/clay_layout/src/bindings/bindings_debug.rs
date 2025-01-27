@@ -2454,6 +2454,9 @@ unsafe extern "C" {
     pub fn Clay_GetElementData(id: Clay_ElementId) -> Clay_ElementData;
 }
 unsafe extern "C" {
+    pub fn Clay_GetActiveElementId() -> Clay_ElementId;
+}
+unsafe extern "C" {
     pub fn Clay_Hovered() -> bool;
 }
 unsafe extern "C" {
