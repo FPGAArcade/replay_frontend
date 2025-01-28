@@ -15,10 +15,12 @@ mod mem;
 use crate::elements::text::Text;
 use elements::{text::TextElementConfig, ElementConfigType};
 use errors::Error;
-use math::{BoundingBox, Dimensions, Vector2};
+use math::{Dimensions, Vector2};
 use render_commands::RenderCommand;
 
 pub use crate::bindings::*;
+pub use id::Id;
+pub use math::BoundingBox;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]

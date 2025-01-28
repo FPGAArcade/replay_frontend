@@ -8,8 +8,8 @@ pub mod primitives;
 pub mod render;
 pub mod signal;
 pub mod widgets;
-
 use crate::input::Input;
+use glam::Vec2;
 
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
@@ -44,9 +44,12 @@ use flowi_renderer::{
 
 type FlowiKey = u64;
 
+#[derive(Debug)]
 #[allow(dead_code)]
-struct BoxState {
+struct ItemState {
+    bounding_box: clay_layout::math::BoundingBox,
     hot: f32,
+    frame: u64,
 }
 
 #[allow(dead_code)]
@@ -62,7 +65,7 @@ struct State<'a> {
     pub(crate) button_id: u32,
     pub(crate) renderer: Box<dyn Renderer>,
     pub(crate) bg_worker: WorkSystem,
-    pub(crate) boxes: HashMap<u32, BoxState>, // TODO: Arena hashmap
+    pub(crate) item_states: HashMap<u32, ItemState>, // TODO: Arena hashmap
     pub(crate) active_font: FontHandle,
 }
 
@@ -88,7 +91,7 @@ impl<'a> Ui<'a> {
             current_frame: 0,
             primitives: Arena::new(reserve_size).unwrap(),
             layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
-            boxes: HashMap::new(),
+            item_states: HashMap::new(),
             button_id: 0,
             renderer,
             bg_worker,
@@ -134,7 +137,6 @@ impl<'a> Ui<'a> {
             .measure_text_size(text, state.active_font)
             .unwrap();
 
-        dbg!(size);
         Dimensions::new(size.0 as _, size.1 as _)
     }
 
@@ -255,13 +257,8 @@ impl<'a> Ui<'a> {
                         outer_radius[3] - border.bottom.width as f32,
                     ];
 
-                    (
-                        RenderType::DrawBorder(DrawBorderData {
-                            outer_radius,
-                            inner_radius,
-                        }),
-                        Self::color(border.left.color),
-                    )
+                    (RenderType::DrawBorder(DrawBorderData { outer_radius, inner_radius }), 
+                                            Self::color(border.left.color))
                 }
 
                 RenderCommandConfig::ScissorStart() => {
@@ -290,7 +287,7 @@ impl<'a> Ui<'a> {
         primitives
     }
 
-    pub fn end(&mut self) {
+    pub fn end(&mut self, input: &mut Input) {
         let state = unsafe { &mut *self.state.get() };
 
         // TODO: Fix me
@@ -300,6 +297,8 @@ impl<'a> Ui<'a> {
         // Generate primitives from all boxes
         //state.generate_primitives();
         state.current_frame += 1;
+
+        input.mouse_pos_prev = input.mouse_pos;
     }
 
     pub fn load_font(&mut self, path: &str, size: i32) -> InternalResult<FontHandle> {
@@ -322,11 +321,11 @@ impl<'a> Ui<'a> {
     #[rustfmt::skip]
     pub fn button(&self, text: &str) -> Signal {
         let state = unsafe { &mut *self.state.get() };
+        let id_name = text;
 
-        state.layout.with(Some(text), [
+        state.layout.with(Some(id_name), [
             Layout::new()
                 .width(fixed!(160.0))
-                //.height(fixed!(40.0))
                 .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
                 .padding(Padding::all(30)).end(),
              Rectangle::new()
@@ -334,6 +333,17 @@ impl<'a> Ui<'a> {
                 .corner_radius(CornerRadius::All(16.0))
                 .end()], |_ui|
             {
+                let id = clay_layout::id::Id::new(id_name);
+
+                if let Some(aabb) = state.layout.bounding_box(id) {
+                    let item = state.item_states.entry(id.id.id).or_insert(ItemState {
+                        bounding_box: aabb,
+                        hot: 0.0,
+                        frame: 0,
+                    });
+                    item.bounding_box = aabb;
+                }
+
                 let font_id = state.active_font;
                 // TODO: Fix me
                 let _ = state.text_generator.queue_generate_text(text, 36, font_id, &state.bg_worker);
@@ -374,8 +384,10 @@ impl<'a> Ui<'a> {
         &state.renderer
     }
 
-    pub fn update(&mut self, _input: &mut Input) {
+    pub fn update(&mut self, input: &mut Input, time: f32, delta_time: f32) {
         let state = unsafe { &mut *self.state.get() };
+
+        input.update(time, delta_time);
         state.text_generator.update();
     }
 

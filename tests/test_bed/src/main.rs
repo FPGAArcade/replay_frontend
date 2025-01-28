@@ -24,25 +24,26 @@ fn main_loop(ui: &Ui, _app: &mut App) {
         Layout::new()
             .width(grow!())
             .height(grow!())
-            .direction(LayoutDirection::TopToBottom)
-            .padding(Padding::all(8))
-            .child_gap(16)
+            .direction(LayoutDirection::LeftToRight)
             .end()], |ui| 
    {
         ui.with_layout(Some("header"), [
             Layout::new()
-                .width(grow!())
-                .height(fixed!(120.0))
+                .height(grow!())
+                .width(fixed!(120.0))
                 .padding(Padding::all(8))
                 .child_gap(16)
+                .direction(LayoutDirection::TopToBottom)
                 .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
                 .end(),
             Rectangle::new()
                 .color(ClayColor::rgba(100.0, 100.0, 100.0, 255.0))
-                .end()], |ui| 
+                .end()
+            ], |ui| 
         {
-            ui.button("Foo ");
-            ui.button("Bar ");
+            ui.button("Foo");
+            ui.button("Bar");
+            ui.button("Settings");
             //ui.button("Test");
         });
 

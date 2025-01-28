@@ -1,4 +1,4 @@
-use crate::primitives::Vec2;
+use glam::Vec2;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum MouseSource {
@@ -163,27 +163,51 @@ pub enum Key {
     ModShortcut,
 }
 
+#[derive(Debug)]
+pub struct InputSettings {
+    pub mouse_threshold: f32,
+    pub double_click_time: f32,
+    pub double_click_max_dist_x2: f32,
+    pub key_repeat_delay: f32,
+    pub key_repeat_rate: f32,
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct MouseState {
-    pub(crate) _clicked_pos: Vec2,
+    pub(crate) clicked_pos: Option<Vec2>,
     pub(crate) down: bool,
     pub(crate) clicked: bool,
-    pub(crate) _double_clicked: bool,
+    pub(crate) double_clicked: bool,
     pub(crate) released: bool,
     pub(crate) down_duration: f32,
+    pub(crate) clicked_time: f32,
+    pub(crate) released_time: f32,
+    pub(crate) clicked_count: i32,
+    pub(crate) down_duration_prev: f32, 
 }
 
 #[derive(Debug)]
 pub struct Input {
-    pub(crate) mouse_position: Vec2,
+    pub(crate) settings: InputSettings,
+    pub(crate) mouse_pos: Option<Vec2>,
+    pub(crate) mouse_pos_prev: Option<Vec2>,
     pub(crate) mouse_buttons: [MouseState; 5],
 }
+
 
 impl Input {
     pub fn new() -> Self {
         Self {
-            mouse_position: Vec2::default(),
+            mouse_pos: None,
+            mouse_pos_prev: None,
             mouse_buttons: Default::default(),
+            settings: InputSettings {
+                mouse_threshold: 0.0,
+                double_click_time: 0.60,
+                double_click_max_dist_x2: 6.0 * 6.0, 
+                key_repeat_delay: 0.250,
+                key_repeat_rate: 0.050,
+            },
         }
     }
 
@@ -202,12 +226,12 @@ impl Input {
     /// Queue a mouse position update. Use None to signify no mouse (e.g. app not focused and not hovered)
     pub fn add_mouse_pos_event(&mut self, pos: Option<(f32, f32)>) {
         if let Some((x, y)) = pos {
-            self.mouse_position = Vec2::new(x, y);
+            self.mouse_pos = Some(Vec2::new(x, y));
         }
     }
 
     pub fn set_mouse_position(&mut self, x: f32, y: f32) {
-        self.mouse_position = Vec2::new(x, y);
+        self.mouse_pos = Some(Vec2::new(x, y));
     }
 
     /// Queue a mouse button change
@@ -229,20 +253,63 @@ impl Input {
     pub fn add_char_event(&mut self, _c: i32) {}
 
     /// Update the state
-    pub fn update(&mut self, delta_time: f32) {
-        for mb in self.mouse_buttons.iter_mut() {
-            mb.clicked = mb.down && mb.down_duration < 0.0;
-            mb.released = !mb.down && mb.down_duration >= 0.0;
+    pub fn update(&mut self, time: f32, delta_time: f32) {
+        self.update_mouse_state(time, delta_time);
+    }
 
-            mb.down_duration = if mb.down {
-                if mb.down_duration < 0.0 {
+    // Inpseration taken from Dear imgui
+    fn update_mouse_state(&mut self, time: f32, delta_time: f32) {
+        // If mouse moved we re-enable mouse hovering in case it was disabled by keyboard/gamepad. 
+        // In theory should use a >0.0 threshold but would need to reset in everywhere we set this to true.
+        //if io.mouse_delta.x != 0.0 || io.mouse_delta.y != 0.0 {
+        //    ctx.nav_highlight_item_under_nav = false;
+        //}
+
+        for button in &mut self.mouse_buttons {
+            button.clicked = button.down && button.down_duration < 0.0;
+            button.clicked_count = 0;
+            button.released = !button.down && button.down_duration >= 0.0;
+
+            if button.released {
+                button.released_time = time;
+            }
+
+            button.down_duration_prev = button.down_duration;
+            button.down_duration = if button.down {
+                if button.down_duration < 0.0 {
                     0.0
                 } else {
-                    mb.down_duration + delta_time
+                    button.down_duration + delta_time
                 }
             } else {
                 -1.0
             };
+
+            if button.clicked {
+                if time - button.clicked_time < self.settings.double_click_time {
+                    let delta_from_click_pos = if let Some(mouse_pos) = self.mouse_pos {
+                        mouse_pos - button.clicked_pos.unwrap()
+                    } else {
+                        Vec2::new(0.0, 0.0)
+                    };
+
+                    if delta_from_click_pos.length_squared() < self.settings.double_click_max_dist_x2 {
+                        button.clicked_count += 1;
+                    }
+                } else {
+                    button.clicked_count = 1;
+                };
+
+                button.clicked_time = time;
+                button.clicked_pos = self.mouse_pos;
+            } 
+
+            button.double_clicked = button.clicked_count == 2;
+
+            // Clicking any mouse button reactivate mouse hovering which may have been deactivated by keyboard/gamepad navigation
+            //if button.clicked {
+            //    ctx.nav_highlight_item_under_nav = false;
+            //}
         }
     }
 }

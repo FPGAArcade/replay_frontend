@@ -234,7 +234,8 @@ fn generate_text(
         height += run.line_height;
     }
 
-    let width = width as usize;
+    // + 8 as we always do 8 pixels wide in the rendering
+    let width = (width + 8.0) as usize;
     let height = height as usize;
 
     let mut output = vec![0; width * height];
