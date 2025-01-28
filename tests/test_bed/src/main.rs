@@ -41,9 +41,18 @@ fn main_loop(ui: &Ui, _app: &mut App) {
                 .end()
             ], |ui| 
         {
-            ui.button("Foo");
-            ui.button("Bar");
-            ui.button("Settings");
+            if ui.button("Foo").hovering() {
+                //println!("Hovering over Foo");
+            }
+
+            if ui.button("Bar").hovering() {
+                //println!("Hovering over Bar");
+            }
+
+            if ui.button("Settings").hovering() {
+                //println!("Hovering over Settings");
+            }
+
             //ui.button("Test");
         });
 
@@ -63,7 +72,7 @@ fn main_loop(ui: &Ui, _app: &mut App) {
 
 fn main() {
     let width = 1920;
-    let height = 1080;
+    let height = 720;
 
     let settings = flowi::ApplicationSettings { width, height };
 

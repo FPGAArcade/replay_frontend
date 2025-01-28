@@ -325,7 +325,8 @@ impl Window for Sdl2Window {
             self.time + 0.00001,
             self.sdl_context.timer().unwrap().ticks() as f64 / 1000.0,
         );
-        let _delta_time = if self.time > 0.0 {
+
+        let delta_time = if self.time > 0.0 {
             current_time - self.time
         } else {
             1.0 / 60.0
@@ -350,6 +351,9 @@ impl Window for Sdl2Window {
         // Thus, methods like update_input(), update_mouse_data(), update_modifiers(), and update_pad()
         // should be integrated into the main event loop or adapted accordingly.
         self.update_input(input);
+
+        // Update the internal intput state
+        input.update(self.time as f32, delta_time as f32);
 
         self.canvas
             .copy(

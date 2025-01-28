@@ -9,7 +9,7 @@ pub mod render;
 pub mod signal;
 pub mod widgets;
 use crate::input::Input;
-use glam::Vec2;
+use glam::Vec4;
 
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
@@ -44,10 +44,12 @@ use flowi_renderer::{
 
 type FlowiKey = u64;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[allow(dead_code)]
 struct ItemState {
-    bounding_box: clay_layout::math::BoundingBox,
+    aabb: Vec4,
+    was_hovered: bool,
+    was_clicked: bool,
     hot: f32,
     frame: u64,
 }
@@ -57,7 +59,7 @@ struct State<'a> {
     pub(crate) text_generator: font::TextGenerator,
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
-    pub(crate) input: input::Input,
+    pub(crate) input: Input,
     pub(crate) primitives: Arena,
     pub(crate) hot_item: FlowiKey,
     pub(crate) current_frame: u64,
@@ -78,8 +80,9 @@ impl<'a> Ui<'a> {
     pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
-        crate::image_api::install_image_loader(&vfs);
         let bg_worker = WorkSystem::new(2);
+        
+        crate::image_api::install_image_loader(&vfs);
 
         let reserve_size = 1024 * 1024 * 1024;
         let state = State {
@@ -87,7 +90,7 @@ impl<'a> Ui<'a> {
             io_handler,
             text_generator: font::TextGenerator::new(&bg_worker),
             hot_item: 0,
-            input: input::Input::new(),
+            input: Input::new(),
             current_frame: 0,
             primitives: Arena::new(reserve_size).unwrap(),
             layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
@@ -287,7 +290,7 @@ impl<'a> Ui<'a> {
         primitives
     }
 
-    pub fn end(&mut self, input: &mut Input) {
+    pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
 
         // TODO: Fix me
@@ -298,7 +301,12 @@ impl<'a> Ui<'a> {
         //state.generate_primitives();
         state.current_frame += 1;
 
-        input.mouse_pos_prev = input.mouse_pos;
+        state.input.mouse_pos_prev = state.input.mouse_pos;
+    }
+
+    pub fn input(&self) -> &mut Input {
+        let state = unsafe { &mut *self.state.get() };
+        &mut state.input
     }
 
     pub fn load_font(&mut self, path: &str, size: i32) -> InternalResult<FontHandle> {
@@ -322,6 +330,7 @@ impl<'a> Ui<'a> {
     pub fn button(&self, text: &str) -> Signal {
         let state = unsafe { &mut *self.state.get() };
         let id_name = text;
+        let mut signal = Signal::new();
 
         state.layout.with(Some(id_name), [
             Layout::new()
@@ -333,17 +342,6 @@ impl<'a> Ui<'a> {
                 .corner_radius(CornerRadius::All(16.0))
                 .end()], |_ui|
             {
-                let id = clay_layout::id::Id::new(id_name);
-
-                if let Some(aabb) = state.layout.bounding_box(id) {
-                    let item = state.item_states.entry(id.id.id).or_insert(ItemState {
-                        bounding_box: aabb,
-                        hot: 0.0,
-                        frame: 0,
-                    });
-                    item.bounding_box = aabb;
-                }
-
                 let font_id = state.active_font;
                 // TODO: Fix me
                 let _ = state.text_generator.queue_generate_text(text, 36, font_id, &state.bg_worker);
@@ -352,19 +350,52 @@ impl<'a> Ui<'a> {
                     .font_id(font_id as u16)
                     .font_size(36)
                     .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
-                    //.line_height(80)
                     .end());
+
+                let id = clay_layout::id::Id::new(id_name);
+
+                if let Some(aabb) = state.layout.bounding_box(id) {
+                    let item = state.item_states.entry(id.id.id).or_insert(ItemState {
+                        aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height), 
+                        ..Default::default()
+                    });
+                    item.aabb = Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height);
+                    signal = self.signal(item)
+                } 
             },
         );
 
         state.button_id += 1;
-
-        Signal::new()
+        signal
     }
 
     #[allow(dead_code)]
-    fn signal(&mut self) -> Signal {
-        Signal::new()
+    fn signal(&self, item_state: &mut ItemState) -> Signal {
+        let state = unsafe { &mut *self.state.get() };
+
+        let mut signal = Signal::new();
+
+        fn contains(aabb: Vec4, pos: glam::Vec2) -> bool {
+            pos.x >= aabb.x && pos.y >= aabb.y && pos.x < aabb.z && pos.y < aabb.w
+        }
+
+        let is_hovered = if contains(item_state.aabb, state.input.mouse_pos) {
+            signal.flags.insert(signal::SignalFlags::HOVERING);
+            true
+        } else {
+            false
+        };
+
+        if is_hovered && !item_state.was_hovered {
+            signal.flags.insert(signal::SignalFlags::ENTER_HOVER);
+            item_state.was_hovered = true;
+        } 
+
+        if !is_hovered && item_state.was_hovered {
+            signal.flags.insert(signal::SignalFlags::EXIT_HOVER);
+            item_state.was_hovered = false;
+        }
+
         /*
         let mut signal = Signal::new();
         let box_area = box_area.as_mut_unsafe();
@@ -374,9 +405,9 @@ impl<'a> Ui<'a> {
         if box_area.rect.contains(self.input.mouse_position) {
             signal.flags.insert(signal::SignalFlags::HOVERING);
         }
+        */
 
         signal
-        */
     }
 
     pub fn renderer(&mut self) -> &Box<dyn Renderer> {
@@ -384,10 +415,8 @@ impl<'a> Ui<'a> {
         &state.renderer
     }
 
-    pub fn update(&mut self, input: &mut Input, time: f32, delta_time: f32) {
+    pub fn update(&mut self) {
         let state = unsafe { &mut *self.state.get() };
-
-        input.update(time, delta_time);
         state.text_generator.update();
     }
 
@@ -395,16 +424,6 @@ impl<'a> Ui<'a> {
         let state = unsafe { &mut *self.state.get() };
         state.text_generator.get_text(text, size, handle)
     }
-
-    /*
-    pub fn input(&mut self) -> &mut input::Input {
-        &mut self.input
-    }
-
-    pub fn primitives(&self) -> &[Primitive] {
-        self.primitives.get_array_by_type::<Primitive>()
-    }
-    */
 }
 
 #[derive(Debug, Clone, Copy)]

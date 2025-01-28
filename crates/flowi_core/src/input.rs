@@ -174,7 +174,7 @@ pub struct InputSettings {
 
 #[derive(Debug, Default)]
 pub(crate) struct MouseState {
-    pub(crate) clicked_pos: Option<Vec2>,
+    pub(crate) clicked_pos: Vec2,
     pub(crate) down: bool,
     pub(crate) clicked: bool,
     pub(crate) double_clicked: bool,
@@ -189,8 +189,8 @@ pub(crate) struct MouseState {
 #[derive(Debug)]
 pub struct Input {
     pub(crate) settings: InputSettings,
-    pub(crate) mouse_pos: Option<Vec2>,
-    pub(crate) mouse_pos_prev: Option<Vec2>,
+    pub(crate) mouse_pos: Vec2,
+    pub(crate) mouse_pos_prev: Vec2,
     pub(crate) mouse_buttons: [MouseState; 5],
 }
 
@@ -198,8 +198,8 @@ pub struct Input {
 impl Input {
     pub fn new() -> Self {
         Self {
-            mouse_pos: None,
-            mouse_pos_prev: None,
+            mouse_pos: Vec2::new(f32::NAN, f32::NAN),
+            mouse_pos_prev: Vec2::new(f32::NAN, f32::NAN),
             mouse_buttons: Default::default(),
             settings: InputSettings {
                 mouse_threshold: 0.0,
@@ -226,12 +226,12 @@ impl Input {
     /// Queue a mouse position update. Use None to signify no mouse (e.g. app not focused and not hovered)
     pub fn add_mouse_pos_event(&mut self, pos: Option<(f32, f32)>) {
         if let Some((x, y)) = pos {
-            self.mouse_pos = Some(Vec2::new(x, y));
+            self.mouse_pos = Vec2::new(x, y);
         }
     }
 
     pub fn set_mouse_position(&mut self, x: f32, y: f32) {
-        self.mouse_pos = Some(Vec2::new(x, y));
+        self.mouse_pos = Vec2::new(x, y);
     }
 
     /// Queue a mouse button change
@@ -287,8 +287,8 @@ impl Input {
 
             if button.clicked {
                 if time - button.clicked_time < self.settings.double_click_time {
-                    let delta_from_click_pos = if let Some(mouse_pos) = self.mouse_pos {
-                        mouse_pos - button.clicked_pos.unwrap()
+                    let delta_from_click_pos = if self.mouse_pos != Vec2::new(f32::NAN, f32::NAN) {
+                        self.mouse_pos - button.clicked_pos
                     } else {
                         Vec2::new(0.0, 0.0)
                     };

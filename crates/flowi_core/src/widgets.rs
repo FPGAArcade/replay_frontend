@@ -40,7 +40,8 @@ bitflags! {
         const HOVERING                 = 1 << 25;
         const MOUSE_OVER               = 1 << 26;
 
-        const COMMIT                   = 1 << 27;
+        const ENTER_HOVER              = 1 << 27;
+        const EXIT_HOVER               = 1 << 28;
 
         // High-level combinations
         const PRESSED                  = Self::LEFT_PRESSED.bits() | Self::KEYBOARD_PRESSED.bits();

@@ -54,12 +54,12 @@ unsafe extern "C" fn user_trampoline_ud<T>(app: &mut Application) {
 unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
 
-    let mut input = Input::new(); 
+    //let mut input = Input::new(); 
 
     while !state.window.should_close() {
         //state.core.pre_update();
-        state.window.update(&mut input);
-        state.ui.update(&mut input);
+        state.window.update(state.ui.input());
+        state.ui.update();
 
         state
             .ui
