@@ -1,3 +1,71 @@
+
+
+#[derive(Copy, Clone)]
+enum MenuSelection {
+    Search,
+    Systems,
+    Games,
+    Demos,
+    Settings,
+    Debug,
+}
+
+struct MenuItemInfo {
+    selection_id: MenuSelection,
+    text: &'static str,
+    path: &'static str,
+}
+
+static MENU_ITEMS: &[MenuItemInfo] = &[
+    MenuItemInfo {
+        text: "Search",
+        path: "data/svgs/icons8-search.svg",
+        selection_id: MenuSelection::Search,
+    },
+    MenuItemInfo {
+        text: "Systems",
+        path: "data/svgs/core.svg",
+        selection_id: MenuSelection::Systems,
+    },
+    MenuItemInfo {
+        text: "Games",
+        path: "data/svgs/games-buttons-svgrepo-com.svg",
+        selection_id: MenuSelection::Games,
+    },
+    MenuItemInfo {
+        text: "Demos",
+        path: "data/svgs/cube-svgrepo-com.svg",
+        selection_id: MenuSelection::Demos,
+    },
+    MenuItemInfo {
+        text: "Settings",
+        path: "data/svgs/settings-svgrepo-com.svg",
+        selection_id: MenuSelection::Settings,
+    },
+    MenuItemInfo {
+        text: "Debug",
+        path: "data/svgs/bug-debug-fix-fixing-qa-svgrepo-com.svg",
+        selection_id: MenuSelection::Debug,
+    },
+];
+
+#[allow(dead_code)]
+struct MenuItem {
+    selection_id: MenuSelection,
+    text: &'static str,
+    icon_path: &'static str,
+    //icon_pos: Vec2,
+    //icon_size: Vec2,
+    //icon: Image,
+    //color: Color,
+}
+
+
+struct LeftSideMenu {
+
+
+}
+
 /*
 use flowi::{
     font::Font,

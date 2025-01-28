@@ -145,7 +145,6 @@ fn main() {
 
     // Limit to max ~60 fps update rate
     window.set_target_fps(60);
-    let mut input = Input::new();
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in tile_output.iter_mut() {
@@ -184,7 +183,7 @@ fn main() {
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);
 
-        core.update(&mut input);
+        core.update();
     }
 }
 
