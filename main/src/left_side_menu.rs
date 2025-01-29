@@ -107,6 +107,7 @@ impl LeftSideMenu {
                 let state = ui.button_with_layout(menu_item.text, [
                     Layout::new()
                         .width(fixed!(180.0))
+                        .height(fixed!(76.0))
                         .padding(Padding::new_rect(0, 0, 12, 0))
                         .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
                         .end(),

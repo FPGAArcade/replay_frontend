@@ -179,7 +179,7 @@ fn measure_string_size(
         font_system,
         text,
         font_info.attrs.as_attrs(),
-        Shaping::Basic,
+        Shaping::Advanced,
     );
 
     // Shape the text to compute layout without rendering
@@ -242,6 +242,7 @@ fn generate_text(
 
     // Create a default text color
     let text_color = Color::rgb(0xFF, 0xFF, 0xFF);
+    let mut max_y_with_pixels = 0;
 
     // Draw the buffer (for performance, instead use SwashCache directly)
     buffer.draw(
@@ -253,8 +254,11 @@ fn generate_text(
             if x < 0 || y < 0 || x >= width as i32 || y >= height as i32 {
                 return;
             }
+            
+            let pixel_value = state.srgb_to_linear[c as usize];
+            max_y_with_pixels = if pixel_value != 0 { y } else { max_y_with_pixels }; 
 
-            output[(y as usize * width + x as usize) as usize] = state.srgb_to_linear[c as usize];
+            output[(y as usize * width + x as usize) as usize] = pixel_value; 
         },
     );
 
@@ -262,6 +266,7 @@ fn generate_text(
         data: RawVoidPtr(Box::into_raw(output.into_boxed_slice()) as _),
         stride: width as u32,
         width: width as u32,
+        //height: max_y_with_pixels as u32,
         height: height as u32,
         sub_pixel_step_x: 1,
         sub_pixel_step_y: 1,
@@ -361,7 +366,7 @@ impl TextGenerator {
     ) -> Option<(f32, f32)> {
         if let Some(font_info) = self.sync_loaded_fonts.get(&font_id) {
             let font_size = font_info.size as f32;
-            let line_height = font_size * 1.5;
+            let line_height = font_size * 1.1;
             measure_string_size(text, font_info, line_height, &mut self.sync_font_system)
         } else {
             None

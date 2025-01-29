@@ -308,6 +308,8 @@ impl<'a> Ui<'a> {
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
 
+        state.layout.enable_debug_mode(true);
+
         // TODO: Fix me
         let primitives = Self::translate_clay_render_commands(&state, state.layout.end());
         state.renderer.render(&primitives);
