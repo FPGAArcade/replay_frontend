@@ -1,8 +1,6 @@
 use flowi_sw_renderer::Renderer as SofwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
-
 use flowi_renderer::Renderer;
-use flowi_core::input::Input;
 
 use minifb::{Key, Window, WindowOptions};
 use simd::*;

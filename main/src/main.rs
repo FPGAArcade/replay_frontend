@@ -1,6 +1,8 @@
 //use flowi::font::Font;
 use flowi::Application;
-use flowi::Ui;
+use flowi::{Ui, FontHandle};
+use flowi::{grow, Layout, LayoutDirection};
+use crate::left_side_menu::LeftSideMenu;
 
 mod config_loader;
 mod left_side_menu;
@@ -15,40 +17,29 @@ pub(crate) enum State {
     Hidden,
 }
 
-/*
 pub struct Fonts {
-    pub default: Font,
-    pub system_header: Font,
-    pub system_text: Font,
-    pub rot_header: Font,
+    pub _default: FontHandle,
 }
-*/
 
 #[allow(dead_code)]
 pub(crate) struct App {
-    /*
     left_side_menu: LeftSideMenu,
-    system_view: SystemView,
-    state: State,
     fonts: Fonts,
-    */
     width: usize,
     height: usize,
 }
 
-fn main_loop(_ui: &Ui, _app: &mut App) {
-    /*
-    if !app.left_side_menu.update(&app.fonts, app.width, app.height) {
-        return;
-    }
-
-    app.system_view.update(
-        &app.fonts,
-        app.left_side_menu.width,
-        app.width - app.left_side_menu.width,
-        app.height,
-    );
-    */
+#[rustfmt::skip]
+fn main_loop(ui: &Ui, app: &mut App) {
+    ui.with_layout(Some("main_view"), [
+        Layout::new()
+            .width(grow!())
+            .height(grow!())
+            .direction(LayoutDirection::LeftToRight)
+            .end()], |ui| 
+    {
+        app.left_side_menu.update(ui);
+    });
 }
 
 fn main() {
@@ -59,20 +50,13 @@ fn main() {
 
     let mut flowi_app = Application::new(&settings); //.unwrap();
 
-    /*
     let fonts = Fonts {
-        default: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 56).unwrap(),
-        system_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 72).unwrap(),
-        system_text: Font::load("data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap(),
-        rot_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 56).unwrap(),
+        _default: flowi_app.ui.load_font("../data/fonts/roboto/Roboto-Regular.ttf", 36).unwrap(),
     };
-    */
 
     let app = Box::new(App {
-        //state: State::Navigating,
-        //system_view: SystemView::new(),
-        //left_side_menu: LeftSideMenu::new(width, height),
-        //fonts,
+        left_side_menu: LeftSideMenu::new(&flowi_app.ui),
+        fonts,
         width,
         height,
     });

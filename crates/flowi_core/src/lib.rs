@@ -167,6 +167,21 @@ impl<'a> Ui<'a> {
         });
     }
 
+    pub fn button_with_layout<const N: usize>(
+        &self,
+        name: &str,
+        configs: [TypedConfig; N],
+    ) -> Signal {
+        let state = unsafe { &mut *self.state.get() };
+        let mut signal = Signal::new();
+
+        state.layout.with(Some(name), configs, |_clay| {
+            signal = self.button_test(name);
+        });
+
+        signal
+    }
+
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
         let bb = render_command.bounding_box;
         [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
@@ -364,6 +379,36 @@ impl<'a> Ui<'a> {
                 } 
             },
         );
+
+        state.button_id += 1;
+        signal
+    }
+
+    #[rustfmt::skip]
+    pub fn button_test(&self, text: &str) -> Signal {
+        let state = unsafe { &mut *self.state.get() };
+        let id_name = text;
+        let mut signal = Signal::new();
+
+        let font_id = state.active_font;
+        let _ = state.text_generator.queue_generate_text(text, 36, font_id, &state.bg_worker);
+
+        state.layout.text(text, Text::new()
+            .font_id(font_id as u16)
+            .font_size(36)
+            .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
+            .end());
+
+        let id = clay_layout::id::Id::new(id_name);
+
+        if let Some(aabb) = state.layout.bounding_box(id) {
+            let item = state.item_states.entry(id.id.id).or_insert(ItemState {
+                aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height), 
+                ..Default::default()
+            });
+            item.aabb = Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height);
+            signal = self.signal(item)
+        } 
 
         state.button_id += 1;
         signal

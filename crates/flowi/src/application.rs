@@ -17,6 +17,7 @@ use flowi_renderer::Renderer;
 //use flowi_core::Instance;
 //use flowi_core::Result;
 
+#[allow(dead_code)]
 pub(crate) trait Window {
     fn new(settings: &ApplicationSettings) -> Self
     where
@@ -24,7 +25,7 @@ pub(crate) trait Window {
     fn update(&mut self, input: &mut Input);
     fn should_close(&mut self) -> bool;
     fn update_software_renderer<'a>(&'a mut self, _data: Option<SoftwareRenderData<'a>>) {}
-    fn present(&mut self);
+    fn present(&mut self) {}
     //fn is_focused(&self) -> bool;
     //fn raw_window_handle(&self) -> RawWindowHandle;
 }

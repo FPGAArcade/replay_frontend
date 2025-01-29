@@ -4,7 +4,7 @@ use flowi_core::ApplicationSettings;
 use flowi_renderer::SoftwareRenderData;
 
 use sdl2::{
-    controller::{Axis, Button, GameController},
+    //controller::{Axis, Button, GameController},
     event::Event,
     keyboard::Keycode,
     mouse::MouseButton,
@@ -182,7 +182,7 @@ impl Sdl2Window {
 
         self.update_modifiers(input);
         self.update_mouse_data(input);
-        //self.update_pad();
+        //self.update_pad(input);
     }
 
     fn update_modifiers(&mut self, input: &mut Input) {
@@ -222,6 +222,7 @@ impl Sdl2Window {
         }
     }
 
+    /*
     fn update_pad(&mut self, controller: &GameController, input: &mut Input) {
         let digital_buttons = [
             (Key::GamepadBack, Button::Back, 6),
@@ -271,6 +272,7 @@ impl Sdl2Window {
             );
         }
     }
+    */
 }
 
 impl Window for Sdl2Window {
@@ -282,7 +284,7 @@ impl Window for Sdl2Window {
         let height = 1080; //core::cmp::max(settings.height as u32, 600);
 
         let window = video_subsystem
-            .window("R2 test-bed", width, height)
+            .window("test-bed", width, height)
             .position_centered()
             .build()
             .expect("Failed to create SDL window.");

@@ -1,7 +1,6 @@
 use flowi::Application;
-use flowi::Renderer;
 use flowi::Ui;
-use flowi::{fixed, grow, Id, Layout, LayoutDirection, Padding, Alignment, LayoutAlignmentX, LayoutAlignmentY, Rectangle, ClayColor};
+use flowi::{fixed, grow, Layout, LayoutDirection, Padding, Alignment, LayoutAlignmentX, LayoutAlignmentY, Rectangle, ClayColor};
 
 /*
 pub struct Fonts {
@@ -38,8 +37,7 @@ fn main_loop(ui: &Ui, _app: &mut App) {
                 .end(),
             Rectangle::new()
                 .color(ClayColor::rgba(100.0, 100.0, 100.0, 255.0))
-                .end()
-            ], |ui| 
+                .end()], |ui| 
         {
             if ui.button("Foo").hovering() {
                 //println!("Hovering over Foo");
