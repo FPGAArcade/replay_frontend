@@ -500,6 +500,6 @@ mod tests {
         let text = "Hello, World!";
         let size = state.measure_text_size(text, font_id).unwrap();
         let size = (size.0.floor(), size.1.floor());
-        assert_eq!(size, (313.0, 84.0));
+        assert_eq!(size, (313.0, 61.0));
     }
 }

@@ -619,10 +619,10 @@ impl Arena {
         }
     }
 
+    /// Retrieves a slice of elements of type T from the current memory position.
     pub fn get_array_by_type<T: Sized>(&self) -> &[T] {
         let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let count = self.current.pos / total_item_size;
-
         unsafe { core::slice::from_raw_parts(self.current.ptr as *const T, count) }
     }
 
@@ -877,12 +877,14 @@ impl<T> VecArena<T> {
     }
 }
 
+/// A memory arena for efficient allocation of Plain Old Data (POD) types.
 pub struct PodArena<T: Sized + Default + Clone> {
     arena: Arena,
     phantom: core::marker::PhantomData<T>,
 }
 
 impl<T: Sized + Default + Clone> PodArena<T> {
+    /// Initializes a new arena with the specified virtual memory reservation size.
     pub fn new(reserve_virtual_size: usize) -> Result<Self, ArenaError> {
         Ok(Self {
             arena: Arena::new(reserve_virtual_size)?,
@@ -890,35 +892,36 @@ impl<T: Sized + Default + Clone> PodArena<T> {
         })
     }
 
+    /// Pushes an item into the arena by allocating memory and copying the value.
     pub fn push(&mut self, item: T) {
         let t = unsafe { self.arena.alloc::<T>().unwrap() };
         *t = item;
     }
 
+    /// Removes the last item from the arena if it exists.
     pub fn pop(&mut self) {
         if self.arena.current.pos == 0 {
             return;
         }
-
         self.arena.current.pos -= VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
     }
 
+    /// Returns an optional mutable reference to the last item in the arena.
     pub fn last(&mut self) -> Option<&mut T> {
         if self.arena.current.pos == 0 {
             return None;
         }
-
         let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let index = self.arena.current.pos - total_item_size;
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
         Some(unsafe { &mut *ptr })
     }
 
+    /// Returns the last item in the arena or a default value if the arena is empty.
     pub fn last_or_default(&mut self) -> T {
         if self.arena.current.pos == 0 {
             return T::default();
         }
-
         let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let index = self.arena.current.pos - total_item_size;
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };

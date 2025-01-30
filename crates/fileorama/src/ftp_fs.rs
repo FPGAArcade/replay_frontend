@@ -1,7 +1,6 @@
-use crate::{Error, FilesDirs, IoDriver, IoDriverType, LoadStatus, Progress};
+use crate::{Error, FilesDirs, Driver, DriverType, LoadStatus, Progress};
 use log::error;
 use std::fmt::{Debug, Formatter};
-use std::path::MAIN_SEPARATOR;
 use suppaftp::{FtpError, FtpStream};
 
 // This is kinda ugly, but better than testing non-supported paths on a remote server
@@ -29,33 +28,67 @@ impl FtpFs {
 
 impl FtpFs {
     fn find_server_name(url: &str) -> Option<&str> {
-        if let Some(url) = url.strip_prefix(FTP_URL) {
-            // handle if we have name and no path
-            if !url.contains(MAIN_SEPARATOR) {
-                return Some(url);
-            }
-
-            if let Some(offset) = url.find(MAIN_SEPARATOR) {
-                return Some(&url[..offset]);
-            }
-        } else {
-            if !url.contains(MAIN_SEPARATOR) {
-                return Some(url);
-            }
-
-            if let Some(offset) = url.find(MAIN_SEPARATOR) {
-                return Some(&url[..offset]);
-            }
-        }
-
-        None
+        let stripped_url = url.strip_prefix(FTP_URL).unwrap_or(url);
+        stripped_url.splitn(2, '/').next().filter(|s| !s.is_empty())
     }
 }
 
-impl IoDriver for FtpFs {
+/// Extracts the file size from an FTP directory listing entry.
+///
+/// # Arguments
+/// * `entry` - The FTP directory listing entry to parse.
+///
+/// # Returns
+/// A `Result<usize, Error>` containing the file size if successful, otherwise an error.
+fn extract_file_size(entry: &str) -> Result<usize, Error> {
+    let parts: Vec<&str> = entry.split_whitespace().collect();
+    if parts.len() < 5 {
+        return Err(Error::InvalidEntry(entry.to_owned()));
+    }
+    parts[4].parse::<usize>().map_err(|_| Error::InvalidSize(parts[4].to_owned()))
+}
+
+/// Parses an FTP directory listing entry to determine if it is a file or directory.
+///
+/// # Arguments
+/// * `entry` - The FTP directory listing entry to parse.
+///
+/// # Returns
+/// A tuple containing a boolean indicating if it's a directory and the name of the file/directory.
+fn parse_ftp_entry(entry: &str) -> Option<(String, bool)> {
+    // As the result from the FTP server is given in this format we have to split the string and pick out the data we want
+    // -rw-rw-r--    1 1001       1001          5046034 May 25 16:00 allmods.zip
+    // drwxrwxr-x    7 1001       1001             4096 Jan 20  2018 incoming
+    
+    let parts: Vec<&str> = entry.split_whitespace().collect();
+    // Ensure we have enough parts (index 8 should be the filename)
+    if parts.len() < 9 {
+        return None;
+    }
+
+    let is_directory = parts[0].starts_with('d');
+    let name = parts[8].to_owned();
+
+    Some((name, is_directory))
+}
+
+impl Driver for FtpFs {
     /// This indicates that the file system is remote (such as ftp, https) and has no local path
     fn is_remote(&self) -> bool {
         true
+    }
+
+    fn create_from_data(
+            &self,
+            _data: Box<[u8]>,
+            _file_ext_hint: &str,
+            _driver_data: &Option<Box<[u8]>>,
+        ) -> Option<DriverType> {
+        None
+    }
+
+    fn can_create_from_data(&self, _data: &[u8], _file_ext_hint: &str) -> bool {
+        false
     }
 
     fn name(&self) -> &'static str {
@@ -69,29 +102,12 @@ impl IoDriver for FtpFs {
     }
 
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_instance(&self) -> IoDriverType {
+    fn create_instance(&self) -> DriverType {
         Box::new(FtpFs::new())
     }
 
-    /*
-    // Get some data in and returns true if driver can be mounted from it
-    fn can_load_from_url(&self, url: &str) -> bool {
-        // Only supports urls that starts with ftp
-        if !url.starts_with(FTP_URL) && !url.starts_with("ftp.") {
-            return false;
-        }
-
-        // Make sure we don't have any slashes in the path except ftp start
-        if let Some(url) = url.strip_prefix(FTP_URL) {
-            !url.contains(MAIN_SEPARATOR)
-        } else {
-            !url.contains(MAIN_SEPARATOR)
-        }
-    }
-    */
-
     /// Used when creating an instance of the driver with a path to load from
-    fn create_from_url(&self, url: &str) -> Option<IoDriverType> {
+    fn create_from_url(&self, url: &str) -> Option<DriverType> {
         if let Some(url) = Self::find_server_name(url) {
             let url_with_port = if url.contains(':') {
                 url.to_owned()
@@ -130,8 +146,7 @@ impl IoDriver for FtpFs {
         // with the first file flag not being set to 'd'
         if dirs_and_files.len() == 1 && !dirs_and_files[0].starts_with('d') {
             // split up the size so we can access the size
-            let t = dirs_and_files[0].split_whitespace().collect::<Vec<&str>>();
-            let file_size = t[4].parse::<usize>()?;
+            let file_size = extract_file_size(&dirs_and_files[0])?;
 
             let block_len = 64 * 1024;
             let loop_count = file_size / block_len;
@@ -178,16 +193,12 @@ impl IoDriver for FtpFs {
         progress.step()?;
 
         for dir_file in dirs_and_files {
-            // As the result from the FTP server is given in this format we have to split the string and pick out the data we want
-            // -rw-rw-r--    1 1001       1001          5046034 May 25 16:00 allmods.zip
-            // drwxrwxr-x    7 1001       1001             4096 Jan 20  2018 incoming
-            let t = dir_file.split_whitespace().collect::<Vec<&str>>();
-
-            // if flags starts with 'd' we assume it's a directory
-            if t[0].starts_with('d') {
-                dirs.push(t[8].to_owned());
-            } else {
-                files.push(t[8].to_owned());
+            if let Some((name, is_directory)) = parse_ftp_entry(&dir_file) {
+                if is_directory {
+                    dirs.push(name);
+                } else {
+                    files.push(name);
+                }
             }
         }
 
@@ -199,3 +210,88 @@ impl IoDriver for FtpFs {
         Ok(FilesDirs::new(files, dirs))
     }
 }
+
+/*
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_server_name_with_full_url() {
+        let url = "ftp://example.com/path/to/file";
+        assert_eq!(FtpFs::find_server_name(url), Some("example.com"));
+    }
+
+    #[test]
+    fn test_find_server_name_with_no_path() {
+        let url = "ftp://example.com";
+        assert_eq!(FtpFs::find_server_name(url), Some("example.com"));
+    }
+
+    #[test]
+    fn test_find_server_name_without_prefix() {
+        let url = "example.com/path/to/file";
+        assert_eq!(FtpFs::find_server_name(url), Some("example.com"));
+    }
+
+    #[test]
+    fn test_find_server_name_only_server_name() {
+        let url = "example.com";
+        assert_eq!(FtpFs::find_server_name(url), Some("example.com"));
+    }
+
+    #[test]
+    fn test_find_server_name_with_trailing_slash() {
+        let url = "ftp://example.com/";
+        assert_eq!(FtpFs::find_server_name(url), Some("example.com"));
+    }
+
+    #[test]
+    fn test_find_server_name_no_separator_after_prefix() {
+        let url = "ftp://";
+        assert_eq!(FtpFs::find_server_name(url), None);
+    }
+
+    #[test]
+    fn test_find_server_name_empty_string() {
+        let url = "";
+        assert_eq!(FtpFs::find_server_name(url), Some(""));
+    }
+
+    #[test]
+    fn test_find_server_name_only_slash() {
+        let url = "/";
+        assert_eq!(FtpFs::find_server_name(url), Some(""));
+    }
+
+    #[test]
+    fn test_find_server_name_no_prefix_with_slash() {
+        let url = "/path/to/file";
+        assert_eq!(FtpFs::find_server_name(url), Some(""));
+    }
+
+    #[test]
+    fn test_parse_ftp_entry_directory() {
+        let entry = "drwxrwxr-x    7 1001       1001             4096 Jan 20  2018 incoming";
+        assert_eq!(parse_ftp_entry(entry), Some(("incoming".to_owned(), true)));
+    }
+
+    #[test]
+    fn test_parse_ftp_entry_file() {
+        let entry = "-rw-rw-r--    1 1001       1001          5046034 May 25 16:00 allmods.zip";
+        assert_eq!(parse_ftp_entry(entry), Some(("allmods.zip".to_owned(), false)));
+    }
+
+    #[test]
+    fn test_parse_ftp_entry_invalid_format() {
+        let entry = "-rw-rw-r--    1 1001       1001          5046034";
+        assert_eq!(parse_ftp_entry(entry), None);  // Not enough parts
+    }
+
+    #[test]
+    fn test_parse_ftp_entry_empty_string() {
+        let entry = "";
+        assert_eq!(parse_ftp_entry(entry), None);  // Empty input
+    }
+}
+*/

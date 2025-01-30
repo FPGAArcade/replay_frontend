@@ -2,6 +2,10 @@ use crossbeam_channel::unbounded;
 use log::*;
 use thiserror::Error;
 
+//#[cfg(test)]
+//#[allow(dead_code)]
+//use ctor::ctor;
+
 use std::{
     borrow::Cow,
     path::{Component, Path, PathBuf},
@@ -12,9 +16,6 @@ use std::{
 mod ftp_fs;
 mod local_fs;
 mod zip_fs;
-
-//#[cfg(test)]
-//use std::println as trace;
 
 // Used for keeping data a alive for a while. This is useful as some data may have been loaded and then it's
 // common that another system wants to read the same data. We keep it alive for this amount of entries at the same time
@@ -99,6 +100,10 @@ pub enum Error {
     FtpError(#[from] suppaftp::FtpError),
     #[error("Generic")]
     Generic(String),
+    #[error("Invalid entry")]
+    InvalidEntry(String),
+    #[error("Invalid size")]
+    InvalidSize(String),
 }
 
 #[derive(Error, Debug)]
@@ -116,18 +121,28 @@ pub struct Progress<'a> {
     msg: &'a crossbeam_channel::Sender<RecvMsg>,
 }
 
-/// File system implementations must implement this trait
-pub trait IoDriver: std::fmt::Debug + Send + Sync {
+/// File system and Memory drivers implementations must implement this trait
+pub trait Driver: std::fmt::Debug + Send + Sync {
     /// This indicates that the file system is remote (such as ftp, https) and has no local path
     fn is_remote(&self) -> bool;
     /// Name of the driver (only used for debug purposes)
     fn name(&self) -> &'static str;
     /// If the driver supports a certain url
     fn supports_url(&self, url: &str) -> bool;
+    // Check if we can create a driver given some memory
+    // Drivers that only works for FS should return Null here
+    fn create_from_data(
+        &self,
+        data: Box<[u8]>,
+        file_ext_hint: &str,
+        driver_data: &Option<Box<[u8]>>,
+    ) -> Option<DriverType>;
+    // Check if we can create a driver given some memory
+    fn can_create_from_data(&self, data: &[u8], file_ext_hint: &str) -> bool;
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_instance(&self) -> IoDriverType;
+    fn create_instance(&self) -> DriverType;
     /// Used when creating an instance of the driver with a path to load from
-    fn create_from_url(&self, url: &str) -> Option<IoDriverType>;
+    fn create_from_url(&self, url: &str) -> Option<DriverType>;
     /// Returns a handle which updates the progress and returns the loaded data. This will try to
     fn load(&mut self, path: &str, progress: &mut Progress) -> Result<LoadStatus, Error>;
     // get a file/directory listing for the driver
@@ -136,34 +151,6 @@ pub trait IoDriver: std::fmt::Debug + Send + Sync {
         path: &str,
         progress: &mut Progress,
     ) -> Result<FilesDirs, Error>;
-}
-
-/// Memory Loader implementations must implement this trait
-pub trait MemoryDriver: std::fmt::Debug + Send + Sync {
-    /// Name of the driver (only used for debug purposes)
-    fn name(&self) -> &'static str;
-    // Create a new instance given data. The Driver will take ownership of the data
-    fn create_instance(&self) -> MemoryDriverType;
-    // Check if we can create a driver given some memory
-    fn can_create_from_data(&self, data: &[u8], file_ext_hint: &str) -> bool;
-    // Create a new instance given data. The Driver will take ownership of the data
-    fn create_from_data(
-        &self,
-        data: Box<[u8]>,
-        file_ext_hint: &str,
-        driver_data: &Option<Box<[u8]>>,
-    ) -> Option<MemoryDriverType>;
-    /// Returns a handle which updates the progress and returns the loaded data. This will try to
-    fn load(&mut self, local_path: &str, progress: &mut Progress) -> Result<LoadStatus, Error>;
-    // get a file/directory listing for the driver. Default is that the loader doesn't
-    // support directory listings
-    fn get_directory_list(
-        &mut self,
-        _local_path: &str,
-        _progress: &mut Progress,
-    ) -> Result<FilesDirs, Error> {
-        Ok(FilesDirs::default())
-    }
 }
 
 #[derive(Clone)]
@@ -204,22 +191,11 @@ pub enum NodeType {
     Other(usize),
 }
 
-/*
-#[derive(Debug, Copy, Clone)]
-enum DriverIndex {
-    /// Single driver such as a file loader
-    Single(i32),
-    /// Dual driver such as local file loader and memory zip loader
-    Dual(i32, i32),
-}
-*/
-
 #[derive(Default, Debug)]
 pub struct Node {
     node_type: NodeType,
     name: String,
     driver_index: Option<i32>,
-    //io_driver_index: Option<i32>,
     parent: u32,
     nodes: Vec<u32>,
 }
@@ -247,15 +223,8 @@ impl Node {
     }
 }
 
-pub type IoDriverType = Box<dyn IoDriver>;
-pub type MemoryDriverType = Box<dyn MemoryDriver>;
-type IoDrivers = Arc<RwLock<Vec<IoDriverType>>>;
-type MemoryDrivers = Arc<RwLock<Vec<MemoryDriverType>>>;
-
-enum NodeDriver {
-    IoDriver(IoDriverType),
-    MemoryDriver(MemoryDriverType),
-}
+pub type DriverType = Box<dyn Driver>;
+type Drivers = Arc<RwLock<Vec<DriverType>>>;
 
 struct CachedDataEntry {
     path: String,
@@ -265,7 +234,7 @@ struct CachedDataEntry {
 #[derive(Default)]
 struct State {
     nodes: Vec<Node>,
-    node_drivers: Vec<NodeDriver>,
+    node_drivers: Vec<DriverType>,
     cached_data: Vec<CachedDataEntry>,
 }
 
@@ -290,6 +259,8 @@ impl Fileorama {
     /// (given if it has a file listing) and that will be returned until a file is encountered. If there are
     /// no files an error will/archive will be returned instead and the user code has to handle it
     pub fn load_url(&self, path: &str) -> Handle {
+        trace!("Loading url: {}", path);
+
         let (thread_send, main_recv) = unbounded::<RecvMsg>();
         let load_info = LoadInfo {
             path: path.into(),
@@ -360,13 +331,9 @@ impl Fileorama {
         Handle { recv: main_recv }
     }
 
-    pub fn add_io_driver(&self, driver: IoDriverType) {
-        self.main_send.send(SendMsg::AddIoDriver(driver)).unwrap();
-    }
-
-    pub fn add_memory_driver(&self, driver: MemoryDriverType) {
+    pub fn add_driver(&self, driver: DriverType) {
         self.main_send
-            .send(SendMsg::AddMemoryDriver(driver))
+            .send(SendMsg::AddDriver(driver))
             .unwrap();
     }
 
@@ -374,21 +341,18 @@ impl Fileorama {
         let (main_send, thread_recv) = unbounded::<SendMsg>();
 
         // TODO: Configure the drivers we are allowed to using using features.
-        let io_drivers: IoDrivers = Arc::new(RwLock::new(vec![
+        let base_drivers: Drivers = Arc::new(RwLock::new(vec![
             Box::new(ftp_fs::FtpFs::new()),
             Box::new(local_fs::LocalFs::new()),
+            Box::new(zip_fs::ZipFs::new()),
         ]));
-
-        let memory_drivers: MemoryDrivers =
-            Arc::new(RwLock::new(vec![Box::new(zip_fs::ZipFs::new())]));
 
         let thread_count = usize::max(1, thread_count);
 
         for i in 0..thread_count {
             let thread_recv = thread_recv.clone();
             let name = format!("vfs_worker_{}", i);
-            let i_drivers = Arc::clone(&io_drivers);
-            let mem_drivers = Arc::clone(&memory_drivers);
+            let drivers = Arc::clone(&base_drivers);
 
             thread::Builder::new()
                 .name(name.to_owned())
@@ -396,7 +360,7 @@ impl Fileorama {
                     let mut state = State::new();
 
                     while let Ok(msg) = thread_recv.recv() {
-                        handle_msg(&mut state, &name, &msg, &i_drivers, &mem_drivers);
+                        handle_msg(&mut state, &name, &msg, &drivers);
                     }
                 })
                 .unwrap();
@@ -472,8 +436,7 @@ struct LoadInfo {
 
 enum SendMsg {
     LoadUrl(LoadInfo, Option<Box<[u8]>>),
-    AddIoDriver(IoDriverType),
-    AddMemoryDriver(MemoryDriverType),
+    AddDriver(DriverType),
 }
 
 fn handle_error(err: Error, msg: &crossbeam_channel::Sender<RecvMsg>) {
@@ -598,7 +561,7 @@ enum LoadState {
     FindNode,
     FindDriverUrl,
     FindDriverData,
-    LoadFromIoDriver,
+    //LoadFromIoDriver,
     LoadFromDriver,
     LoadFromNode,
     UnsupportedPath,
@@ -645,7 +608,7 @@ impl<'a> Loader<'a> {
         let mut has_local_parent_driver = false;
         let mut found_driver = false;
 
-        //trace!("Searching for node: {:?}", components);
+        trace!("Searching for node: {:?}", components);
 
         // Search for node in the vfs
         for c in components.iter() {
@@ -653,31 +616,27 @@ impl<'a> Loader<'a> {
             let component_name = get_component_name(c, &mut self.had_prefix);
             if let Some(entry) = find_entry_in_node(node, &vfs.nodes, &component_name) {
                 if let Some(index) = vfs.nodes[entry].driver_index {
-                    has_local_parent_driver = match vfs.node_drivers[index as usize] {
-                        NodeDriver::IoDriver(ref driver) => driver.is_remote(),
-                        _ => false,
-                    };
-
+                    has_local_parent_driver = vfs.node_drivers[index as usize].is_remote();
                     found_driver = true;
                 }
 
-                //trace!("found node {}", component_name);
+                trace!("found node {}", component_name);
                 self.node_index = entry;
                 self.component_index += 1;
                 // If we don't have any driver yet and we didn't find a path we must search for a driver
             } else if self.component_index == 0 {
-                //trace!( "Switching FindNode -> FindDriverUrl: {:?}", &components[self.component_index..]);
+                trace!( "Switching FindNode -> FindDriverUrl: {:?}", &components[self.component_index..]);
                 self.state = LoadState::FindDriverUrl;
                 return;
             } else {
                 // if the node has a local parent driver we try to open from the full path
                 if has_local_parent_driver || !found_driver {
-                    //trace!("Switching FindNode -> FindDriverUrl: (root)");
+                    trace!("Switching FindNode -> FindDriverUrl: (root)");
                     self.component_index = 0;
                     self.node_index = 0;
                     self.state = LoadState::FindDriverUrl;
                 } else {
-                    //trace!("Switching FindNode -> LoadFromNode: {} : {}", component_name, self.component_index);
+                    trace!("Switching FindNode -> LoadFromNode: {} : {}", component_name, self.component_index);
                     self.state = LoadState::LoadFromNode;
                 }
                 return;
@@ -686,19 +645,19 @@ impl<'a> Loader<'a> {
 
         // if we didn't find any driver for the node we try to start from the begining instead
         if !found_driver {
-            //trace!("Switching FindNode -> FindDriverUrl: (root)");
+            trace!("Switching FindNode -> FindDriverUrl: (root)");
             self.component_index = 0;
             self.node_index = 0;
             self.state = LoadState::FindDriverUrl;
         } else {
-            //trace!("Loading from node, index {}", self.component_index);
+            trace!("Loading from node, index {}", self.component_index);
             // If we searched the whole tree and found the at last entry we try to load from it
             self.state = LoadState::LoadFromNode;
         }
     }
 
     // Walk the url backwards to find a driver
-    fn find_driver_url(&mut self, vfs: &mut State, drivers: &IoDrivers) {
+    fn find_driver_url(&mut self, vfs: &mut State, drivers: &Drivers) {
         let components = &self.path_components[self.component_index..];
         let mut p: PathBuf = components.iter().collect();
         let mut current_path: String = p.to_string_lossy().into();
@@ -713,16 +672,16 @@ impl<'a> Loader<'a> {
                     let _driver_name = new_driver.name();
                     // If we found a driver we mount it inside the vfs
                     self.driver_index = vfs.node_drivers.len() as _;
-                    vfs.node_drivers.push(NodeDriver::IoDriver(new_driver));
+                    vfs.node_drivers.push(new_driver);
 
-                    /*
                     trace!(
                         "Creating new driver: {} at {} - comp index {}",
-                        driver_name,
+                        _driver_name,
                         current_path,
                         self.component_index
                     );
-                    */
+
+                    trace!("components {:?}", self.path_components);
 
                     let res = add_path_to_vfs(vfs, self.node_index, &p);
                     self.node_index = res.0;
@@ -730,7 +689,7 @@ impl<'a> Loader<'a> {
 
                     vfs.nodes[self.node_index].driver_index = Some(self.driver_index as _);
 
-                    self.state = LoadState::LoadFromIoDriver;
+                    self.state = LoadState::LoadFromDriver;
 
                     return;
                 }
@@ -750,7 +709,7 @@ impl<'a> Loader<'a> {
         vfs: &mut State,
         driver_name: &'static str,
         driver_data: &Option<Box<[u8]>>,
-        drivers: &MemoryDrivers,
+        drivers: &Drivers,
     ) -> Result<(), Error> {
         let node_data = self.data.as_ref().unwrap();
         let path: &Path = self.path_components.last().unwrap().as_ref();
@@ -779,7 +738,7 @@ impl<'a> Loader<'a> {
             {
                 self.driver_index = vfs.node_drivers.len() as _;
 
-                vfs.node_drivers.push(NodeDriver::MemoryDriver(new_driver));
+                vfs.node_drivers.push(new_driver);
                 vfs.nodes[self.node_index].driver_index = Some(self.driver_index as _);
 
                 self.state = LoadState::LoadFromDriver;
@@ -807,47 +766,37 @@ impl<'a> Loader<'a> {
     ) -> Result<(), Error> {
         let components = &self.path_components[self.component_index..];
 
-        let mut p: PathBuf = components.iter().collect();
-        let mut current_path: String = p.to_string_lossy().into();
+        trace!("Loading from driver: {}", driver_name);
+        trace!("Components: {:?}", components);
 
-        let _driver_name = match vfs.node_drivers[self.driver_index as usize] {
-            NodeDriver::IoDriver(ref driver) => driver.name(),
-            NodeDriver::MemoryDriver(ref driver) => driver.name(),
-        };
+        let mut path_buf: PathBuf = components.iter().collect();
+        let mut current_path: String = path_buf.to_string_lossy().into();
 
-        /*
-        trace!(
-            "Loading from driver {} : {} - type {}",
-            &current_path,
-            self.driver_index,
-            _driver_name,
-        );
-        */
+        trace!("Path buf: {:?}", path_buf);
 
         // walk backwards from the current path and try to load the data
+        //while !path_buf.as_os_str().is_empty() {
+       
         loop {
+            trace!("current_path: {}", current_path);
             // TODO: Fix range
-            let driver = self.driver_index as usize;
+            let driver_index = self.driver_index as usize;
             let mut progress = Progress::new(0.0, 1.0, self.msg);
+            let driver = &mut vfs.node_drivers[driver_index];
+            let name = driver.name();
 
-            let (load_msg, name) = match vfs.node_drivers[driver] {
-                NodeDriver::IoDriver(ref mut io_driver) => {
-                    let msg = io_driver.load(&current_path, &mut progress)?;
+            let load_msg = driver.load(&current_path, &mut progress)?;
 
-                    if let LoadStatus::Data(in_data) = msg {
-                        //trace!("Switching to find driver data");
-                        self.data = Some(in_data);
-                        self.state = LoadState::FindDriverData;
-                        return Ok(());
-                    }
+            trace!("Load msg: {:?}", load_msg);
 
-                    (msg, io_driver.name())
-                }
-                NodeDriver::MemoryDriver(ref mut mem_driver) => (
-                    mem_driver.load(&current_path, &mut progress)?,
-                    mem_driver.name(),
-                ),
-            };
+            /*
+            if let LoadStatus::Data(in_data) = load_msg {
+                trace!("Switching to find driver data");
+                self.data = Some(in_data);
+                self.state = LoadState::FindDriverData;
+                return Ok(());
+            }
+            */
 
             match load_msg {
                 LoadStatus::Directory => {
@@ -856,19 +805,21 @@ impl<'a> Loader<'a> {
                         self.component_index,
                         &current_path,
                         &mut progress,
-                        driver,
+                        driver_index,
                         self.node_index,
                     );
                 }
 
                 LoadStatus::Data(in_data) => {
-                    //trace!("Current path {:?}", current_path);
+                    trace!("Current path {:?}", current_path);
+                    trace!("Driver name {}", name);
                     // If we found the driver we are looking for we can send the data back
                     if driver_name == name {
                         self.send_data(vfs, in_data)?;
                         self.state = LoadState::Done;
                     } else {
-                        let res = add_path_to_vfs(vfs, self.node_index, &p);
+                        trace!("Driver name mismatch {} != {}", name, driver_name);
+                        let res = add_path_to_vfs(vfs, self.node_index, &path_buf);
                         self.node_index = res.0;
                         self.component_index += res.1;
                         // Add new nodes to the vfs
@@ -876,20 +827,34 @@ impl<'a> Loader<'a> {
                         self.state = LoadState::FindDriverData;
                     }
 
+                    trace!("Switching to find driver data");
+
                     return Ok(());
                 }
 
                 _ => (),
             }
 
-            p.pop();
-            current_path = p.to_string_lossy().into();
+            path_buf.pop();
+
+            trace!("{:?}", &path_buf);
+
+            current_path = path_buf.to_string_lossy().into();
 
             if current_path.is_empty() {
                 break;
             }
         }
 
+        trace!("out of path");
+
+        /*
+        if self.state == LoadState::LoadFromDriver {
+            self.state = LoadState::UnsupportedPath;
+        }
+        */
+
+        
         if current_path.is_empty() && self.state == LoadState::LoadFromDriver {
             self.state = LoadState::UnsupportedPath;
         }
@@ -897,45 +862,42 @@ impl<'a> Loader<'a> {
         Ok(())
     }
 
+    /*
     fn load_from_io_driver(&mut self, vfs: &mut State) -> Result<(), Error> {
         let driver_index = self.driver_index as usize;
-        match vfs.node_drivers[driver_index] {
-            NodeDriver::IoDriver(ref mut driver) => {
-                //trace!("Loading from driver type {}", driver.name());
-                let mut progress = Progress::new(0.0, 1.0, self.msg);
-                let msg = driver.load("", &mut progress)?;
+        let driver = &mut vfs.node_drivers[driver_index];
+        //trace!("Loading from driver type {}", driver.name());
+        let mut progress = Progress::new(0.0, 1.0, self.msg);
+        let msg = driver.load("", &mut progress)?;
 
-                match msg {
-                    LoadStatus::Data(in_data) => {
-                        //trace!("Switching to find driver data");
-                        self.data = Some(in_data);
-                        self.state = LoadState::FindDriverData;
-                    }
-
-                    LoadStatus::Directory => {
-                        dbg!();
-                        return self.add_dir_to_vfs(
-                            vfs,
-                            self.component_index,
-                            "",
-                            &mut progress,
-                            driver_index,
-                            self.node_index,
-                        );
-                    }
-
-                    LoadStatus::NotFound => {
-                        dbg!();
-                        return Err(Error::FileDirNotFound);
-                    }
-                }
+        match msg {
+            LoadStatus::Data(in_data) => {
+                //trace!("Switching to find driver data");
+                self.data = Some(in_data);
+                self.state = LoadState::FindDriverData;
             }
 
-            _ => return Err(Error::Generic("Not a io driver".to_string())),
-        };
+            LoadStatus::Directory => {
+                dbg!();
+                return self.add_dir_to_vfs(
+                    vfs,
+                    self.component_index,
+                    "",
+                    &mut progress,
+                    driver_index,
+                    self.node_index,
+                );
+            }
+
+            LoadStatus::NotFound => {
+                dbg!();
+                return Err(Error::FileDirNotFound);
+            }
+        }
 
         Ok(())
     }
+    */
 
     // When loading directly from a node we need to search backwards for a valid driver incase
     // the active node doesn't have one. This happens for example if we try to load from zip/file.bin
@@ -949,22 +911,22 @@ impl<'a> Loader<'a> {
         if self.component_index == self.path_components.len()
             && vfs.nodes[node_index].node_type == NodeType::Directory
         {
-            /*
             trace!(
                 "Sending cached directory for node {}",
                 vfs.nodes[node_index].name
             );
-            */
+
             self.send_directory_for_node(vfs, node_index)?;
             self.state = LoadState::Done;
             return Ok(());
         }
-        //trace!("comp index {}", self.component_index);
+        
+        trace!("comp index {}", self.component_index);
 
         for i in (0..=self.component_index).rev() {
             let driver_index = vfs.nodes[node_index].driver_index;
 
-            //trace!("iter {}", i);
+            trace!("iter {}", i);
 
             // Search for a node that has a proper driver
             if let Some(driver_index) = driver_index {
@@ -980,14 +942,8 @@ impl<'a> Loader<'a> {
 
                 // construct the path to load from the driver
                 let mut progress = Progress::new(0.0, 1.0, self.msg);
-                let (load_msg, name) = match vfs.node_drivers[driver_index as usize] {
-                    NodeDriver::IoDriver(ref mut driver) => {
-                        (driver.load(&current_path, &mut progress)?, driver.name())
-                    }
-                    NodeDriver::MemoryDriver(ref mut driver) => {
-                        (driver.load(&current_path, &mut progress)?, driver.name())
-                    }
-                };
+                let driver = &mut vfs.node_drivers[driver_index as usize];
+                let load_msg = driver.load(&current_path, &mut progress)?;
 
                 match load_msg {
                     LoadStatus::Directory => {
@@ -1001,12 +957,12 @@ impl<'a> Loader<'a> {
                         );
                     }
                     LoadStatus::Data(in_data) => {
-                        if name == driver_name {
+                        if driver.name() == driver_name {
                             self.send_data(vfs, in_data)?
                         } else {
                             return Err(Error::Generic(format!(
                                 "Driver name mismatch {} != {}",
-                                name, driver_name
+                                driver.name(), driver_name
                             )));
                         }
                     }
@@ -1036,28 +992,18 @@ impl<'a> Loader<'a> {
         let mut node_index = index;
         let components = &self.path_components[comp_index..];
 
-        /*
         trace!(
             "Found directory {} - {} - {:?}",
             vfs.nodes[index].name,
             current_path,
             components
         );
-        */
 
         if vfs.nodes[node_index].node_type != NodeType::Directory {
             // If the node type is unknown it means that we haven't fetched the dirs for
             // this node yet, so do that and update the node type
-            //if vfs.nodes[node_index].node_type == NodeType::Unknown {
-            let files_dirs = match vfs.node_drivers[driver] {
-                NodeDriver::IoDriver(ref mut driver) => {
-                    driver.get_directory_list(current_path, progress)?
-                }
-                NodeDriver::MemoryDriver(ref mut driver) => {
-                    driver.get_directory_list(current_path, progress)?
-                }
-            };
-
+            let driver = &mut vfs.node_drivers[driver];
+            let files_dirs = driver.get_directory_list(current_path, progress)?;
             node_index = add_files_dirs_to_vfs(vfs, components, node_index, files_dirs);
             vfs.nodes[node_index].node_type = NodeType::Directory;
         }
@@ -1128,12 +1074,11 @@ print_tree(state, *n, node.parent, indent + 1);
 }
 */
 
-pub(crate) fn load(
+pub(crate) fn load_main(
     vfs: &mut State,
     info: &LoadInfo,
     driver_data: &Option<Box<[u8]>>,
-    io_drivers: &IoDrivers,
-    mem_drivers: &MemoryDrivers,
+    drivers: &Drivers,
 ) -> Result<(), Error> {
     let mut loader = Loader::new(&info.path, &info.msg);
 
@@ -1150,15 +1095,15 @@ pub(crate) fn load(
     //print_tree(vfs, 0, 0, 0);
 
     loop {
-        //println!("{:?}", loader.state);
+        debug!("{:?}", loader.state);
 
         match loader.state {
             LoadState::FindNode => loader.find_node(vfs),
-            LoadState::FindDriverUrl => loader.find_driver_url(vfs, io_drivers),
+            LoadState::FindDriverUrl => loader.find_driver_url(vfs, drivers),
             LoadState::FindDriverData => {
-                loader.find_driver_data(vfs, info.driver_name, driver_data, mem_drivers)?
+                loader.find_driver_data(vfs, info.driver_name, driver_data, drivers)?
             }
-            LoadState::LoadFromIoDriver => loader.load_from_io_driver(vfs)?,
+            //LoadState::LoadFromIoDriver => loader.load_from_io_driver(vfs)?,
             LoadState::LoadFromDriver => loader.load_from_driver(vfs, info.driver_name)?,
             LoadState::LoadFromNode => loader.load_from_node(vfs, info.driver_name)?,
             LoadState::Done => break,
@@ -1173,46 +1118,61 @@ fn handle_msg(
     vfs: &mut State,
     _name: &str,
     msg: &SendMsg,
-    io_drivers: &IoDrivers,
-    mem_drivers: &MemoryDrivers,
+    drivers: &Drivers,
 ) {
     match msg {
         SendMsg::LoadUrl(info, driver_data) => {
-            if let Err(e) = load(vfs, info, driver_data, io_drivers, mem_drivers) {
+            if let Err(e) = load_main(vfs, info, driver_data, drivers) {
                 handle_error(e, &info.msg);
             }
         }
-        // Add a io new driver. These drivers are pushed at the front of the list which
+        // Add a new driver. These drivers are pushed at the front of the list which
         // means that they will be tried first when looking for new drivers
-        SendMsg::AddIoDriver(driver) => {
-            let mut drivers = io_drivers.write().unwrap();
-            drivers.insert(0, driver.create_instance());
-        }
-        // Add a memory new driver. These drivers are pushed at the front of the list which
-        // means that they will be tried first when looking for new drivers
-        SendMsg::AddMemoryDriver(driver) => {
-            let mut drivers = mem_drivers.write().unwrap();
+        SendMsg::AddDriver(driver) => {
+            let mut drivers = drivers.write().unwrap();
             drivers.insert(0, driver.create_instance());
         }
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[ctor]
+    fn setup() {
+        println!("Setting up tests 232");
+        let _ = env_logger::builder().filter_level(LevelFilter::max()).init();
+        trace!("Setting up tests");
+        debug!("Setting up tests toheusoh");
+        info!("Setting up tests toheusoh");
+    }
 
     #[derive(Debug)]
     struct MemoryDriverCustomData {
         data: Vec<u8>,
     }
 
-    impl MemoryDriver for MemoryDriverCustomData {
+    impl Driver for MemoryDriverCustomData {
+        fn is_remote(&self) -> bool {
+            false
+        }
+
+        fn create_from_url(&self, _url: &str) -> Option<DriverType> {
+            None
+        }
+
+        fn supports_url(&self, _url: &str) -> bool {
+            false
+        }
+
         fn name(&self) -> &'static str {
             "MemoryDriverCustomData"
         }
 
         // Create a new instance given data. The Driver will take ownership of the data
-        fn create_instance(&self) -> MemoryDriverType {
+        fn create_instance(&self) -> DriverType {
             Box::new(MemoryDriverCustomData { data: Vec::new() })
         }
         // Check if we can create a driver given some memory
@@ -1226,7 +1186,7 @@ mod tests {
             _data: Box<[u8]>,
             _file_ext_hint: &str,
             driver_data: &Option<Box<[u8]>>,
-        ) -> Option<MemoryDriverType> {
+        ) -> Option<DriverType> {
             assert!(driver_data.is_some());
             let driver_data = driver_data.as_ref().unwrap();
             assert_eq!(driver_data.len(), 4);
@@ -1552,3 +1512,4 @@ mod tests {
     }
     */
 }
+*/

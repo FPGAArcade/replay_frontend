@@ -1,4 +1,4 @@
-use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, Progress};
+use fileorama::{Error, Fileorama, LoadStatus, Driver, DriverType, Progress};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -118,12 +118,32 @@ struct ConfigLoader {
     data: Box<[u8]>,
 }
 
-impl MemoryDriver for ConfigLoader {
+impl Driver for ConfigLoader {
     fn name(&self) -> &'static str {
         CONFIG_LOADER_NAME
     }
 
-    fn create_instance(&self) -> Box<dyn MemoryDriver> {
+    fn is_remote(&self) -> bool {
+        false
+    }
+
+    fn supports_url(&self, _path: &str) -> bool {
+        false
+    }
+
+    fn create_from_url(&self, url: &str) -> Option<DriverType> {
+        None
+    }
+
+    fn get_directory_list(
+            &mut self,
+            path: &str,
+            progress: &mut Progress,
+        ) -> Result<fileorama::FilesDirs, Error> {
+        Ok(fileorama::FilesDirs::default())
+    }
+
+    fn create_instance(&self) -> DriverType {
         Box::<ConfigLoader>::default()
     }
 
@@ -136,7 +156,7 @@ impl MemoryDriver for ConfigLoader {
         data: Box<[u8]>,
         file_ext_hint: &str,
         _driver_data: &Option<Box<[u8]>>,
-    ) -> Option<Box<dyn MemoryDriver>> {
+    ) -> Option<DriverType> {
         match file_ext_hint {
             "json" | "json5" => Some(Box::new(ConfigLoader { data })),
             _ => None,

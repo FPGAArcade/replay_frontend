@@ -1,4 +1,4 @@
-use crate::{Error, FilesDirs, IoDriver, IoDriverType, LoadStatus, Progress};
+use crate::{Error, FilesDirs, Driver, DriverType, LoadStatus, Progress};
 use std::{fs::File, io::Read, path::PathBuf};
 use walkdir::WalkDir;
 
@@ -21,13 +21,26 @@ impl LocalFs {
     }
 }
 
-impl IoDriver for LocalFs {
+impl Driver for LocalFs {
     fn is_remote(&self) -> bool {
         false
     }
 
     fn name(&self) -> &'static str {
         "local_fs"
+    }
+
+    fn create_from_data(
+            &self,
+            _data: Box<[u8]>,
+            _file_ext_hint: &str,
+            _driver_data: &Option<Box<[u8]>>,
+        ) -> Option<DriverType> {
+        None
+    }
+
+    fn can_create_from_data(&self, _data: &[u8], _file_ext_hint: &str) -> bool {
+        false
     }
 
     // Supports loading all file extensions
@@ -37,11 +50,11 @@ impl IoDriver for LocalFs {
         !path.contains(":/")
     }
 
-    fn create_instance(&self) -> IoDriverType {
+    fn create_instance(&self) -> DriverType {
         Box::new(LocalFs { root: "".into() })
     }
 
-    fn create_from_url(&self, path: &str) -> Option<IoDriverType> {
+    fn create_from_url(&self, path: &str) -> Option<DriverType> {
         if std::fs::metadata(path).is_ok() {
             Some(Box::new(LocalFs { root: path.into() }))
         } else {
@@ -62,18 +75,20 @@ impl IoDriver for LocalFs {
         let metadata = match std::fs::metadata(&path) {
             Ok(m) => m,
             Err(_) => {
-                return Err(Error::FileDirNotFound);
+                return Ok(LoadStatus::NotFound);
             }
         };
-
+                
         if metadata.is_dir() {
             trace!("load_url: {:?} is a directory", path);
             return Ok(LoadStatus::Directory);
         }
-
+        
         let mut output_data = Vec::new();
         let len = metadata.len() as usize;
         let mut file = File::open(&path)?;
+
+        trace!("Loaded file {:?} to memory", path);
 
         // if file is small than 5 meg we just load it fully directly to memory
         if len < 5 * 1024 * 1024 {
@@ -94,6 +109,8 @@ impl IoDriver for LocalFs {
                 progress.step()?;
             }
         }
+        
+        dbg!();
 
         trace!("load_url: Loaded file {:?} to memory", path);
 

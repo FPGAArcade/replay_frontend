@@ -4,7 +4,7 @@ use crate::image::{ImageFormat, ImageInfo, ImageOptions};
 //use crate::InternalState;
 use resvg::{tiny_skia, usvg};
 
-use fileorama::{Error, Fileorama, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
+use fileorama::{Error, Fileorama, LoadStatus, Driver, DriverType, Progress};
 use thiserror::Error as ThisError;
 
 use zune_core::{
@@ -174,13 +174,33 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
 
 static IMAGE_LOADER_NAME: &str = "flowi_image_loader";
 
-impl MemoryDriver for ImageLoader {
+impl Driver for ImageLoader {
     fn name(&self) -> &'static str {
         IMAGE_LOADER_NAME
     }
 
+    fn supports_url(&self, url: &str) -> bool {
+        false
+    }
+
+    fn create_from_url(&self, url: &str) -> Option<DriverType> {
+        None
+    }
+
+    fn is_remote(&self) -> bool {
+        false
+    }
+
+    fn get_directory_list(
+            &mut self,
+            path: &str,
+            progress: &mut Progress,
+        ) -> Result<fileorama::FilesDirs, Error> {
+        Ok(fileorama::FilesDirs::default())
+    }
+
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_instance(&self) -> MemoryDriverType {
+    fn create_instance(&self) -> DriverType {
         Box::<ImageLoader>::default()
     }
 
@@ -210,7 +230,7 @@ impl MemoryDriver for ImageLoader {
         data: Box<[u8]>,
         file_ext_hint: &str,
         driver_data: &Option<Box<[u8]>>,
-    ) -> Option<MemoryDriverType> {
+    ) -> Option<DriverType> {
         let options = if let Some(input_data) = driver_data {
             let io: &ImageOptions = unsafe { &*(input_data.as_ptr() as *const ImageOptions) };
             Some(*io)
@@ -267,7 +287,7 @@ impl MemoryDriver for ImageLoader {
 }
 
 pub(crate) fn install_image_loader(vfs: &Fileorama) {
-    vfs.add_memory_driver(Box::<ImageLoader>::default());
+    vfs.add_driver(Box::<ImageLoader>::default());
 }
 
 /*

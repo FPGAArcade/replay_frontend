@@ -1,14 +1,9 @@
-use crate::{Error, FilesDirs, LoadStatus, MemoryDriver, MemoryDriverType, Progress};
+use crate::{Error, FilesDirs, LoadStatus, Driver, DriverType, Progress};
+use log::{error, trace, debug};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
-
-#[cfg(not(test))]
-use log::{error, trace};
-
-#[cfg(test)]
-use std::{println as trace, println as error};
 
 #[derive(Debug)]
 enum ZipInternal {
@@ -89,18 +84,32 @@ impl ZipFs {
     }
 }
 
-impl MemoryDriver for ZipFs {
+impl Driver for ZipFs {
     fn name(&self) -> &'static str {
         "zip_fs"
     }
 
+    fn is_remote(&self) -> bool {
+        false
+    }
+
+    fn supports_url(&self, _path: &str) -> bool {
+        false
+    }
+
+    fn create_from_url(&self, _path: &str) -> Option<DriverType> {
+        None
+    }
+
     // Create a new instance given data. The Driver will take ownership of the data
-    fn create_instance(&self) -> MemoryDriverType {
+    fn create_instance(&self) -> DriverType {
+        debug!("Creating new ZipFs instance");
         Box::new(ZipFs::new())
     }
 
     // Get some data in and returns true if driver can be mounted from it
     fn can_create_from_data(&self, data: &[u8], _file_ext_hint: &str) -> bool {
+        trace!("ZIP can_create_from_data");
         let c = std::io::Cursor::new(data);
         ZipArchive::new(c).is_ok()
     }
@@ -111,7 +120,8 @@ impl MemoryDriver for ZipFs {
         data: Box<[u8]>,
         _file_ext_hint: &str,
         _driver_data: &Option<Box<[u8]>>,
-    ) -> Option<MemoryDriverType> {
+    ) -> Option<DriverType> {
+        trace!("ZIP create_from_data");
         let a = match ZipArchive::new(std::io::Cursor::new(data)) {
             Ok(a) => a,
             Err(e) => {
