@@ -38,6 +38,11 @@ const CORNER_OFFSETS: [(f32, f32); 4] = [
     (0.0, 0.0), // BottomRight: Shift right and down
 ];
 
+const TEXT_WRITE_MASK: [u16; 16] = [
+    0xffff,0xffff,0xffff,0xffff, 0xffff,0xffff,0xffff,0xffff, 
+    0xffff,0xffff,0xffff,0xffff, 0x0000,0x0000,0x0000,0x0000,
+];
+
 #[derive(Copy, Clone)]
 #[allow(dead_code)]
 pub enum BlendMode {
@@ -554,6 +559,76 @@ pub(crate) fn render_internal<
     }
 }
 
+#[inline(always)]
+fn process_text_pixel(
+    tile_line_ptr: *mut i16,
+    text_pixels: i16x8,
+    color: i16x8,
+    even: usize,
+    offset: usize)
+{
+    let tile_line_ptr = unsafe { tile_line_ptr.add(offset) };
+
+    let bg_01 = i16x8::load_unaligned_ptr(tile_line_ptr);
+    let c0 = i16x8::lerp(bg_01, color, text_pixels);
+
+    if even & 1 == 0 {
+        i16x8::store_unaligned_ptr(c0, tile_line_ptr);
+    } else {
+        i16x8::store_unaligned_ptr_lower(c0, unsafe { tile_line_ptr.add(offset) });
+    } 
+}
+
+#[inline(always)]
+fn process_text_pixels<const COUNT: usize>( 
+    tile_line_ptr: *mut i16,
+    text_line_ptr: *const i16,
+    color: i16x8)
+{
+    // Text data is stored with one intensity in 16-bit so one vector load means
+    // we get 8 pixels. As we process 2 pixels (RGBA) per vector we need to splat each
+    // intensity in pairs of two.
+    //
+    // bleending operation with white text
+    // result.r = mask.a * (tex_color.r - dest.r) + dest.r
+    // result.g = mask.a * (tex_color.g - dest.g) + dest.g
+    // result.b = mask.a * (tex_color.b - dest.b) + dest.b
+    // result.a = mask.a * (tex_color.a - dest.a) + dest.a
+    //
+    // Assume COUNT is a const generic parameter with 1 <= COUNT <= 8.
+    let num_registers = (COUNT + 1) / 2;
+
+    const SHUFFLES: [u32; 4] = [
+        0x0000_1111, // for register 0
+        0x2222_3333, // for register 1
+        0x4444_5555, // for register 2
+        0x6666_7777, // for register 3
+    ];
+
+    // Load the 8 pixels of text intensity.
+    let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr);
+
+    for i in 0..num_registers {
+        let offset = i * 8;
+        let bg = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(offset) });
+        // Use a match to select the correct shuffle mask at compile time.
+        let computed = match i {
+            0 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[0] }>()),
+            1 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[1] }>()),
+            2 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[2] }>()),
+            3 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[3] }>()),
+            _ => unreachable!("Unexpected register index"),
+        };
+        let dst_ptr = unsafe { tile_line_ptr.add(offset) };
+        if COUNT % 2 == 1 && i == num_registers - 1 {
+            i16x8::store_unaligned_ptr_lower(computed, dst_ptr);
+        } else {
+            i16x8::store_unaligned_ptr(computed, dst_ptr);
+        }
+    }
+}
+
+
 #[allow(clippy::too_many_arguments)]
 #[inline(never)]
 pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
@@ -569,7 +644,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
         (f32x4::load_unaligned(coords) - tile_info.offsets) + f32x4::new_splat(0.5);
     let x0y0x1y1 = x0y0x1y1_adjust.floor();
     let x0y0x1y1_int = x0y0x1y1.as_i32x4();
-
+    
     let color = premultiply_alpha(color);
 
     // Make sure we intersect with the scissor rect otherwise skip rendering
@@ -587,7 +662,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     let clip_y = clip_diff.extract::<1>() as usize;
 
     // Adjust for clipping
-    let text_data = unsafe { text_data.add(clip_y * texture_width + clip_x) };
+    let mut text_data = unsafe { text_data.add((clip_y * texture_width) + clip_x) };
 
     let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
     let max_box = x0y0x1y1_int.max(scissor_rect.as_i32x4());
@@ -604,48 +679,27 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     let output = &mut output[((y0 as usize * tile_width + x0 as usize) * 4)..];
     let mut output_ptr = output.as_mut_ptr();
 
-    let mut text_data = text_data;
     let mut tile_line_ptr = output_ptr;
     let mut text_line_ptr = text_data;
 
     for _y in 0..ylen {
         for _x in 0..(xlen >> 3) {
-            // Text data is stored with one intensity in 16-bit so one vector load means
-            // we get 8 pixels. As we process 2 pixels (RGBA) per vector we need to splat each
-            // intensity in pairs of two.
-            //
-            // bleending operation with white text
-            // result.r = mask.a * (tex_color.r - dest.r) + dest.r
-            // result.g = mask.a * (tex_color.g - dest.g) + dest.g
-            // result.b = mask.a * (tex_color.b - dest.b) + dest.b
-            // result.a = mask.a * (tex_color.a - dest.a) + dest.a
-            //
-            let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr);
-
-            let te_01 = text_8_pixels.shuffle::<0x0000_1111>();
-            let bg_01 = i16x8::load_unaligned_ptr(tile_line_ptr);
-
-            let te_23 = text_8_pixels.shuffle::<0x2222_3333>();
-            let bg_23 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(8) });
-
-            let te_45 = text_8_pixels.shuffle::<0x4444_5555>();
-            let bg_45 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(16) });
-
-            let te_67 = text_8_pixels.shuffle::<0x6666_7777>();
-            let bg_67 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(24) });
-
-            let c0 = i16x8::lerp(bg_01, color, te_01);
-            let c1 = i16x8::lerp(bg_23, color, te_23);
-            let c2 = i16x8::lerp(bg_45, color, te_45);
-            let c3 = i16x8::lerp(bg_67, color, te_67);
-
-            i16x8::store_unaligned_ptr(c0, tile_line_ptr);
-            i16x8::store_unaligned_ptr(c1, unsafe { tile_line_ptr.add(8) });
-            i16x8::store_unaligned_ptr(c2, unsafe { tile_line_ptr.add(16) });
-            i16x8::store_unaligned_ptr(c3, unsafe { tile_line_ptr.add(24) });
-
+            process_text_pixels::<8>(tile_line_ptr, text_line_ptr, color);
             tile_line_ptr = unsafe { tile_line_ptr.add(32) };
             text_line_ptr = unsafe { text_line_ptr.add(8) };
+        }
+
+        let xrest = xlen & 7;
+
+        match xrest {
+            7 => process_text_pixels::<7>(tile_line_ptr, text_line_ptr, color),
+            6 => process_text_pixels::<6>(tile_line_ptr, text_line_ptr, color),
+            5 => process_text_pixels::<5>(tile_line_ptr, text_line_ptr, color),
+            4 => process_text_pixels::<4>(tile_line_ptr, text_line_ptr, color),
+            3 => process_text_pixels::<3>(tile_line_ptr, text_line_ptr, color),
+            2 => process_text_pixels::<2>(tile_line_ptr, text_line_ptr, color),
+            1 => process_text_pixels::<1>(tile_line_ptr, text_line_ptr, color),
+            _ => (),
         }
 
         output_ptr = unsafe { output_ptr.add(tile_width * 4) };

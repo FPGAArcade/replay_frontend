@@ -120,7 +120,7 @@ impl f32x4 {
             v: unsafe { vcvtq_s32_f32(self.v) },
         }
     }
-
+    
     #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     pub fn as_i32x4(self) -> i32x4 {

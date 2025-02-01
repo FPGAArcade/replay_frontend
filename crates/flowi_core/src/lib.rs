@@ -93,7 +93,7 @@ impl<'a> Ui<'a> {
             input: Input::new(),
             current_frame: 0,
             primitives: Arena::new(reserve_size).unwrap(),
-            layout: Clay::new(Dimensions::new(1920.0, 1080.0)),
+            layout: Clay::new(Dimensions::new(1280.0, 720.0)),
             item_states: HashMap::new(),
             button_id: 0,
             renderer,
@@ -307,8 +307,6 @@ impl<'a> Ui<'a> {
 
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
-
-        state.layout.enable_debug_mode(true);
 
         // TODO: Fix me
         let primitives = Self::translate_clay_render_commands(&state, state.layout.end());

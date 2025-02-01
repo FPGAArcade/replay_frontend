@@ -153,11 +153,11 @@ pub fn copy_tile_linear_to_srgb(
 fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
     let mut tile_info = TileInfo {
         offsets: f32x4::new_splat(0.0),
-        width: 192,
+        width: 128,
         _height: 90,
     };
 
-    renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, 192.0, 90.0);
+    renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, 128.0, 90.0);
         
     //dbg!("---------------------------------");
 
@@ -219,8 +219,6 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         render_cmd.bounding_box[1] + buffer.height as f32,
                     ];
 
-                    //dbg!("DrawTextBuffer {:?}", coords);
-
                     renderer.raster.render_text_texture(
                         tile_buffer,
                         buffer.data.0 as _,
@@ -266,8 +264,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
 impl flowi_renderer::Renderer for Renderer {
     fn new(_window: Option<&RawWindowHandle>) -> Self {
-        let screen_size = (1920, 1080);
-        let tile_count = (10, 12);
+        let screen_size = (1280, 720);
+        let tile_count = (10, 8);
 
         let tile_size = (screen_size.0 / tile_count.0, screen_size.1 / tile_count.1);
         let total_tile_count = tile_count.0 * tile_count.1;
@@ -310,8 +308,8 @@ impl flowi_renderer::Renderer for Renderer {
     fn software_renderer_info(&self) -> Option<SoftwareRenderData<'_>> {
         Some(SoftwareRenderData {
             buffer: self.output.as_slice(),
-            width: 1920,
-            height: 1080,
+            width: 1280,
+            height: 720,
         })
     }
 
@@ -323,79 +321,6 @@ impl flowi_renderer::Renderer for Renderer {
 
 impl Renderer {
     pub fn begin_frame(&mut self) {}
-
-    /*
-    pub fn flush_frame(&mut self, output: &mut [u32]) {
-        Self::bin_primitives(&mut self.tiles, &self.primitives);
-
-        let mut tile_info = TileInfo {
-            offsets: f32x4::new_splat(0.0),
-            width: 192,
-            _height: 90,
-        };
-
-        self.raster.scissor_rect = f32x4::new(0.0, 0.0, 192.0, 90.0);
-
-        //let tile = &self.tiles[0];
-
-        for tile in self.tiles.iter_mut() {
-            let mut coords = [0f32; 4];
-
-            let tile_buffer = &mut self.tile_buffers[tile.tile_index];
-
-            for t in tile_buffer.iter_mut() {
-                *t = 0;
-            }
-
-            // TODO: Correct clearing of of the buffer
-            //tile_buffer.clear();
-
-            let tile_aabb = tile.aabb;
-            let tile_buffer = &mut self.tile_buffers[tile.tile_index];
-            tile_info.offsets = tile_aabb.shuffle_0101();
-
-            //self.raster.scissor_rect = tile_aabb;
-
-            for primitive_index in tile.data.iter() {
-                let primitive = self.primitives[*primitive_index];
-                let color = primitive.color;
-
-                // TODO: Fix this
-                let coords_vec = primitive.aabb;
-
-                // TODO: Fix this
-                coords_vec.store_unaligned(&mut coords);
-
-                /*
-                self.raster.render_solid_quad(
-                    tile_buffer,
-                    &tile_info,
-                    &coords,
-                    color,
-                    raster::BlendMode::None);
-                */
-
-                self.raster.render_solid_quad_rounded(
-                    tile_buffer,
-                    &tile_info,
-                    &coords,
-                    color,
-                    16.0,
-                    raster::BlendMode::None,
-                );
-            }
-
-            // Rasterize the primitives for this tile
-            Self::copy_tile_linear_to_srgb(
-                &self.linear_to_srgb_table,
-                &mut self.output,
-                &tile_buffer,
-                tile,
-                self.screen_width,
-            );
-        }
-    }
-    */
 
     /// Bins the render primitives into the provided tiles.
     ///

@@ -43,8 +43,8 @@ fn main_loop(ui: &Ui, app: &mut App) {
 }
 
 fn main() {
-    let width = 1920;
-    let height = 1080;
+    let width = 1280;
+    let height = 720;
 
     let settings = flowi::ApplicationSettings { width, height };
 

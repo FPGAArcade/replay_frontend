@@ -28,17 +28,17 @@ static MENU_ITEMS: &[MenuItemInfo] = &[
         selection_id: MenuSelection::Search,
     },
     MenuItemInfo {
-        text: "Text 0",
+        text: "Systems",
         path: "data/svgs/core.svg",
         selection_id: MenuSelection::Systems,
     },
     MenuItemInfo {
-        text: "Text 1",
+        text: "Games",
         path: "data/svgs/games-buttons-svgrepo-com.svg",
         selection_id: MenuSelection::Games,
     },
     MenuItemInfo {
-        text: "Text 2",
+        text: "Demos",
         path: "data/svgs/cube-svgrepo-com.svg",
         selection_id: MenuSelection::Demos,
     },
@@ -70,6 +70,7 @@ struct MenuItem {
 pub struct LeftSideMenu {
     // TODO: Arena
     items: Vec<MenuItem>,
+    offset: f32,
 }
 
 #[allow(dead_code)]
@@ -86,11 +87,13 @@ impl LeftSideMenu {
 
         Self {
             items,
+            offset: 0.0,
         }
     }
 
     #[rustfmt::skip]
     pub fn update(&mut self, ui: &Ui) {
+        self.offset += 0.01;
         ui.with_layout(Some("launcher_left_side"), [
             Layout::new()
                 .height(grow!())
@@ -103,12 +106,11 @@ impl LeftSideMenu {
                 .color(Color::rgba(30.0, 30.0, 30.0, 255.0))
                 .end()], |ui| 
         {
-            for menu_item in &self.items {
+            for (index, menu_item) in self.items.iter().enumerate() {
                 let state = ui.button_with_layout(menu_item.text, [
                     Layout::new()
                         .width(fixed!(180.0))
                         .height(fixed!(76.0))
-                        .padding(Padding::new_rect(0, 0, 12, 0))
                         .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
                         .end(),
                     Rectangle::new()

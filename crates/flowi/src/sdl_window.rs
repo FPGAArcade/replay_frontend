@@ -280,8 +280,8 @@ impl Window for Sdl2Window {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
-        let width = 1920; //core::cmp::max(settings.width as u32, 800);
-        let height = 1080; //core::cmp::max(settings.height as u32, 600);
+        let width = 1280; //core::cmp::max(settings.width as u32, 800);
+        let height = 720; //core::cmp::max(settings.height as u32, 600);
 
         let window = video_subsystem
             .window("test-bed", width, height)
@@ -361,7 +361,7 @@ impl Window for Sdl2Window {
             .copy(
                 &self.texture,
                 None,
-                Some(sdl2::rect::Rect::new(0, 0, 1920, 1080)),
+                Some(sdl2::rect::Rect::new(0, 0, 1280, 720)),
             )
             .unwrap();
         self.canvas.present();
