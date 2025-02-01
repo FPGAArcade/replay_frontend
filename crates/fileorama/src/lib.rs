@@ -314,7 +314,7 @@ impl Fileorama {
         let data: &[u8] = unsafe {
             std::slice::from_raw_parts(
                 data.as_ptr() as *const u8,
-                data.len() * std::mem::size_of_val(data),
+                std::mem::size_of_val(data),
             )
         };
 
@@ -1234,7 +1234,6 @@ mod tests {
         panic!();
     }
 
-    /*
     #[test]
     fn vfs_test_pass_custom_data_to_driver() {
         let path = std::fs::canonicalize(".").unwrap();
@@ -1242,7 +1241,7 @@ mod tests {
         let custom_data = vec![1u8, 2u8, 3u8, 4u8].into_boxed_slice();
 
         let vfs = Fileorama::new(1);
-        vfs.add_memory_driver(Box::new(MemoryDriverCustomData { data: Vec::new() }));
+        vfs.add_driver(Box::new(MemoryDriverCustomData { data: Vec::new() }));
 
         let handle = vfs.load_url_with_driver_data(
             &path.to_string_lossy(),
@@ -1309,7 +1308,6 @@ mod tests {
 
         panic!();
     }
-    */
 
     #[test]
     fn vfs_two_local_files() {
