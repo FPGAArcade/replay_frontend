@@ -28,6 +28,7 @@ pub enum ImageLoadStatus {
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct ImageInfo {
+    pub data: Vec<u8>,
     /// Format of the image. See the ImageFormat enum
     pub format: u32,
     /// width of the image

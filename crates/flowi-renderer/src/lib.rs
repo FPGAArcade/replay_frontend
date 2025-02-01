@@ -67,7 +67,7 @@ pub struct DrawBorderData {
 pub struct DrawImage {
     pub width: u32,
     pub height: u32,
-    pub handle: ImageHandle,
+    pub handle: *const i16,
     pub rounded_corners: [f32; 4],
     pub rounding: bool,
 }

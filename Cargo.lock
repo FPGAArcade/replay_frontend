@@ -1983,7 +1983,9 @@ dependencies = [
 name = "test_bed"
 version = "0.1.0"
 dependencies = [
+ "env_logger",
  "flowi",
+ "log",
 ]
 
 [[package]]

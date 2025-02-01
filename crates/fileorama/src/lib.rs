@@ -1299,7 +1299,7 @@ mod tests {
 
         for _ in 0..100 {
             if let Ok(RecvMsg::ReadDone(data)) = handle.recv.try_recv() {
-                assert!(data.get().len() > 2);
+                assert!(data.len() > 2);
                 return;
             }
 
@@ -1308,7 +1308,9 @@ mod tests {
 
         panic!();
     }
+    */
 
+    /*
     #[test]
     fn vfs_two_local_files() {
         let vfs = Fileorama::new(1);

@@ -10,6 +10,7 @@ pub mod signal;
 pub mod widgets;
 use crate::input::Input;
 use glam::Vec4;
+use crate::io_handler::IoHandle;
 
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
@@ -24,8 +25,10 @@ pub use io_handler::IoHandler;
 use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use crate::image::ImageInfo;
 
 use font::{CachedString, FontHandle};
+pub use crate::io_handler::IoHandle as ImageHandle;
 
 pub use clay_layout::{
     elements::{rectangle::Rectangle, text::Text, CornerRadius},
@@ -35,6 +38,7 @@ pub use clay_layout::{
     layout::alignment::LayoutAlignmentX,
     layout::alignment::LayoutAlignmentY,
     color::Color as ClayColor,
+    elements::image::Image as ClayImage,
 };
 
 use flowi_renderer::{
@@ -55,7 +59,7 @@ struct ItemState {
 }
 
 #[allow(dead_code)]
-struct State<'a> {
+pub(crate) struct State<'a> {
     pub(crate) text_generator: font::TextGenerator,
     pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
@@ -69,6 +73,7 @@ struct State<'a> {
     pub(crate) bg_worker: WorkSystem,
     pub(crate) item_states: HashMap<u32, ItemState>, // TODO: Arena hashmap
     pub(crate) active_font: FontHandle,
+    pub(crate) has_printed: bool,
 }
 
 #[allow(dead_code)]
@@ -99,6 +104,7 @@ impl<'a> Ui<'a> {
             renderer,
             bg_worker,
             active_font: 0,
+            has_printed: false,
         };
 
         let data = Box::new(Ui {
@@ -182,6 +188,23 @@ impl<'a> Ui<'a> {
         signal
     }
 
+    pub fn image(&self, handle: ImageHandle) {
+        let state = unsafe { &mut *self.state.get() };
+
+        if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
+            let source_dimensions = Dimensions::new(image.width as _, image.height as _);
+
+            state.layout.with(Some("image_test"), [
+                Layout::new()
+                    .width(grow!())
+                    .height(grow!())
+                    .padding(Padding::all(30)).end(),
+                ClayImage { data: image.data.as_ptr() as _, source_dimensions } 
+                    .end()], |_ui| { 
+                });
+        }
+    }
+
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
         let bb = render_command.bounding_box;
         [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
@@ -246,16 +269,15 @@ impl<'a> Ui<'a> {
                     (RenderType::DrawTextBuffer(gen), Self::color(config.color))
                 }
 
-                RenderCommandConfig::Image(image) => (
-                    RenderType::DrawImage(DrawImage {
+                RenderCommandConfig::Image(image) => {
+                    (RenderType::DrawImage(DrawImage {
                         rounded_corners: [0.0, 0.0, 0.0, 0.0],
                         width: image.source_dimensions.width as _,
                         height: image.source_dimensions.height as _,
                         handle: image.data as _,
                         rounding: false,
-                    }),
-                    Color::new(1.0, 1.0, 1.0, 1.0),
-                ),
+                    }), Color::new(1.0, 1.0, 1.0, 1.0))
+                }
 
                 RenderCommandConfig::Border(border) => {
                     let outer_radius = match border.corner_radius {
@@ -309,8 +331,10 @@ impl<'a> Ui<'a> {
         let state = unsafe { &mut *self.state.get() };
 
         // TODO: Fix me
-        let primitives = Self::translate_clay_render_commands(&state, state.layout.end());
+        let primitives = Self::translate_clay_render_commands(state, state.layout.end());
         state.renderer.render(&primitives);
+
+        state.has_printed = true;
 
         // Generate primitives from all boxes
         //state.generate_primitives();
@@ -327,6 +351,11 @@ impl<'a> Ui<'a> {
     pub fn load_font(&mut self, path: &str, size: i32) -> InternalResult<FontHandle> {
         let state = unsafe { &mut *self.state.get() };
         state.text_generator.load_font(path, size, &state.bg_worker)
+    }
+
+    pub fn load_image(&mut self, path: &str) -> InternalResult<IoHandle> {
+        let state = unsafe { &mut *self.state.get() };
+        Ok(crate::image_api::load(state, path))
     }
 
     pub fn queue_generate_text(

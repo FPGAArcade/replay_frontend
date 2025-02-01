@@ -116,13 +116,13 @@ pub fn copy_tile_linear_to_srgb(
             let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr);
             let rgba_rgba = rgba_rgba.shift_right::<LINEAR_TO_SRGB_SHIFT>();
 
-            let r0 = rgba_rgba.extract::<0>() as u16;
-            let g0 = rgba_rgba.extract::<1>() as u16;
-            let b0 = rgba_rgba.extract::<2>() as u16;
+            let r0 = (rgba_rgba.extract::<0>() as u16) & 0xfff;
+            let g0 = (rgba_rgba.extract::<1>() as u16) & 0xfff;
+            let b0 = (rgba_rgba.extract::<2>() as u16) & 0xfff;
 
-            let r1 = rgba_rgba.extract::<4>() as u16;
-            let g1 = rgba_rgba.extract::<5>() as u16;
-            let b1 = rgba_rgba.extract::<6>() as u16;
+            let r1 = (rgba_rgba.extract::<4>() as u16) & 0xfff;
+            let g1 = (rgba_rgba.extract::<5>() as u16) & 0xfff;
+            let b1 = (rgba_rgba.extract::<6>() as u16) & 0xfff;
 
             unsafe {
                 let r0 = *linear_to_srgb_table.get_unchecked(r0 as usize);
@@ -227,6 +227,22 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &coords,
                         color,
                     );
+                }
+
+                RenderType::DrawImage(buffer) => {
+                    let texture_sizes = [buffer.width as _, buffer.height as _];
+                    let uv = [0.0, 0.0, buffer.width as _, buffer.height as _]; 
+
+                    //dbg!("DrawImage {:?}", render_cmd.bounding_box);
+                    //dbg!("DrawImage {:?}", buffer.handle);
+
+                    renderer.raster.render_aligned_texture(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        buffer.handle as _,
+                        &uv,
+                        &texture_sizes);
                 }
 
                 _ => {}

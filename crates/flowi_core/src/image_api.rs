@@ -1,7 +1,6 @@
 use crate::image::{ImageFormat, ImageInfo, ImageOptions};
-//use crate::io_handler::LoadedData;
-//use crate::primitives::FlData;
-//use crate::InternalState;
+use crate::State;
+use crate::io_handler::IoHandle;
 use resvg::{tiny_skia, usvg};
 
 use fileorama::{Error, Fileorama, LoadStatus, Driver, DriverType, Progress};
@@ -37,8 +36,60 @@ struct ImageLoader {
     image_type: ImageType,
 }
 
+const LINEAR_BIT_COUNT: i32 = 15;
+
+fn srgb_to_linear(x: f32) -> f32 {
+    if x <= 0.04045 {
+        x / 12.92
+    } else {
+        ((x + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+// TODO: Move to a common place
+fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
+    let mut table = [0; 1 << 8];
+
+    for (i, entry) in table.iter_mut().enumerate().take(1 << 8) {
+        let srgb = i as f32 / 255.0;
+        let linear = srgb_to_linear(srgb);
+        *entry = (linear * ((1 << LINEAR_BIT_COUNT) - 1) as f32).round() as u16;
+    }
+
+    table
+}
+
+// TODO: Cleanup
+fn vec_u16_to_vec_u8(mut v: Vec<u16>) -> Vec<u8> {
+    let len = v.len();
+    let capacity = v.capacity();
+    let ptr = v.as_mut_ptr();
+
+    // Prevent `v` from being dropped, which would deallocate its memory.
+    std::mem::forget(v);
+
+    // SAFETY:
+    // - The memory originally allocated for `Vec<u16>` is exactly `capacity * 2` bytes,
+    //   which is enough for `Vec<u8>`.
+    // - `u16` has no drop glue, so it is safe to simply reinterpret its memory as `u8`.
+    // - The new length is `len * 2` (each `u16` becomes 2 `u8`s), and similarly the capacity is `capacity * 2`.
+    unsafe {
+        Vec::from_raw_parts(ptr as *mut u8, len * 2, capacity * 2)
+    }
+}
+
+
+fn box_to_vec_u8<T>(b: Box<T>) -> Vec<u8> {
+    let num_bytes = std::mem::size_of::<T>();
+    let ptr = Box::into_raw(b) as *mut u8;
+    unsafe { Vec::from_raw_parts(ptr, num_bytes, num_bytes) }
+}
+
 fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
     let image = ZuneImage::read(data, ZuneDecoderOptions::default())?;
+
+    // TODO: Pass this in as state
+    let srgb_to_linear = build_srgb_to_linear_table();
 
     let depth = image.depth();
     let color_space = image.colorspace();
@@ -52,19 +103,27 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
         )));
     }
 
-    let image_info_offset = std::mem::size_of::<ImageInfo>();
     // Only deal with one frame for now
     // TODO: Optimize
     let frames = image.flatten_frames();
-    let total_output_size = frames.iter().map(|f| f.len()).sum::<usize>();
+    let output_size = frames.iter().map(|f| f.len()).sum::<usize>();
+    let mut image_data = vec![0u8; output_size]; // TODO: uninit
 
-    let output_size = total_output_size + image_info_offset;
-    let mut output_data = vec![0u8; output_size]; // TODO: uninit
-    let write_data = &mut output_data[image_info_offset..];
+    assert_eq!(frames.len(), 1);
 
     for frame in frames {
-        write_data.copy_from_slice(&frame);
+        image_data.copy_from_slice(&frame);
     }
+
+    let mut i16_output = vec![0u16; output_size]; // TODO: uninit
+
+    dbg!(i16_output.as_ptr());
+
+    // TODO: Optimize
+    for i in 0..image_data.len() { 
+        let t = image_data[i] as usize;
+        i16_output[i] = srgb_to_linear[t]; 
+    } 
 
     let format = match color_space {
         ZuneColorSpace::RGB => ImageFormat::Rgb,
@@ -81,20 +140,19 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
         }
     };
 
+    dbg!(format);
+
     // TODO: handle multiple frames
-    let image_info = ImageInfo {
+    let image_info = Box::new(ImageInfo {
+        data: vec_u16_to_vec_u8(i16_output),
         format: format as u32,
         width: dimensions.0 as i32,
         height: dimensions.1 as i32,
         frame_delay: 0,
         frame_count: 1,
-    };
+    });
 
-    // Write header at the start of the data
-    let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
-    *write_image_info = image_info;
-
-    Ok(output_data)
+    Ok(box_to_vec_u8(image_info))
 }
 
 fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
@@ -134,10 +192,12 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
         &mut pixmap.as_mut(),
     );
 
+    // TODO: fix this up
     let svg_data = pixmap.as_ref().data();
     let image_info_offset = std::mem::size_of::<ImageInfo>();
 
-    let image_info = ImageInfo {
+    let _image_info = ImageInfo {
+        data: Vec::new(),
         format: ImageFormat::Rgba as u32,
         width,
         height,
@@ -145,14 +205,13 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
         frame_delay: 0,
     };
 
-    let output_size = svg_data.len() + image_info_offset;
-    let mut output_data = vec![0u8; output_size]; // TODO: uninit
+    let mut output_data = vec![0u8; svg_data.len()]; // TODO: uninit
 
     // Write header at the start of the data
-    let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
-    *write_image_info = image_info;
+    //let write_image_info: &mut ImageInfo = unsafe { std::mem::transmute(&mut output_data[0]) };
+    //*write_image_info = image_info;
 
-    output_data[image_info_offset..].copy_from_slice(svg_data);
+    //output_data[image_info_offset..].copy_from_slice(svg_data);
 
     if let Some(options) = image_options {
         if options.color.r > 0.0 || options.color.g > 0.0 || options.color.b > 0.0 {
@@ -179,22 +238,10 @@ impl Driver for ImageLoader {
         IMAGE_LOADER_NAME
     }
 
-    fn supports_url(&self, url: &str) -> bool {
-        false
-    }
-
-    fn create_from_url(&self, url: &str) -> Option<DriverType> {
-        None
-    }
-
-    fn is_remote(&self) -> bool {
-        false
-    }
-
     fn get_directory_list(
             &mut self,
-            path: &str,
-            progress: &mut Progress,
+            _path: &str,
+            _progress: &mut Progress,
         ) -> Result<fileorama::FilesDirs, Error> {
         Ok(fileorama::FilesDirs::default())
     }
@@ -290,16 +337,15 @@ pub(crate) fn install_image_loader(vfs: &Fileorama) {
     vfs.add_driver(Box::<ImageLoader>::default());
 }
 
-/*
 #[inline]
-fn load(state: &mut InternalState, filename: &str) -> u64 {
+pub fn load(state: &mut State, filename: &str) -> IoHandle {
     state
         .io_handler
         .load_with_driver(filename, IMAGE_LOADER_NAME)
 }
 
 #[inline]
-fn load_with_options(state: &mut InternalState, filename: &str, options: &ImageOptions) -> u64 {
+fn load_with_options(state: &mut State, filename: &str, options: &ImageOptions) -> IoHandle {
     let data = [*options];
 
     state
@@ -307,6 +353,7 @@ fn load_with_options(state: &mut InternalState, filename: &str, options: &ImageO
         .load_with_driver_data(filename, IMAGE_LOADER_NAME, &data)
 }
 
+/*
 #[inline]
 fn image_status(state: &InternalState, id: u64) -> ImageLoadStatus {
     if let Some(image) = state.io_handler.loaded.get(&id) {
