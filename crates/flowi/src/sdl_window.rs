@@ -120,6 +120,7 @@ pub(crate) struct Sdl2Window {
     texture: Texture,
     time: f64,
     should_close: bool,
+    window_size: (u32, u32),
 }
 
 impl Sdl2Window {
@@ -276,12 +277,12 @@ impl Sdl2Window {
 }
 
 impl Window for Sdl2Window {
-    fn new(_settings: &ApplicationSettings) -> Self {
+    fn new(settings: &ApplicationSettings) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
-        let width = 1280; //core::cmp::max(settings.width as u32, 800);
-        let height = 720; //core::cmp::max(settings.height as u32, 600);
+        let width = settings.width as u32; 
+        let height = settings.height as u32; 
 
         let window = video_subsystem
             .window("test-bed", width, height)
@@ -319,6 +320,7 @@ impl Window for Sdl2Window {
             event_pump,
             time: 0.0,
             should_close: false,
+            window_size: (width, height),
         }
     }
 
@@ -361,7 +363,7 @@ impl Window for Sdl2Window {
             .copy(
                 &self.texture,
                 None,
-                Some(sdl2::rect::Rect::new(0, 0, 1280, 720)),
+                Some(sdl2::rect::Rect::new(0, 0, self.window_size.0, self.window_size.1)),
             )
             .unwrap();
         self.canvas.present();

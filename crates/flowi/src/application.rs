@@ -83,7 +83,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 impl Application<'_> {
     pub fn new(settings: &ApplicationSettings) -> Box<Self> {
         let window = Box::new(Sdl2Window::new(settings));
-        let ui = Ui::new(Box::new(SoftwareRenderer::new(None)));
+        let ui = Ui::new(Box::new(SoftwareRenderer::new((settings.width, settings.height), None)));
 
         Box::new(Self {
             window,

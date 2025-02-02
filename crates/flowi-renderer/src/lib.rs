@@ -140,7 +140,7 @@ pub trait Renderer {
     /// Creates a new renderer. The window handle is optional and can be used to create a renderer.
     /// Some renderers needs access to the underlying Window data to setup the renderer correctly
     /// and this is used to provide this information.
-    fn new(_window_handle: Option<&RawWindowHandle>) -> Self
+    fn new(window_size: (usize, usize), _window_handle: Option<&RawWindowHandle>) -> Self
     where
         Self: Sized;
 

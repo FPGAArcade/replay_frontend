@@ -29,7 +29,8 @@ pub struct Renderer {
     tiles: Vec<Tile>,
     tile_buffers: [Vec<i16>; 2],
     output: Vec<u8>,
-    screen_width: usize,
+    tile_size: (usize, usize),
+    screen_size: (usize, usize),
 }
 
 fn linear_to_srgb(x: f32) -> f32 {
@@ -151,23 +152,27 @@ pub fn copy_tile_linear_to_srgb(
 }
 
 fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
-    let mut tile_info = TileInfo {
-        offsets: f32x4::new_splat(0.0),
-        width: 128,
-        _height: 90,
-    };
 
-    renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, 128.0, 90.0);
         
     //dbg!("---------------------------------");
 
     for tile in renderer.tiles.iter_mut() {
         let tile_aabb = tile.aabb;
-        tile_info.offsets = tile_aabb.shuffle_0101();
 
         if tile.data.is_empty() {
             continue;
         }
+            
+        let tile_width = tile_aabb.extract::<2>() - tile_aabb.extract::<0>();
+        let tile_height = tile_aabb.extract::<3>() - tile_aabb.extract::<1>();
+
+        let tile_info = TileInfo {
+            offsets: tile_aabb.shuffle_0101(),
+            width: tile_width as _,
+            _height: tile_height as _,
+        };
+
+        renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, tile_width as _, tile_height as _);
 
         let tile_buffer = &mut renderer.tile_buffers[tile.tile_index];
 
@@ -178,6 +183,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
         }
 
         for index in tile.data.iter() {
+
+
             let render_cmd = &commands[*index];
             let color =
                 get_color_from_floats_0_255(render_cmd.color, &renderer.srgb_to_linear_table);
@@ -273,31 +280,37 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
             &mut renderer.output,
             tile_buffer,
             tile,
-            renderer.screen_width,
+            renderer.screen_size.0 as usize,
         );
     }
 }
 
+fn get_tile_size(pos: usize, max_size: usize, tile_size: usize) -> usize {
+    if pos + tile_size > max_size {
+        max_size - pos
+    } else {
+        tile_size
+    }
+}
+
 impl flowi_renderer::Renderer for Renderer {
-    fn new(_window: Option<&RawWindowHandle>) -> Self {
-        let screen_size = (1280, 720);
-        let tile_count = (10, 8);
+    fn new(screen_size: (usize, usize), _window: Option<&RawWindowHandle>) -> Self {
+        let tile_size = (128usize, 128usize);
 
-        let tile_size = (screen_size.0 / tile_count.0, screen_size.1 / tile_count.1);
-        let total_tile_count = tile_count.0 * tile_count.1;
-        let tile_full_size = tile_size.0 * tile_size.1;
-
-        let mut tiles = Vec::with_capacity(total_tile_count);
+        let mut tiles = Vec::new();
         let mut tile_index = 0;
 
         for y in (0..screen_size.1).step_by(tile_size.1) {
             for x in (0..screen_size.0).step_by(tile_size.0) {
+                let tile_width = get_tile_size(x, screen_size.0, tile_size.0);
+                let tile_height = get_tile_size(y, screen_size.1, tile_size.1);
+
                 tiles.push(Tile {
                     aabb: f32x4::new(
                         x as f32,
                         y as f32,
-                        (x + tile_size.0) as f32,
-                        (y + tile_size.1) as f32,
+                        (x + tile_width) as f32,
+                        (y + tile_height) as f32,
                     ),
                     data: Vec::with_capacity(8192),
                     tile_index: tile_index & 1,
@@ -307,8 +320,8 @@ impl flowi_renderer::Renderer for Renderer {
             }
         }
 
-        let t0 = vec![i16::default(); tile_full_size * 8];
-        let t1 = vec![i16::default(); tile_full_size * 8];
+        let t0 = vec![i16::default(); tile_size.0 * tile_size.1 * 8];
+        let t1 = vec![i16::default(); tile_size.0 * tile_size.1 * 8];
 
         Self {
             linear_to_srgb_table: build_linear_to_srgb_table(),
@@ -316,7 +329,8 @@ impl flowi_renderer::Renderer for Renderer {
             raster: Raster::new(),
             tile_buffers: [t0, t1],
             tiles,
-            screen_width: screen_size.0,
+            screen_size,
+            tile_size,
             output: vec![0; screen_size.0 * screen_size.1 * 3],
         }
     }
