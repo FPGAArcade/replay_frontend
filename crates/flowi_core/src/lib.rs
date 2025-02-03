@@ -196,8 +196,8 @@ impl<'a> Ui<'a> {
 
             state.layout.with(Some("image_test"), [
                 Layout::new()
-                    .width(grow!())
-                    .height(grow!())
+                    .width(fixed!(source_dimensions.width as _))
+                    .height(fixed!(source_dimensions.height as _))
                     .padding(Padding::all(30)).end(),
                 ClayImage { data: image.data.as_ptr() as _, source_dimensions } 
                     .end()], |_ui| { 

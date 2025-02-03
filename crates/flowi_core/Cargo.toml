@@ -4,14 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-flowi-renderer = { path = "../flowi-renderer" }
 arena-allocator = { path = "../arena-allocator" }
 background-worker = { path = "../background_worker" }
 bitflags = "2.7.0"
-cosmic-text = "0.12"
 clay-layout = { path = "../clay_layout" }
+cosmic-text = "0.12"
 fileorama = { path = "../fileorama" }
+flowi-renderer = { path = "../flowi-renderer" }
 glam = "0.29.0"
+image-scaler = { path = "../image-scaler" }
 log = "0.4"
 notify = "8.0"
 raw-window-handle = "0.6"

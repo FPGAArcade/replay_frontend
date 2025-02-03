@@ -8,6 +8,7 @@ members = [
     "crates/flowi-renderer", 
     "crates/flowi_core", 
     "crates/flowi_sw_renderer", 
+    "crates/image-scaler", 
     "crates/simd",
     "main", 
     "tests/renderer_tests",
@@ -23,8 +24,11 @@ opt-level = 3
 [profile.dev.package.resvg]
 opt-level = 3
 
-# [profile.dev.package.flowi_sw_renderer]
-# opt-level = 3
+[profile.dev.package.flowi_sw_renderer]
+opt-level = 3
+
+[profile.dev.package.image-scaler]
+opt-level = 3
 
 [profile.release]
 opt-level = 3

@@ -47,20 +47,20 @@ fn srgb_to_linear(x: f32) -> f32 {
 }
 
 // TODO: Move to a common place
-fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
+fn build_srgb_to_linear_table() -> [i16; 1 << 8] {
     let mut table = [0; 1 << 8];
 
     for (i, entry) in table.iter_mut().enumerate().take(1 << 8) {
         let srgb = i as f32 / 255.0;
         let linear = srgb_to_linear(srgb);
-        *entry = (linear * ((1 << LINEAR_BIT_COUNT) - 1) as f32).round() as u16;
+        *entry = (linear * ((1 << LINEAR_BIT_COUNT) - 1) as f32).round() as i16;
     }
 
     table
 }
 
 // TODO: Cleanup
-fn vec_u16_to_vec_u8(mut v: Vec<u16>) -> Vec<u8> {
+fn vec_i16_to_vec_u8(mut v: Vec<i16>) -> Vec<u8> {
     let len = v.len();
     let capacity = v.capacity();
     let ptr = v.as_mut_ptr();
@@ -115,7 +115,7 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
         image_data.copy_from_slice(&frame);
     }
 
-    let mut i16_output = vec![0u16; output_size]; // TODO: uninit
+    let mut i16_output = vec![0i16; output_size]; // TODO: uninit
 
     dbg!(i16_output.as_ptr());
 
@@ -140,14 +140,16 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
         }
     };
 
+    let image_scaled = image_scaler::scale_image(&i16_output, dimensions.0 as _, dimensions.1 as _, 200, 200);
+
     dbg!(format);
 
     // TODO: handle multiple frames
     let image_info = Box::new(ImageInfo {
-        data: vec_u16_to_vec_u8(i16_output),
+        data: vec_i16_to_vec_u8(image_scaled.data),
         format: format as u32,
-        width: dimensions.0 as i32,
-        height: dimensions.1 as i32,
+        width: image_scaled.width as i32, 
+        height: image_scaled.height as i32, 
         frame_delay: 0,
         frame_count: 1,
     });

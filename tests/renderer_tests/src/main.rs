@@ -96,7 +96,7 @@ fn main() {
         height: HEIGHT,
     };
 
-    let mut core = flowi_core::Ui::new(Box::new(SofwareRenderer::new(None)));
+    let mut core = flowi_core::Ui::new(Box::new(SofwareRenderer::new((WIDTH, HEIGHT), None)));
     let font = core
         .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48)
         .unwrap();

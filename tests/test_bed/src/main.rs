@@ -102,7 +102,8 @@ fn main() {
     let mut flowi_app = Application::new(&settings); //.unwrap();
 
     let _ = flowi_app.ui.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 36);
-    let image = flowi_app.ui.load_image("/Users/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
+    //let image = flowi_app.ui.load_image("/Users/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
+    let image = flowi_app.ui.load_image("/home/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
 
     /*
     let fonts = Fonts {

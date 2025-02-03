@@ -573,6 +573,7 @@ dependencies = [
  "fileorama",
  "flowi-renderer",
  "glam",
+ "image-scaler",
  "log",
  "notify",
  "raw-window-handle",
@@ -885,6 +886,13 @@ dependencies = [
  "bytemuck",
  "byteorder-lite",
  "num-traits",
+]
+
+[[package]]
+name = "image-scaler"
+version = "0.1.0"
+dependencies = [
+ "simd",
 ]
 
 [[package]]
