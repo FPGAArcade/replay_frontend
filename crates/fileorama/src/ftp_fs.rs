@@ -1,4 +1,4 @@
-use crate::{Error, FilesDirs, Driver, DriverType, LoadStatus, Progress};
+use crate::{Driver, DriverType, Error, FilesDirs, LoadStatus, Progress};
 use log::error;
 use std::fmt::{Debug, Formatter};
 use suppaftp::{FtpError, FtpStream};
@@ -45,7 +45,9 @@ fn extract_file_size(entry: &str) -> Result<usize, Error> {
     if parts.len() < 5 {
         return Err(Error::InvalidEntry(entry.to_owned()));
     }
-    parts[4].parse::<usize>().map_err(|_| Error::InvalidSize(parts[4].to_owned()))
+    parts[4]
+        .parse::<usize>()
+        .map_err(|_| Error::InvalidSize(parts[4].to_owned()))
 }
 
 /// Parses an FTP directory listing entry to determine if it is a file or directory.
@@ -59,7 +61,7 @@ fn parse_ftp_entry(entry: &str) -> Option<(String, bool)> {
     // As the result from the FTP server is given in this format we have to split the string and pick out the data we want
     // -rw-rw-r--    1 1001       1001          5046034 May 25 16:00 allmods.zip
     // drwxrwxr-x    7 1001       1001             4096 Jan 20  2018 incoming
-    
+
     let parts: Vec<&str> = entry.split_whitespace().collect();
     // Ensure we have enough parts (index 8 should be the filename)
     if parts.len() < 9 {
@@ -79,11 +81,11 @@ impl Driver for FtpFs {
     }
 
     fn create_from_data(
-            &self,
-            _data: Box<[u8]>,
-            _file_ext_hint: &str,
-            _driver_data: &Option<Box<[u8]>>,
-        ) -> Option<DriverType> {
+        &self,
+        _data: Box<[u8]>,
+        _file_ext_hint: &str,
+        _driver_data: &Option<Box<[u8]>>,
+    ) -> Option<DriverType> {
         None
     }
 

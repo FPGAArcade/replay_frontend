@@ -152,8 +152,6 @@ pub fn copy_tile_linear_to_srgb(
 }
 
 fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
-
-        
     //dbg!("---------------------------------");
 
     for tile in renderer.tiles.iter_mut() {
@@ -162,7 +160,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
         if tile.data.is_empty() {
             continue;
         }
-            
+
         let tile_width = tile_aabb.extract::<2>() - tile_aabb.extract::<0>();
         let tile_height = tile_aabb.extract::<3>() - tile_aabb.extract::<1>();
 
@@ -183,8 +181,6 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
         }
 
         for index in tile.data.iter() {
-
-
             let render_cmd = &commands[*index];
             let color =
                 get_color_from_floats_0_255(render_cmd.color, &renderer.srgb_to_linear_table);
@@ -238,7 +234,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
                 RenderType::DrawImage(buffer) => {
                     let texture_sizes = [buffer.width as _, buffer.height as _];
-                    let uv = [0.0, 0.0, buffer.width as _, buffer.height as _]; 
+                    let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
 
                     //dbg!("DrawImage {:?}", render_cmd.bounding_box);
                     //dbg!("DrawImage {:?}", buffer.handle);
@@ -249,7 +245,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &render_cmd.bounding_box,
                         buffer.handle as _,
                         &uv,
-                        &texture_sizes);
+                        &texture_sizes,
+                    );
                 }
 
                 _ => {}

@@ -1,6 +1,9 @@
 use flowi::Application;
 use flowi::Ui;
-use flowi::{fixed, grow, ImageHandle, Layout, LayoutDirection, Padding, Alignment, LayoutAlignmentX, LayoutAlignmentY, Rectangle, ClayColor};
+use flowi::{
+    fixed, grow, Alignment, ClayColor, ImageHandle, Layout, LayoutAlignmentX, LayoutAlignmentY,
+    LayoutDirection, Padding, Rectangle,
+};
 use log::*;
 
 /*
@@ -19,6 +22,16 @@ pub(crate) struct App {
     image: ImageHandle,
 }
 
+struct NavigationEntry {
+    title: String,
+    authors: Vec<String>,
+    relase_date: String,
+    platforms: Vec<String>,
+    image: ImageHandle,
+}
+
+fn draw_image_grid_unlimited_scroll(ui: &Ui, app: &App) {}
+
 #[rustfmt::skip]
 fn main_loop(ui: &Ui, _app: &mut App) {
     ui.with_layout(Some("main_container"), [
@@ -26,7 +39,7 @@ fn main_loop(ui: &Ui, _app: &mut App) {
             .width(grow!())
             .height(grow!())
             .direction(LayoutDirection::LeftToRight)
-            .end()], |ui| 
+            .end()], |ui|
    {
         ui.with_layout(Some("header"), [
             Layout::new()
@@ -94,16 +107,23 @@ fn main_loop(ui: &Ui, _app: &mut App) {
 fn main() {
     let width = 1280;
     let height = 720;
-        
-    let _ = env_logger::builder().filter_level(LevelFilter::max()).init();
+
+    let _ = env_logger::builder()
+        .filter_level(LevelFilter::max())
+        .init();
 
     let settings = flowi::ApplicationSettings { width, height };
 
     let mut flowi_app = Application::new(&settings); //.unwrap();
 
-    let _ = flowi_app.ui.load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 36);
+    let _ = flowi_app
+        .ui
+        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 36);
     //let image = flowi_app.ui.load_image("/Users/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
-    let image = flowi_app.ui.load_image("/home/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
+    let image = flowi_app
+        .ui
+        .load_image("/home/emoon/code/projects/replay_frontend/data/amiga.png")
+        .unwrap();
 
     /*
     let fonts = Fonts {
@@ -114,9 +134,11 @@ fn main() {
     };
     */
 
-    let app = Box::new(
-        App { width, height, image }
-    );
+    let app = Box::new(App {
+        width,
+        height,
+        image,
+    });
 
     if !flowi_app.run(app, main_loop) {
         println!("Failed to create main application");

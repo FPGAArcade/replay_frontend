@@ -1,6 +1,9 @@
-use flowi::Ui;
-use flowi::{fixed, grow, Layout, LayoutDirection, Padding, Alignment, LayoutAlignmentX, LayoutAlignmentY, Rectangle};
 use flowi::ClayColor as Color;
+use flowi::Ui;
+use flowi::{
+    fixed, grow, Alignment, Layout, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding,
+    Rectangle,
+};
 
 #[derive(Copy, Clone)]
 #[allow(dead_code)]
@@ -65,7 +68,6 @@ struct MenuItem {
     //color: Color,
 }
 
-
 #[allow(dead_code)]
 pub struct LeftSideMenu {
     // TODO: Arena
@@ -85,10 +87,7 @@ impl LeftSideMenu {
             })
             .collect::<Vec<_>>();
 
-        Self {
-            items,
-            offset: 0.0,
-        }
+        Self { items, offset: 0.0 }
     }
 
     #[rustfmt::skip]
@@ -104,7 +103,7 @@ impl LeftSideMenu {
                 .end(),
             Rectangle::new()
                 .color(Color::rgba(30.0, 30.0, 30.0, 255.0))
-                .end()], |ui| 
+                .end()], |ui|
         {
             for (index, menu_item) in self.items.iter().enumerate() {
                 let state = ui.button_with_layout(menu_item.text, [

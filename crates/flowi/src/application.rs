@@ -55,7 +55,7 @@ unsafe extern "C" fn user_trampoline_ud<T>(app: &mut Application) {
 unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
 
-    //let mut input = Input::new(); 
+    //let mut input = Input::new();
 
     while !state.window.should_close() {
         //state.core.pre_update();
@@ -83,7 +83,10 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 impl Application<'_> {
     pub fn new(settings: &ApplicationSettings) -> Box<Self> {
         let window = Box::new(Sdl2Window::new(settings));
-        let ui = Ui::new(Box::new(SoftwareRenderer::new((settings.width, settings.height), None)));
+        let ui = Ui::new(Box::new(SoftwareRenderer::new(
+            (settings.width, settings.height),
+            None,
+        )));
 
         Box::new(Self {
             window,

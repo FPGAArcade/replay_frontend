@@ -1,5 +1,5 @@
-use crate::{Error, FilesDirs, LoadStatus, Driver, DriverType, Progress};
-use log::{error, trace, debug};
+use crate::{Driver, DriverType, Error, FilesDirs, LoadStatus, Progress};
+use log::{debug, error, trace};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::io::{Cursor, Read};

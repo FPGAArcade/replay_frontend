@@ -183,7 +183,7 @@ pub(crate) struct MouseState {
     pub(crate) clicked_time: f32,
     pub(crate) released_time: f32,
     pub(crate) clicked_count: i32,
-    pub(crate) down_duration_prev: f32, 
+    pub(crate) down_duration_prev: f32,
 }
 
 #[derive(Debug)]
@@ -194,7 +194,6 @@ pub struct Input {
     pub(crate) mouse_buttons: [MouseState; 5],
 }
 
-
 impl Input {
     pub fn new() -> Self {
         Self {
@@ -204,7 +203,7 @@ impl Input {
             settings: InputSettings {
                 mouse_threshold: 0.0,
                 double_click_time: 0.60,
-                double_click_max_dist_x2: 6.0 * 6.0, 
+                double_click_max_dist_x2: 6.0 * 6.0,
                 key_repeat_delay: 0.250,
                 key_repeat_rate: 0.050,
             },
@@ -213,15 +212,11 @@ impl Input {
 
     /// Queue a new key down/up event.
     /// Key should be "translated" (as in, generally [Key::A] matches the key end-user would use to emit an 'A' character)
-    pub fn add_key_event(&mut self, _key: Key, _down: bool) {
-
-    }
+    pub fn add_key_event(&mut self, _key: Key, _down: bool) {}
 
     /// Queue a new key down/up event for analog values (
     /// e.g. ImGuiKey_Gamepad_ values). Dead-zones should be handled by the backend.
-    pub fn add_key_analog_event(&mut self, _key: Key, _down: bool, _value: f32) {
-
-    }
+    pub fn add_key_analog_event(&mut self, _key: Key, _down: bool, _value: f32) {}
 
     /// Queue a mouse position update. Use None to signify no mouse (e.g. app not focused and not hovered)
     pub fn add_mouse_pos_event(&mut self, pos: Option<(f32, f32)>) {
@@ -259,7 +254,7 @@ impl Input {
 
     // Inpseration taken from Dear imgui
     fn update_mouse_state(&mut self, time: f32, delta_time: f32) {
-        // If mouse moved we re-enable mouse hovering in case it was disabled by keyboard/gamepad. 
+        // If mouse moved we re-enable mouse hovering in case it was disabled by keyboard/gamepad.
         // In theory should use a >0.0 threshold but would need to reset in everywhere we set this to true.
         //if io.mouse_delta.x != 0.0 || io.mouse_delta.y != 0.0 {
         //    ctx.nav_highlight_item_under_nav = false;
@@ -293,7 +288,9 @@ impl Input {
                         Vec2::new(0.0, 0.0)
                     };
 
-                    if delta_from_click_pos.length_squared() < self.settings.double_click_max_dist_x2 {
+                    if delta_from_click_pos.length_squared()
+                        < self.settings.double_click_max_dist_x2
+                    {
                         button.clicked_count += 1;
                     }
                 } else {
@@ -302,7 +299,7 @@ impl Input {
 
                 button.clicked_time = time;
                 button.clicked_pos = self.mouse_pos;
-            } 
+            }
 
             button.double_clicked = button.clicked_count == 2;
 

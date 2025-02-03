@@ -153,10 +153,8 @@ impl Sdl2Window {
                     input.add_mouse_pos_event(Some((x as f32, y as f32)));
                 }
                 Event::MouseButtonDown { mouse_btn, .. } => {
-                    input.add_mouse_button_event(
-                        Self::translate_sdl2_mouse_button(mouse_btn),
-                        true,
-                    );
+                    input
+                        .add_mouse_button_event(Self::translate_sdl2_mouse_button(mouse_btn), true);
                 }
                 Event::MouseButtonUp { mouse_btn, .. } => {
                     input.add_mouse_button_event(
@@ -281,8 +279,8 @@ impl Window for Sdl2Window {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
-        let width = settings.width as u32; 
-        let height = settings.height as u32; 
+        let width = settings.width as u32;
+        let height = settings.height as u32;
 
         let window = video_subsystem
             .window("test-bed", width, height)
@@ -363,7 +361,12 @@ impl Window for Sdl2Window {
             .copy(
                 &self.texture,
                 None,
-                Some(sdl2::rect::Rect::new(0, 0, self.window_size.0, self.window_size.1)),
+                Some(sdl2::rect::Rect::new(
+                    0,
+                    0,
+                    self.window_size.0,
+                    self.window_size.1,
+                )),
             )
             .unwrap();
         self.canvas.present();

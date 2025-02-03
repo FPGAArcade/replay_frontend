@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/arena-allocator",
-    "crates/background_worker",
+    "crates/background_worker", "crates/demozoo-fetcher",
     "crates/fileorama",
     "crates/fileorama",
     "crates/flowi-renderer", 

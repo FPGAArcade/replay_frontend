@@ -1,4 +1,4 @@
-use crate::{Error, FilesDirs, Driver, DriverType, LoadStatus, Progress};
+use crate::{Driver, DriverType, Error, FilesDirs, LoadStatus, Progress};
 use std::{fs::File, io::Read, path::PathBuf};
 use walkdir::WalkDir;
 
@@ -31,11 +31,11 @@ impl Driver for LocalFs {
     }
 
     fn create_from_data(
-            &self,
-            _data: Box<[u8]>,
-            _file_ext_hint: &str,
-            _driver_data: &Option<Box<[u8]>>,
-        ) -> Option<DriverType> {
+        &self,
+        _data: Box<[u8]>,
+        _file_ext_hint: &str,
+        _driver_data: &Option<Box<[u8]>>,
+    ) -> Option<DriverType> {
         None
     }
 
@@ -78,12 +78,12 @@ impl Driver for LocalFs {
                 return Ok(LoadStatus::NotFound);
             }
         };
-                
+
         if metadata.is_dir() {
             trace!("load_url: {:?} is a directory", path);
             return Ok(LoadStatus::Directory);
         }
-        
+
         let mut output_data = Vec::new();
         let len = metadata.len() as usize;
         let mut file = File::open(&path)?;
@@ -109,7 +109,7 @@ impl Driver for LocalFs {
                 progress.step()?;
             }
         }
-        
+
         dbg!();
 
         trace!("load_url: Loaded file {:?} to memory", path);

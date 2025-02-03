@@ -1,9 +1,9 @@
 use crate::image::{ImageFormat, ImageInfo, ImageOptions};
-use crate::State;
 use crate::io_handler::IoHandle;
+use crate::State;
 use resvg::{tiny_skia, usvg};
 
-use fileorama::{Error, Fileorama, LoadStatus, Driver, DriverType, Progress};
+use fileorama::{Driver, DriverType, Error, Fileorama, LoadStatus, Progress};
 use thiserror::Error as ThisError;
 
 use zune_core::{
@@ -73,11 +73,8 @@ fn vec_i16_to_vec_u8(mut v: Vec<i16>) -> Vec<u8> {
     //   which is enough for `Vec<u8>`.
     // - `u16` has no drop glue, so it is safe to simply reinterpret its memory as `u8`.
     // - The new length is `len * 2` (each `u16` becomes 2 `u8`s), and similarly the capacity is `capacity * 2`.
-    unsafe {
-        Vec::from_raw_parts(ptr as *mut u8, len * 2, capacity * 2)
-    }
+    unsafe { Vec::from_raw_parts(ptr as *mut u8, len * 2, capacity * 2) }
 }
-
 
 fn box_to_vec_u8<T>(b: Box<T>) -> Vec<u8> {
     let num_bytes = std::mem::size_of::<T>();
@@ -120,10 +117,10 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
     dbg!(i16_output.as_ptr());
 
     // TODO: Optimize
-    for i in 0..image_data.len() { 
+    for i in 0..image_data.len() {
         let t = image_data[i] as usize;
-        i16_output[i] = srgb_to_linear[t]; 
-    } 
+        i16_output[i] = srgb_to_linear[t];
+    }
 
     let format = match color_space {
         ZuneColorSpace::RGB => ImageFormat::Rgb,
@@ -140,7 +137,8 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
         }
     };
 
-    let image_scaled = image_scaler::scale_image(&i16_output, dimensions.0 as _, dimensions.1 as _, 200, 200);
+    let image_scaled =
+        image_scaler::scale_image(&i16_output, dimensions.0 as _, dimensions.1 as _, 200, 200);
 
     dbg!(format);
 
@@ -148,8 +146,8 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
     let image_info = Box::new(ImageInfo {
         data: vec_i16_to_vec_u8(image_scaled.data),
         format: format as u32,
-        width: image_scaled.width as i32, 
-        height: image_scaled.height as i32, 
+        width: image_scaled.width as i32,
+        height: image_scaled.height as i32,
         frame_delay: 0,
         frame_count: 1,
     });
@@ -241,10 +239,10 @@ impl Driver for ImageLoader {
     }
 
     fn get_directory_list(
-            &mut self,
-            _path: &str,
-            _progress: &mut Progress,
-        ) -> Result<fileorama::FilesDirs, Error> {
+        &mut self,
+        _path: &str,
+        _progress: &mut Progress,
+    ) -> Result<fileorama::FilesDirs, Error> {
         Ok(fileorama::FilesDirs::default())
     }
 

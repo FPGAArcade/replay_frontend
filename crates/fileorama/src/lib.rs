@@ -124,11 +124,15 @@ pub struct Progress<'a> {
 /// File system and Memory drivers implementations must implement this trait
 pub trait Driver: std::fmt::Debug + Send + Sync {
     /// This indicates that the file system is remote (such as ftp, https) and has no local path
-    fn is_remote(&self) -> bool { false }
+    fn is_remote(&self) -> bool {
+        false
+    }
     /// Name of the driver (only used for debug purposes)
     fn name(&self) -> &'static str;
     /// If the driver supports a certain url
-    fn supports_url(&self, _url: &str) -> bool { false }
+    fn supports_url(&self, _url: &str) -> bool {
+        false
+    }
     // Check if we can create a driver given some memory
     // Drivers that only works for FS should return Null here
     fn create_from_data(
@@ -142,7 +146,9 @@ pub trait Driver: std::fmt::Debug + Send + Sync {
     // Create a new instance given data. The Driver will take ownership of the data
     fn create_instance(&self) -> DriverType;
     /// Used when creating an instance of the driver with a path to load from
-    fn create_from_url(&self, _url: &str) -> Option<DriverType> { None }
+    fn create_from_url(&self, _url: &str) -> Option<DriverType> {
+        None
+    }
     /// Returns a handle which updates the progress and returns the loaded data. This will try to
     fn load(&mut self, path: &str, progress: &mut Progress) -> Result<LoadStatus, Error>;
     // get a file/directory listing for the driver
@@ -312,10 +318,7 @@ impl Fileorama {
         let (thread_send, main_recv) = unbounded::<RecvMsg>();
 
         let data: &[u8] = unsafe {
-            std::slice::from_raw_parts(
-                data.as_ptr() as *const u8,
-                std::mem::size_of_val(data),
-            )
+            std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data))
         };
 
         let data = data.to_vec().into_boxed_slice();
@@ -334,9 +337,7 @@ impl Fileorama {
     }
 
     pub fn add_driver(&self, driver: DriverType) {
-        self.main_send
-            .send(SendMsg::AddDriver(driver))
-            .unwrap();
+        self.main_send.send(SendMsg::AddDriver(driver)).unwrap();
     }
 
     pub fn new(thread_count: usize) -> Self {
@@ -627,7 +628,10 @@ impl<'a> Loader<'a> {
                 self.component_index += 1;
                 // If we don't have any driver yet and we didn't find a path we must search for a driver
             } else if self.component_index == 0 {
-                trace!( "Switching FindNode -> FindDriverUrl: {:?}", &components[self.component_index..]);
+                trace!(
+                    "Switching FindNode -> FindDriverUrl: {:?}",
+                    &components[self.component_index..]
+                );
                 self.state = LoadState::FindDriverUrl;
                 return;
             } else {
@@ -638,7 +642,11 @@ impl<'a> Loader<'a> {
                     self.node_index = 0;
                     self.state = LoadState::FindDriverUrl;
                 } else {
-                    trace!("Switching FindNode -> LoadFromNode: {} : {}", component_name, self.component_index);
+                    trace!(
+                        "Switching FindNode -> LoadFromNode: {} : {}",
+                        component_name,
+                        self.component_index
+                    );
                     self.state = LoadState::LoadFromNode;
                 }
                 return;
@@ -812,7 +820,7 @@ impl<'a> Loader<'a> {
 
         // walk backwards from the current path and try to load the data
         //while !path_buf.as_os_str().is_empty() {
-       
+
         loop {
             trace!("current_path: {}", current_path);
             // TODO: Fix range
@@ -879,7 +887,6 @@ impl<'a> Loader<'a> {
         }
         */
 
-        
         if current_path.is_empty() && self.state == LoadState::LoadFromDriver {
             self.state = LoadState::UnsupportedPath;
         }
@@ -908,7 +915,7 @@ impl<'a> Loader<'a> {
             self.state = LoadState::Done;
             return Ok(());
         }
-        
+
         trace!("comp index {}", self.component_index);
 
         for i in (0..=self.component_index).rev() {
@@ -950,7 +957,8 @@ impl<'a> Loader<'a> {
                         } else {
                             return Err(Error::Generic(format!(
                                 "Driver name mismatch {} != {}",
-                                driver.name(), driver_name
+                                driver.name(),
+                                driver_name
                             )));
                         }
                     }
@@ -1047,7 +1055,13 @@ impl<'a> Loader<'a> {
 fn print_tree(state: &State, index: u32, _parent: u32, indent: usize) {
     let node = &state.nodes[index as usize];
 
-    println!("{:indent$} {} driver {:?}", "", node.name, node.driver_index, indent = indent);
+    println!(
+        "{:indent$} {} driver {:?}",
+        "",
+        node.name,
+        node.driver_index,
+        indent = indent
+    );
 
     for n in &node.nodes {
         print_tree(state, *n, node.parent, indent + 1);
@@ -1081,7 +1095,9 @@ pub(crate) fn load_main(
         match loader.state {
             LoadState::FindNode => loader.find_node(vfs),
             LoadState::FindDriverUrl => loader.find_driver_url(vfs, drivers)?,
-            LoadState::FindDriverData => loader.find_driver_data(vfs, driver_name, driver_data, drivers)?,
+            LoadState::FindDriverData => {
+                loader.find_driver_data(vfs, driver_name, driver_data, drivers)?
+            }
             LoadState::LoadFromDriver => loader.load_from_driver(vfs, driver_name)?,
             LoadState::LoadFromNode => loader.load_from_node(vfs, driver_name)?,
             LoadState::Done => break,
@@ -1092,12 +1108,7 @@ pub(crate) fn load_main(
     Ok(())
 }
 
-fn handle_msg(
-    vfs: &mut State,
-    _name: &str,
-    msg: &SendMsg,
-    drivers: &Drivers,
-) {
+fn handle_msg(vfs: &mut State, _name: &str, msg: &SendMsg, drivers: &Drivers) {
     match msg {
         SendMsg::LoadUrl(info, driver_data) => {
             if let Err(e) = load_main(vfs, info, driver_data, drivers) {

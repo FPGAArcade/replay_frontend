@@ -1,4 +1,4 @@
-use fileorama::{Error, Fileorama, LoadStatus, Driver, DriverType, Progress};
+use fileorama::{Driver, DriverType, Error, Fileorama, LoadStatus, Progress};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -136,10 +136,10 @@ impl Driver for ConfigLoader {
     }
 
     fn get_directory_list(
-            &mut self,
-            path: &str,
-            progress: &mut Progress,
-        ) -> Result<fileorama::FilesDirs, Error> {
+        &mut self,
+        path: &str,
+        progress: &mut Progress,
+    ) -> Result<fileorama::FilesDirs, Error> {
         Ok(fileorama::FilesDirs::default())
     }
 

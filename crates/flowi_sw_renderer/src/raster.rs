@@ -39,8 +39,8 @@ const CORNER_OFFSETS: [(f32, f32); 4] = [
 ];
 
 const TEXT_WRITE_MASK: [u16; 16] = [
-    0xffff,0xffff,0xffff,0xffff, 0xffff,0xffff,0xffff,0xffff, 
-    0xffff,0xffff,0xffff,0xffff, 0x0000,0x0000,0x0000,0x0000,
+    0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff,
+    0x0000, 0x0000, 0x0000, 0x0000,
 ];
 
 #[derive(Copy, Clone)]
@@ -565,8 +565,8 @@ fn process_text_pixel(
     text_pixels: i16x8,
     color: i16x8,
     even: usize,
-    offset: usize)
-{
+    offset: usize,
+) {
     let tile_line_ptr = unsafe { tile_line_ptr.add(offset) };
 
     let bg_01 = i16x8::load_unaligned_ptr(tile_line_ptr);
@@ -576,15 +576,15 @@ fn process_text_pixel(
         i16x8::store_unaligned_ptr(c0, tile_line_ptr);
     } else {
         i16x8::store_unaligned_ptr_lower(c0, unsafe { tile_line_ptr.add(offset) });
-    } 
+    }
 }
 
 #[inline(always)]
-fn process_text_pixels<const COUNT: usize>( 
+fn process_text_pixels<const COUNT: usize>(
     tile_line_ptr: *mut i16,
     text_line_ptr: *const i16,
-    color: i16x8)
-{
+    color: i16x8,
+) {
     // Text data is stored with one intensity in 16-bit so one vector load means
     // we get 8 pixels. As we process 2 pixels (RGBA) per vector we need to splat each
     // intensity in pairs of two.
@@ -628,7 +628,6 @@ fn process_text_pixels<const COUNT: usize>(
     }
 }
 
-
 #[allow(clippy::too_many_arguments)]
 #[inline(never)]
 pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
@@ -644,7 +643,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
         (f32x4::load_unaligned(coords) - tile_info.offsets) + f32x4::new_splat(0.5);
     let x0y0x1y1 = x0y0x1y1_adjust.floor();
     let x0y0x1y1_int = x0y0x1y1.as_i32x4();
-    
+
     let color = premultiply_alpha(color);
 
     // Make sure we intersect with the scissor rect otherwise skip rendering
@@ -982,7 +981,7 @@ impl Raster {
             );
         }
 
-        for (side, radius) in raddii.iter().enumerate().take(3) { 
+        for (side, radius) in raddii.iter().enumerate().take(3) {
             let radius = radius - 1.0;
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);

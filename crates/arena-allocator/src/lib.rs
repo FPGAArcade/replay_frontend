@@ -36,7 +36,9 @@ impl fmt::Display for ArenaError {
             ArenaError::ReserveFailed(reason) => write!(f, "Reserve failed: {}", reason),
             ArenaError::ProtectionFailed(reason) => write!(f, "Protection failed: {}", reason),
             ArenaError::OutOfReservedMemory => write!(f, "Out of reserved memory"),
-            ArenaError::TooLargeReserve => write!(f, "Trying to reserve more memory than the arena can handle"),
+            ArenaError::TooLargeReserve => {
+                write!(f, "Trying to reserve more memory than the arena can handle")
+            }
         }
     }
 }
@@ -392,7 +394,8 @@ impl VmRange {
             self.committed_size += commit_size;
         }
 
-        let return_slice = std::slice::from_raw_parts_mut(self.ptr.add(aligned_pos) as *mut u8, size);
+        let return_slice =
+            std::slice::from_raw_parts_mut(self.ptr.add(aligned_pos) as *mut u8, size);
         self.pos = new_pos;
         Ok(return_slice)
     }

@@ -254,11 +254,15 @@ fn generate_text(
             if x < 0 || y < 0 || x >= width as i32 || y >= height as i32 {
                 return;
             }
-            
-            let pixel_value = state.srgb_to_linear[c as usize];
-            max_y_with_pixels = if pixel_value != 0 { y } else { max_y_with_pixels }; 
 
-            output[(y as usize * width + x as usize) as usize] = pixel_value; 
+            let pixel_value = state.srgb_to_linear[c as usize];
+            max_y_with_pixels = if pixel_value != 0 {
+                y
+            } else {
+                max_y_with_pixels
+            };
+
+            output[(y as usize * width + x as usize) as usize] = pixel_value;
         },
     );
 

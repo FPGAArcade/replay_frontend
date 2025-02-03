@@ -1,8 +1,8 @@
 //use flowi::font::Font;
-use flowi::Application;
-use flowi::{Ui, FontHandle};
-use flowi::{grow, Layout, LayoutDirection};
 use crate::left_side_menu::LeftSideMenu;
+use flowi::Application;
+use flowi::{grow, Layout, LayoutDirection};
+use flowi::{FontHandle, Ui};
 
 mod config_loader;
 mod left_side_menu;
@@ -51,7 +51,10 @@ fn main() {
     let mut flowi_app = Application::new(&settings); //.unwrap();
 
     let fonts = Fonts {
-        _default: flowi_app.ui.load_font("../data/fonts/roboto/Roboto-Regular.ttf", 36).unwrap(),
+        _default: flowi_app
+            .ui
+            .load_font("../data/fonts/roboto/Roboto-Regular.ttf", 36)
+            .unwrap(),
     };
 
     let app = Box::new(App {

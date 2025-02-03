@@ -9,15 +9,16 @@ pub mod render;
 pub mod signal;
 pub mod widgets;
 use crate::input::Input;
-use glam::Vec4;
 use crate::io_handler::IoHandle;
+use glam::Vec4;
 
+use crate::image::ImageInfo;
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
-    math::Dimensions,
-    render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig,
-    Clay, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig, TypedConfig,
+    math::Dimensions, render_commands::RenderCommand as ClayRenderCommand,
+    render_commands::RenderCommandConfig, Clay, Clay_Dimensions, Clay_StringSlice,
+    Clay_TextElementConfig, TypedConfig,
 };
 use fileorama::Fileorama;
 use internal_error::InternalResult;
@@ -25,20 +26,19 @@ pub use io_handler::IoHandler;
 use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-use crate::image::ImageInfo;
 
-use font::{CachedString, FontHandle};
 pub use crate::io_handler::IoHandle as ImageHandle;
+use font::{CachedString, FontHandle};
 
 pub use clay_layout::{
+    color::Color as ClayColor,
+    elements::image::Image as ClayImage,
     elements::{rectangle::Rectangle, text::Text, CornerRadius},
     fixed, grow,
     id::Id,
-    layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
     layout::alignment::LayoutAlignmentX,
     layout::alignment::LayoutAlignmentY,
-    color::Color as ClayColor,
-    elements::image::Image as ClayImage,
+    layout::{alignment::Alignment, padding::Padding, sizing::Sizing, Layout, LayoutDirection},
 };
 
 use flowi_renderer::{
@@ -86,7 +86,7 @@ impl<'a> Ui<'a> {
         let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(&vfs);
         let bg_worker = WorkSystem::new(2);
-        
+
         crate::image_api::install_image_loader(&vfs);
 
         let reserve_size = 1024 * 1024 * 1024;
@@ -194,14 +194,22 @@ impl<'a> Ui<'a> {
         if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
-            state.layout.with(Some("image_test"), [
-                Layout::new()
-                    .width(fixed!(source_dimensions.width as _))
-                    .height(fixed!(source_dimensions.height as _))
-                    .padding(Padding::all(30)).end(),
-                ClayImage { data: image.data.as_ptr() as _, source_dimensions } 
-                    .end()], |_ui| { 
-                });
+            state.layout.with(
+                Some("image_test"),
+                [
+                    Layout::new()
+                        .width(fixed!(source_dimensions.width as _))
+                        .height(fixed!(source_dimensions.height as _))
+                        .padding(Padding::all(30))
+                        .end(),
+                    ClayImage {
+                        data: image.data.as_ptr() as _,
+                        source_dimensions,
+                    }
+                    .end(),
+                ],
+                |_ui| {},
+            );
         }
     }
 
@@ -269,15 +277,16 @@ impl<'a> Ui<'a> {
                     (RenderType::DrawTextBuffer(gen), Self::color(config.color))
                 }
 
-                RenderCommandConfig::Image(image) => {
-                    (RenderType::DrawImage(DrawImage {
+                RenderCommandConfig::Image(image) => (
+                    RenderType::DrawImage(DrawImage {
                         rounded_corners: [0.0, 0.0, 0.0, 0.0],
                         width: image.source_dimensions.width as _,
                         height: image.source_dimensions.height as _,
                         handle: image.data as _,
                         rounding: false,
-                    }), Color::new(1.0, 1.0, 1.0, 1.0))
-                }
+                    }),
+                    Color::new(1.0, 1.0, 1.0, 1.0),
+                ),
 
                 RenderCommandConfig::Border(border) => {
                     let outer_radius = match border.corner_radius {
@@ -297,8 +306,13 @@ impl<'a> Ui<'a> {
                         outer_radius[3] - border.bottom.width as f32,
                     ];
 
-                    (RenderType::DrawBorder(DrawBorderData { outer_radius, inner_radius }), 
-                                            Self::color(border.left.color))
+                    (
+                        RenderType::DrawBorder(DrawBorderData {
+                            outer_radius,
+                            inner_radius,
+                        }),
+                        Self::color(border.left.color),
+                    )
                 }
 
                 RenderCommandConfig::ScissorStart() => {
@@ -400,12 +414,12 @@ impl<'a> Ui<'a> {
 
                 if let Some(aabb) = state.layout.bounding_box(id) {
                     let item = state.item_states.entry(id.id.id).or_insert(ItemState {
-                        aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height), 
+                        aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height),
                         ..Default::default()
                     });
                     item.aabb = Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height);
                     signal = self.signal(item)
-                } 
+                }
             },
         );
 
@@ -432,12 +446,12 @@ impl<'a> Ui<'a> {
 
         if let Some(aabb) = state.layout.bounding_box(id) {
             let item = state.item_states.entry(id.id.id).or_insert(ItemState {
-                aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height), 
+                aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height),
                 ..Default::default()
             });
             item.aabb = Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height);
             signal = self.signal(item)
-        } 
+        }
 
         state.button_id += 1;
         signal
@@ -463,7 +477,7 @@ impl<'a> Ui<'a> {
         if is_hovered && !item_state.was_hovered {
             signal.flags.insert(signal::SignalFlags::ENTER_HOVER);
             item_state.was_hovered = true;
-        } 
+        }
 
         if !is_hovered && item_state.was_hovered {
             signal.flags.insert(signal::SignalFlags::EXIT_HOVER);
