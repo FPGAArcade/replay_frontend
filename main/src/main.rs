@@ -53,7 +53,7 @@ fn main() {
     let fonts = Fonts {
         _default: flowi_app
             .ui
-            .load_font("../data/fonts/roboto/Roboto-Regular.ttf", 36)
+            .load_font("../data/fonts/roboto/Roboto-Regular.ttf")
             .unwrap(),
     };
 

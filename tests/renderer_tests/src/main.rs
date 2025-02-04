@@ -98,7 +98,7 @@ fn main() {
 
     let mut core = flowi_core::Ui::new(Box::new(SofwareRenderer::new((WIDTH, HEIGHT), None)));
     let font = core
-        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 48)
+        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf")
         .unwrap();
 
     let text_to_render = "Hello";

@@ -2112,6 +2112,7 @@ dependencies = [
 name = "test_bed"
 version = "0.1.0"
 dependencies = [
+ "demozoo-fetcher",
  "env_logger",
  "flowi",
  "log",

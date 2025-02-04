@@ -138,12 +138,12 @@ impl<'a> Ui<'a> {
         ui.measure_text(text, &text_config).into()
     }
 
-    fn measure_text(&self, text: &str, _config: &Text) -> Dimensions {
+    fn measure_text(&self, text: &str, config: &Text) -> Dimensions {
         let state = unsafe { &mut *self.state.get() };
         // TODO: Proper error handling
         let size = state
             .text_generator
-            .measure_text_size(text, state.active_font)
+            .measure_text_size(text, state.active_font, config.font_size as _)
             .unwrap();
 
         Dimensions::new(size.0 as _, size.1 as _)
@@ -211,6 +211,21 @@ impl<'a> Ui<'a> {
                 |_ui| {},
             );
         }
+    }
+
+    pub fn text_with_layout<const N: usize>(&self, text: &str, font_size: u32, color: ClayColor, configs: [TypedConfig; N]) {
+        let state = unsafe { &mut *self.state.get() };
+        state.layout.with(Some(text), configs, |_clay| {
+            let font_id = state.active_font;
+                
+            let _ = state.text_generator.queue_generate_text(text, font_size, font_id, &state.bg_worker);
+
+            state.layout.text(text, Text::new()
+                .font_id(font_id as u16)
+                .font_size(font_size as _)
+                .color(color)
+                .end());
+        });
     }
 
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
@@ -362,9 +377,9 @@ impl<'a> Ui<'a> {
         &mut state.input
     }
 
-    pub fn load_font(&mut self, path: &str, size: i32) -> InternalResult<FontHandle> {
+    pub fn load_font(&mut self, path: &str) -> InternalResult<FontHandle> {
         let state = unsafe { &mut *self.state.get() };
-        state.text_generator.load_font(path, size, &state.bg_worker)
+        state.text_generator.load_font(path, &state.bg_worker)
     }
 
     pub fn load_image(&mut self, path: &str) -> InternalResult<IoHandle> {

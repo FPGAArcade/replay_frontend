@@ -69,14 +69,16 @@ pub struct ProductionEntry {
     pub tags: Vec<String>,
 }
 
-pub fn parse_json(json_data: &str) -> ProductionEntry {
+fn parse_json(json_data: &str) -> ProductionEntry {
     DeJson::deserialize_json(json_data).expect("Failed to parse JSON")
 }
 
 /// Directory to store cached images
+#[allow(dead_code)]
 const CACHE_DIR: &str = "image_cache";
 
 /// Computes a SHA256 hash of the URL to use as a unique filename
+#[allow(dead_code)]
 fn hash_url(url: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(url);
@@ -84,16 +86,17 @@ fn hash_url(url: &str) -> String {
 }
 
 /// Extracts the file extension from the URL or defaults to "bin" if not found
-fn get_extension(url: &str) -> String {
+#[allow(dead_code)]
+fn get_extension(url: &str) -> &str {
     Path::new(url)
         .extension()
         .and_then(|ext| ext.to_str())
-        .map(|ext| ext.to_string())
         .filter(|ext| !ext.is_empty()) // Ensure we don't return an empty extension
-        .unwrap_or_else(|| "bin".to_string()) // Default to "bin" if no valid extension found
+        .unwrap_or("bin") // Default to "bin" if no valid extension found
 }
 
 /// Checks if the image is already cached; otherwise, downloads it
+#[allow(dead_code)]
 fn get_image(url: &str) -> io::Result<String> {
     // Ensure the cache directory exists
     fs::create_dir_all(CACHE_DIR)?;
@@ -132,6 +135,17 @@ fn get_image(url: &str) -> io::Result<String> {
 
     println!("Saved to cache: {}", file_path.display());
     Ok(file_path.to_string_lossy().to_string())
+}
+
+// TODO: This should be async on separate therad 
+pub fn get_demo_entry_by_file(url: &str) -> ProductionEntry {
+    std::fs::read_to_string(url)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+        .and_then(|data| {
+            let entry = parse_json(&data);
+            Ok(entry)
+        })
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -175,5 +189,44 @@ mod tests {
 
         // And there should be 3 tags.
         assert_eq!(entry.tags.len(), 3);
+    }
+
+    #[test]
+    fn test_valid_extension() {
+        assert_eq!(get_extension("file.txt"), "txt");
+        assert_eq!(get_extension("archive.tar.gz"), "gz");
+        assert_eq!(get_extension("/path/to/some/file.rs"), "rs");
+        assert_eq!(get_extension("C:\\Users\\user\\document.pdf"), "pdf");
+    }
+
+    #[test]
+    fn test_no_extension() {
+        assert_eq!(get_extension("file"), "bin");
+        assert_eq!(get_extension("/path/to/some/file_without_ext"), "bin");
+        assert_eq!(get_extension("C:\\Users\\user\\document"), "bin");
+    }
+
+    #[test]
+    fn test_empty_extension() {
+        assert_eq!(get_extension("file."), "bin");
+        assert_eq!(get_extension("/path/to/some/file."), "bin");
+    }
+
+    #[test]
+    fn test_hidden_files() {
+        assert_eq!(get_extension(".hiddenfile"), "bin");
+        assert_eq!(get_extension("/path/.config"), "bin");
+        assert_eq!(get_extension(".gitignore"), "bin");
+    }
+
+    #[test]
+    fn test_weird_cases() {
+        assert_eq!(get_extension("..."), "bin");
+        assert_eq!(get_extension("file.name.with.dots.log"), "log");
+    }
+
+    #[test]
+    fn test_empty_string() {
+        assert_eq!(get_extension(""), "bin");
     }
 }
