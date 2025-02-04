@@ -401,8 +401,8 @@ checksum = "da692b8d1080ea3045efaab14434d40468c3d8657e42abddfffca87b428f4c1b"
 name = "demozoo-fetcher"
 version = "0.1.0"
 dependencies = [
- "serde",
- "serde_json",
+ "nanoserde",
+ "sha2",
  "ureq",
 ]
 
@@ -1260,6 +1260,21 @@ name = "mutate_once"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16cf681a23b4d0a43fc35024c176437f9dcd818db34e0f42ab456a0ee5ad497b"
+
+[[package]]
+name = "nanoserde"
+version = "0.2.0-beta.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ded0298c4eb446523600e4d321834a5a80df610155141d20f181bb92bd784fb1"
+dependencies = [
+ "nanoserde-derive",
+]
+
+[[package]]
+name = "nanoserde-derive"
+version = "0.2.0-beta.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6da7f91479ba914a1b94a9b16479910adf24889f4162baebf1015b58b086ab43"
 
 [[package]]
 name = "native-tls"

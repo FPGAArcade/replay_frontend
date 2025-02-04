@@ -1,76 +1,137 @@
-use serde::Deserialize;
+use nanoserde::DeJson;
+use std::fs::{self, File};
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
+use sha2::{Sha256, Digest};
+use ureq;
 
 /// The JSON “author_nicks” array is an array of objects. We only care about the name.
-#[derive(Deserialize, Debug)]
-struct AuthorNick {
-    name: String,
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct AuthorNick {
+    pub name: String,
     // Other fields (like abbreviation or releaser) are ignored.
 }
 
 /// The JSON “credits” array holds more detailed information about a production’s credits.
 /// We use this struct to capture the “nick” (an AuthorNick) plus a category and role.
-#[derive(Deserialize, Debug)]
-struct Credit {
-    nick: AuthorNick,
-    category: String,
-    role: String,
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct Credit {
+    pub nick: AuthorNick,
+    pub category: String,
+    pub role: String,
 }
 
 /// The JSON “download_links” array contains objects with a link class and a URL.
-#[derive(Deserialize, Debug)]
-struct DownloadLink {
-    link_class: String,
-    url: String,
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct DownloadLink {
+    pub link_class: String,
+    pub url: String,
 }
 
 /// The JSON “platforms” array gives details for each platform. (We only really care about the name.)
-#[derive(Deserialize, Debug)]
-struct Platform {
-    url: String,
-    id: u32,
-    name: String,
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct Platform {
+    pub url: String,
+    pub id: u32,
+    pub name: String,
 }
 
 /// The JSON “screenshots” array has keys like “original_url” which we map into our struct.
 /// We use Serde’s rename attribute to change the JSON key into our field name.
-#[derive(Deserialize, Debug)]
-struct Screenshot {
-    #[serde(rename = "original_url")]
-    original_url: String,
-    original_width: u32,
-    original_height: u32,
-    #[serde(rename = "standard_url")]
-    standard_url: String,
-    standard_width: u32,
-    standard_height: u32,
-    #[serde(rename = "thumbnail_url")]
-    thumbnail_url: String,
-    thumbnail_width: u32,
-    thumbnail_height: u32,
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct Screenshot {
+    pub original_url: String,
+    pub original_width: u32,
+    pub original_height: u32,
+    pub standard_url: String,
+    pub standard_width: u32,
+    pub standard_height: u32,
+    pub thumbnail_url: String,
+    pub thumbnail_width: u32,
+    pub thumbnail_height: u32,
 }
 
 /// The main ProductionEntry struct gathers the fields we care about from the JSON.
-/// We use `#[serde(default)]` for arrays so that missing fields (if any) don’t cause an error.
-#[derive(Deserialize, Debug)]
-struct ProductionEntry {
-    title: String,
-    release_date: String,
-    #[serde(rename = "author_nicks")]
-    author_nicks: Vec<AuthorNick>,
-    #[serde(default)]
-    credits: Vec<Credit>,
-    #[serde(default)]
-    download_links: Vec<DownloadLink>,
-    #[serde(default)]
-    platforms: Vec<Platform>,
-    #[serde(default)]
-    screenshots: Vec<Screenshot>,
-    #[serde(default)]
-    tags: Vec<String>,
+#[derive(DeJson, Debug)]
+pub struct ProductionEntry {
+    pub title: String,
+    pub release_date: String,
+    pub author_nicks: Vec<AuthorNick>,
+    pub credits: Vec<Credit>,
+    pub download_links: Vec<DownloadLink>,
+    pub platforms: Vec<Platform>,
+    pub screenshots: Vec<Screenshot>,
+    pub tags: Vec<String>,
 }
 
 pub fn parse_json(json_data: &str) -> ProductionEntry {
-    serde_json::from_str(json_data).expect("Failed to parse JSON")
+    DeJson::deserialize_json(json_data).expect("Failed to parse JSON")
+}
+
+/// Directory to store cached images
+const CACHE_DIR: &str = "image_cache";
+
+/// Computes a SHA256 hash of the URL to use as a unique filename
+fn hash_url(url: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(url);
+    format!("{:x}", hasher.finalize())
+}
+
+/// Extracts the file extension from the URL or defaults to "bin" if not found
+fn get_extension(url: &str) -> String {
+    Path::new(url)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_string())
+        .filter(|ext| !ext.is_empty()) // Ensure we don't return an empty extension
+        .unwrap_or_else(|| "bin".to_string()) // Default to "bin" if no valid extension found
+}
+
+/// Checks if the image is already cached; otherwise, downloads it
+fn get_image(url: &str) -> io::Result<String> {
+    // Ensure the cache directory exists
+    fs::create_dir_all(CACHE_DIR)?;
+
+    // Extract file extension from URL
+    let file_extension = get_extension(url);
+
+    // Hash the URL to get a unique filename
+    let file_name = format!("{}.{}", hash_url(url), file_extension);
+    let file_path = PathBuf::from(CACHE_DIR).join(&file_name);
+
+    // Check if the image is already cached
+    if file_path.exists() {
+        println!("Cache hit: {}", file_path.display());
+        return Ok(file_path.to_string_lossy().to_string());
+    }
+
+    // Fetch the image from the URL
+    println!("Downloading: {}", url);
+    let resp = ureq::get(url)
+        .call()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+
+    let mut reader = resp
+        .into_body()
+        .into_with_config()
+        .reader();
+
+    // Read binary data from response using `response.into_reader()`
+    let mut bytes = Vec::new();
+    reader.read_to_end(&mut bytes)?;  // Changed to use `reader()`
+
+    // Write the image to the cache directory
+    let mut file = File::create(&file_path)?;
+    file.write_all(&bytes)?;
+
+    println!("Saved to cache: {}", file_path.display());
+    Ok(file_path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
@@ -83,7 +144,7 @@ mod tests {
             .expect("Unable to read file");
 
         let entry: ProductionEntry =
-            serde_json::from_str(&data).expect("Failed to deserialize JSON");
+            DeJson::deserialize_json(&data).expect("Failed to deserialize JSON");
 
         // Verify that the basic fields were deserialized correctly.
         assert_eq!(entry.title, "State of the Art");
