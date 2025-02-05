@@ -1,6 +1,6 @@
 use crate::internal_error::{InternalError, InternalResult};
 use background_worker::{AnySend, BoxAnySend, Receiver, WorkSystem, WorkerResult};
-use cosmic_text::{Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache};
+use cosmic_text::{Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache, Weight};
 use flowi_renderer::RawVoidPtr;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -141,11 +141,18 @@ fn load_font(
 
     let family_name = face.families[0].0.as_str();
 
+    let weight = if font_path.contains("Thin") {
+        Weight::EXTRA_LIGHT
+    } else {
+        face.weight
+    };
+
     let attrs = AttrsOwned::new(
         Attrs::new()
             .stretch(face.stretch)
             .style(face.style)
             .weight(face.weight)
+            .weight(weight)
             .family(cosmic_text::Family::Name(family_name)),
     );
 
@@ -165,6 +172,7 @@ fn measure_string_size(
     line_height: f32,
     font_system: &mut FontSystem,
 ) -> Option<(f32, f32)> {
+
     // Define metrics for the text
     let metrics = Metrics::new(font_size as _, line_height);
 
@@ -357,6 +365,8 @@ impl TextGenerator {
                 font_path: Cow::Owned(path.to_string()),
             }),
         );
+
+        self.font_id_counter += 1;
 
         Ok(font_id)
     }
