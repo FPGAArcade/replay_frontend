@@ -9,8 +9,8 @@ pub use application::Application;
 pub use flowi_core::Ui;
 
 pub use flowi_core::{
-    fixed, font::FontHandle, grow, Alignment, ClayColor, Id, Layout, LayoutAlignmentX,
-    LayoutAlignmentY, LayoutDirection, Padding, Rectangle, Sizing,
+    fixed, font::FontHandle, grow, Alignment, ClayColor, Id, LayoutAlignmentX,
+    LayoutAlignmentY, LayoutDirection, Padding, Sizing,
     BackgroundMode,
 };
 

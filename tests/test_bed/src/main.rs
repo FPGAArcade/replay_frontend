@@ -1,9 +1,9 @@
 use flowi::{Application};
 use flowi::Ui;
 use flowi::{
-    fixed, grow, Alignment, ClayColor, ImageHandle, Layout, LayoutAlignmentX, LayoutAlignmentY,
-    LayoutDirection, Padding, Rectangle, FontHandle,
-    BackgroundMode,
+    fixed, grow, Alignment, ClayColor, ImageHandle, LayoutAlignmentX, LayoutAlignmentY,
+    LayoutDirection, Padding, FontHandle,
+    BackgroundMode, Declaration,
 };
 use log::*;
 use demozoo_fetcher::ProductionEntry;
@@ -27,52 +27,55 @@ pub(crate) struct App {
 
 #[rustfmt::skip]
 fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
-    ui.with_layout(Some("entry_info"), [
-        Layout::new()
+    ui.with_layout(&Declaration::new()
+        .id(ui.id("entry_info"))
+        .layout()
             .width(grow!())
             .height(grow!())
-            .child_gap(100)
+            .child_gap(0)
             .direction(LayoutDirection::TopToBottom)
             .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Top))
-            .end()], |ui| 
+         .end(), |ui|
     {
-        ui.with_layout(Some("entry_title"), [
-            Layout::new()
+        ui.with_layout(&Declaration::new()
+            .id(ui.id("tile_info"))
+            .layout()
                 .width(grow!())
                 .height(fixed!(40.0))
                 .child_gap(0)
                 .direction(LayoutDirection::LeftToRight)
-                //.child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
-                .end()], |ui| 
+            .end()
+            .background_color(ClayColor::rgba(150.0, 0.0, 0.0, 255.0)), |ui|
         {
             ui.set_font(app.fonts.thin);
 
-            ui.text_with_layout(&entry.title,
-                78,
+            ui.text_with_layout(&entry.title, 78,
                 ClayColor::rgba(255.0, 255.0, 255.0, 255.0),
-                [Layout::new()
-                    .width(fixed!(680.0))
-                    .padding(Padding::all(40))
-                    .end()]);
-            
-            ui.text_with_layout("1992",
-                78,
+                &Declaration::new()
+                    .layout()
+                        .width(fixed!(680.0))
+                        .padding(Padding::all(20))
+                        .end());
+
+            ui.text_with_layout("1992", 78,
                 ClayColor::rgba(128.0, 128.0, 128.0, 255.0),
-                [Layout::new()
-                    .width(grow!())
-                    .padding(Padding::all(40))
-                    .end()]);
+                &Declaration::new()
+                    .layout()
+                        .width(grow!())
+                        .padding(Padding::all(40))
+                        .end());
         });
         
-        ui.with_layout(Some("platform_info"), [
-            Layout::new()
+        ui.with_layout(&Declaration::new()
+            .id(ui.id("platfrom_info"))
+            .layout()
                 .width(grow!())
                 .height(fixed!(40.0))
                 .padding(Padding::all(0))
                 .child_gap(16)
                 .direction(LayoutDirection::LeftToRight)
                 //.child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
-                .end()], |ui| 
+                .end(), |ui|
         {
             ui.set_font(app.fonts.default);
 
@@ -107,24 +110,21 @@ fn draw_image_grid_unlimited_scroll(ui: &Ui, app: &App) {}
 
 #[rustfmt::skip]
 fn main_loop(ui: &Ui, _app: &mut App) {
-    ui.with_layout(Some("main_container"), [
-        Layout::new()
+    ui.with_layout(&Declaration::new()
+        .layout()
             .width(grow!())
             .height(grow!())
             .direction(LayoutDirection::TopToBottom)
-            .end()], |ui|
+        .end(), |ui|
    {
-        ui.with_layout(Some("main"), [
-            Layout::new()
-                .height(grow!())
+        ui.with_layout(&Declaration::new()
+            .id(ui.id("main"))
+            .layout()
                 .width(grow!())
+                .height(grow!())
                 .child_gap(2)
                 .direction(LayoutDirection::TopToBottom)
-                //.child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
-                .end(),
-            Rectangle::new()
-                .color(ClayColor::rgba(0.0, 0.0, 0.0, 255.0))
-                .end()], |ui| 
+            .end(), |ui|
         {
             display_demo_entry(ui, &_app, &_app.navigantion_entries[0]);
             /*

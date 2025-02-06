@@ -763,12 +763,10 @@ impl Raster {
         let mut tile_line_ptr = output_ptr;
         let mut text_line_ptr = text_data;
 
-        let color = i16x8::new_splat(0x7fff);
-
         for _y in 0..ylen {
             for _x in 0..(xlen >> 1) {
-                //let pixel_01 = i16x8::load_unaligned_ptr(text_line_ptr as _);
-                color.store_unaligned_ptr(tile_line_ptr);
+                let pixel_01 = i16x8::load_unaligned_ptr(text_line_ptr as _);
+                pixel_01.store_unaligned_ptr(tile_line_ptr);
 
                 tile_line_ptr = unsafe { tile_line_ptr.add(8) };
                 text_line_ptr = unsafe { text_line_ptr.add(2) };
