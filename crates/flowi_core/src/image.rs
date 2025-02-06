@@ -41,13 +41,27 @@ pub struct ImageInfo {
     pub frame_delay: i32,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(dead_code)]
+pub enum ImageMode {
+    /// The image will be scaled to fit the target size while maintaining the aspect ratio
+    /// of the image. Will only scale the image in steps of 2x, 3x, 4x, etc. 
+    ScaleToTargetInteger,
+}
+
+impl Default for ImageMode {
+    fn default() -> Self {
+        ImageMode::ScaleToTargetInteger
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default)]
 #[allow(dead_code)]
 pub struct ImageOptions {
+    /// Mode of the scaling
+    pub mode: ImageMode,
     /// The scale of the image. This is useful for loading SVGs at different sizes.
     pub scale: Vec2,
-    /// Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based on the aspect ratio of the image.
     pub size: IVec2,
-    /// Set a size of the image (this will override the scale). if one component is set to 0 it will be calculated based on the aspect ratio of the image.
     pub color: Color,
 }

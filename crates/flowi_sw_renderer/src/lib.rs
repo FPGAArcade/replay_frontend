@@ -1,3 +1,4 @@
+use std::arch::x86_64::__m128;
 use simd::*;
 
 pub mod raster;
@@ -246,6 +247,16 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         buffer.handle as _,
                         &uv,
                         &texture_sizes,
+                    );
+                }
+
+                RenderType::DrawBackground(buffer) => {
+                    renderer.raster.draw_background(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        buffer.width as _,
+                        buffer.handle as _,
                     );
                 }
 

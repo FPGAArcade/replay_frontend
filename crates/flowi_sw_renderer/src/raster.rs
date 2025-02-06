@@ -717,6 +717,76 @@ impl Raster {
         }
     }
 
+    // TODO: Unify the setup for these functions as they are very similar
+    pub fn draw_background(&self,
+        output: &mut [i16],
+        tile_info: &TileInfo,
+        coords: &[f32],
+        texture_width: usize,
+        texture_data: *const u64)
+    {
+        let x0y0x1y1_adjust =
+            (f32x4::load_unaligned(coords) - tile_info.offsets) + f32x4::new_splat(0.5);
+        let x0y0x1y1 = x0y0x1y1_adjust.floor();
+        let x0y0x1y1_int = x0y0x1y1.as_i32x4();
+
+        // Make sure we intersect with the scissor rect otherwise skip rendering
+        if !f32x4::test_intersect(self.scissor_rect, x0y0x1y1) {
+            return;
+        }
+
+        let clip_diff = (x0y0x1y1_int - self.scissor_rect.as_i32x4())
+            .min(i32x4::new_splat(0))
+            .abs();
+
+        let clip_x = clip_diff.extract::<0>() as usize;
+        let clip_y = clip_diff.extract::<1>() as usize;
+
+        // Adjust for clipping
+        let mut text_data = unsafe { texture_data.add((clip_y * texture_width) + clip_x) };
+
+        let min_box = x0y0x1y1_int.min(self.scissor_rect.as_i32x4());
+        let max_box = x0y0x1y1_int.max(self.scissor_rect.as_i32x4());
+
+        let x0 = max_box.extract::<0>();
+        let y0 = max_box.extract::<1>();
+        let x1 = min_box.extract::<2>();
+        let y1 = min_box.extract::<3>();
+
+        let ylen = y1 - y0;
+        let xlen = x1 - x0;
+
+        let tile_width = tile_info.width as usize;
+        let output = &mut output[(y0 as usize * tile_width + x0 as usize)..];
+        let mut output_ptr = output.as_mut_ptr();
+
+        let mut tile_line_ptr = output_ptr;
+        let mut text_line_ptr = text_data;
+
+        let color = i16x8::new_splat(0x7fff);
+
+        for _y in 0..ylen {
+            for _x in 0..(xlen >> 1) {
+                //let pixel_01 = i16x8::load_unaligned_ptr(text_line_ptr as _);
+                color.store_unaligned_ptr(tile_line_ptr);
+
+                tile_line_ptr = unsafe { tile_line_ptr.add(8) };
+                text_line_ptr = unsafe { text_line_ptr.add(2) };
+            }
+
+            if (xlen & 1) == 1 {
+                let pixel_0 = i16x8::load_unaligned_ptr(text_line_ptr as _);
+                pixel_0.store_unaligned_ptr_lower(tile_line_ptr);
+            }
+
+            output_ptr = unsafe { output_ptr.add(tile_width * 4) };
+            text_data = unsafe { text_data.add(texture_width) };
+
+            tile_line_ptr = output_ptr;
+            text_line_ptr = text_data;
+        }
+    }
+
     #[inline(never)]
     #[allow(dead_code)]
     pub fn render_aligned_texture(

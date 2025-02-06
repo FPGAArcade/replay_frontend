@@ -1,4 +1,4 @@
-use crate::image::{ImageFormat, ImageInfo, ImageOptions};
+use crate::image::{ImageFormat, ImageInfo, ImageOptions, ImageMode};
 use crate::io_handler::IoHandle;
 use crate::State;
 use resvg::{tiny_skia, usvg};
@@ -11,7 +11,10 @@ use zune_core::{
     options::DecoderOptions as ZuneDecoderOptions,
 };
 
+use crate::primitives::IVec2;
+
 use zune_image::{errors::ImageErrors as ZuneError, image::Image as ZuneImage};
+use image_scaler::Color16;
 
 //use zune_jpeg::zune_core::colorspace::ColorSpace;
 
@@ -60,7 +63,7 @@ fn build_srgb_to_linear_table() -> [i16; 1 << 8] {
 }
 
 // TODO: Cleanup
-fn vec_i16_to_vec_u8(mut v: Vec<i16>) -> Vec<u8> {
+fn vec_i16_to_vec_u8(mut v: Vec<Color16>) -> Vec<u8> {
     let len = v.len();
     let capacity = v.capacity();
     let ptr = v.as_mut_ptr();
@@ -69,11 +72,7 @@ fn vec_i16_to_vec_u8(mut v: Vec<i16>) -> Vec<u8> {
     std::mem::forget(v);
 
     // SAFETY:
-    // - The memory originally allocated for `Vec<u16>` is exactly `capacity * 2` bytes,
-    //   which is enough for `Vec<u8>`.
-    // - `u16` has no drop glue, so it is safe to simply reinterpret its memory as `u8`.
-    // - The new length is `len * 2` (each `u16` becomes 2 `u8`s), and similarly the capacity is `capacity * 2`.
-    unsafe { Vec::from_raw_parts(ptr as *mut u8, len * 2, capacity * 2) }
+    unsafe { Vec::from_raw_parts(ptr as *mut u8, len * 8, capacity * 8) }
 }
 
 fn box_to_vec_u8<T>(b: Box<T>) -> Vec<u8> {
@@ -82,7 +81,7 @@ fn box_to_vec_u8<T>(b: Box<T>) -> Vec<u8> {
     unsafe { Vec::from_raw_parts(ptr, num_bytes, num_bytes) }
 }
 
-fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
+fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
     let image = ZuneImage::read(data, ZuneDecoderOptions::default())?;
 
     // TODO: Pass this in as state
@@ -112,14 +111,20 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
         image_data.copy_from_slice(&frame);
     }
 
-    let mut i16_output = vec![0i16; output_size]; // TODO: uninit
-
-    dbg!(i16_output.as_ptr());
+    let mut color16_output = Vec::with_capacity(output_size);
 
     // TODO: Optimize
-    for i in 0..image_data.len() {
-        let t = image_data[i] as usize;
-        i16_output[i] = srgb_to_linear[t];
+    for v in image_data.chunks(3) {
+        let r = v[0] as usize;
+        let g = v[1] as usize;
+        let b = v[2] as usize;
+
+        let r = srgb_to_linear[r];
+        let g = srgb_to_linear[g];
+        let b = srgb_to_linear[b];
+        let a = 255 << 7;
+
+        color16_output.push(Color16::new(r, g, b, a));
     }
 
     let format = match color_space {
@@ -137,17 +142,25 @@ fn decode_zune(data: &[u8], _image_options: Option<ImageOptions>) -> Result<Vec<
         }
     };
 
-    let image_scaled =
-        image_scaler::scale_image(&i16_output, dimensions.0 as _, dimensions.1 as _, 200, 200);
+    let image = if let Some(image_opts) = image_options {
+       if image_opts.mode == ImageMode::ScaleToTargetInteger {
+           image_scaler::upscale_image_integer(&color16_output, dimensions.0, dimensions.1,
+                                               image_opts.size.x as _, image_opts.size.y as _)
+       } else {
+           unimplemented!("Unsupported mode");
+       }
+    } else {
+        image_scaler::scale_image(&color16_output, dimensions.0 as _, dimensions.1 as _, 200, 200)
+    };
 
     dbg!(format);
 
     // TODO: handle multiple frames
     let image_info = Box::new(ImageInfo {
-        data: vec_i16_to_vec_u8(image_scaled.data),
+        data: vec_i16_to_vec_u8(image.data),
         format: format as u32,
-        width: image_scaled.width as i32,
-        height: image_scaled.height as i32,
+        width: image.width as i32,
+        height: image.height as i32,
         frame_delay: 0,
         frame_count: 1,
     });
@@ -347,6 +360,21 @@ pub fn load(state: &mut State, filename: &str) -> IoHandle {
 #[inline]
 fn load_with_options(state: &mut State, filename: &str, options: &ImageOptions) -> IoHandle {
     let data = [*options];
+
+    state
+        .io_handler
+        .load_with_driver_data(filename, IMAGE_LOADER_NAME, &data)
+}
+
+#[inline]
+pub fn load_background(state: &mut State, filename: &str, target_size: (u32, u32)) -> IoHandle {
+    let image_options = ImageOptions {
+        mode: ImageMode::ScaleToTargetInteger,
+        size: IVec2::new(target_size.0 as i32, target_size.1 as i32), 
+        ..Default::default()
+    };
+
+    let data = [image_options];
 
     state
         .io_handler

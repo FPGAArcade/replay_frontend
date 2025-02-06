@@ -90,6 +90,7 @@ pub struct DrawTextBufferData {
 #[derive(Debug)]
 pub enum RenderType {
     DrawRect,
+    DrawBackground(DrawImage),
     DrawRectRounded(DrawRectRoundedData),
     DrawBorder(DrawBorderData),
     DrawTextBuffer(DrawTextBufferData),

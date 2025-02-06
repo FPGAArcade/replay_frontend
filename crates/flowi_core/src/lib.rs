@@ -58,6 +58,15 @@ struct ItemState {
     frame: u64,
 }
 
+pub enum BackgroundMode {
+    AlignTopRight,
+}
+
+struct BackgroundImage {
+    handle: IoHandle,
+    mode: BackgroundMode,
+}
+
 #[allow(dead_code)]
 pub(crate) struct State<'a> {
     pub(crate) text_generator: font::TextGenerator,
@@ -73,7 +82,8 @@ pub(crate) struct State<'a> {
     pub(crate) bg_worker: WorkSystem,
     pub(crate) item_states: HashMap<u32, ItemState>, // TODO: Arena hashmap
     pub(crate) active_font: FontHandle,
-    pub(crate) has_printed: bool,
+    pub(crate) background_image: Option<BackgroundImage>,
+    pub(crate) screen_size: (usize, usize),
 }
 
 #[allow(dead_code)]
@@ -104,7 +114,8 @@ impl<'a> Ui<'a> {
             renderer,
             bg_worker,
             active_font: 0,
-            has_printed: false,
+            background_image: None,
+            screen_size: (0, 0),
         };
 
         let data = Box::new(Ui {
@@ -149,6 +160,11 @@ impl<'a> Ui<'a> {
         Dimensions::new(size.0 as _, size.1 as _)
     }
 
+    pub fn set_font(&self, font_id: FontHandle) {
+        let state = unsafe { &mut *self.state.get() };
+        state.active_font = font_id;
+    }
+
     pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
         let state = unsafe { &mut *self.state.get() };
         state
@@ -158,6 +174,7 @@ impl<'a> Ui<'a> {
         state.io_handler.update();
         state.primitives.rewind();
         state.button_id = 0;
+        state.screen_size = (width, height);
     }
 
     pub fn with_layout<F: FnOnce(&Ui), const N: usize>(
@@ -217,7 +234,7 @@ impl<'a> Ui<'a> {
         let state = unsafe { &mut *self.state.get() };
         state.layout.with(Some(text), configs, |_clay| {
             let font_id = state.active_font;
-                
+
             let _ = state.text_generator.queue_generate_text(text, font_size, font_id, &state.bg_worker);
 
             state.layout.text(text, Text::new()
@@ -248,6 +265,33 @@ impl<'a> Ui<'a> {
     ) -> Vec<RenderCommand> {
         // TODO: Arena
         let mut primitives = Vec::with_capacity(1024);
+
+        if let Some(bg_image) = state.background_image.as_ref() {
+            if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(bg_image.handle) {
+                let width = state.screen_size.0 as f32;
+                let height = state.screen_size.1 as f32;
+
+                let x0 = width - image.width as f32;
+                let y0 = 0.0;
+                let x1 = width;
+                let y1 = image.height as f32;
+
+                let render_command = RenderCommand {
+                    bounding_box: [x0, y0, x1, y1],
+                    render_type: RenderType::DrawBackground(DrawImage {
+                        rounded_corners: [0.0, 0.0, 0.0, 0.0],
+                        width: image.width as _,
+                        height: image.height as _,
+                        handle: image.data.as_ptr() as _,
+                        rounding: false,
+                    }),
+                    color: Color::new(1.0, 1.0, 1.0, 1.0),
+                };
+
+                primitives.push(render_command);
+            }
+        }
+
         for command in commands {
             let (cmd, color) = match command.config {
                 RenderCommandConfig::Rectangle(config) => match config.corner_radius {
@@ -363,8 +407,6 @@ impl<'a> Ui<'a> {
         let primitives = Self::translate_clay_render_commands(state, state.layout.end());
         state.renderer.render(&primitives);
 
-        state.has_printed = true;
-
         // Generate primitives from all boxes
         //state.generate_primitives();
         state.current_frame += 1;
@@ -387,6 +429,19 @@ impl<'a> Ui<'a> {
         Ok(crate::image_api::load(state, path))
     }
 
+    pub fn load_background_image(&mut self, path: &str, target_size: (u32, u32)) -> InternalResult<IoHandle> {
+        let state = unsafe { &mut *self.state.get() };
+        Ok(crate::image_api::load_background(state, path, target_size))
+    }
+
+    pub fn set_background_image(&mut self, handle: IoHandle, mode: BackgroundMode) {
+        let state = unsafe { &mut *self.state.get() };
+        state.background_image = Some(BackgroundImage {
+            handle,
+            mode,
+        });
+    }
+
     pub fn queue_generate_text(
         &mut self,
         text: &str,
@@ -405,13 +460,16 @@ impl<'a> Ui<'a> {
         let id_name = text;
         let mut signal = Signal::new();
 
+        // TODO: Cache
+        let text_size = state.text_generator.measure_text_size(text, state.active_font, 36).unwrap();
+
         state.layout.with(Some(id_name), [
             Layout::new()
-                .width(fixed!(160.0))
+                .width(fixed!(text_size.0 as f32 + 16.0))
                 .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
-                .padding(Padding::all(30)).end(),
+                .padding(Padding::all(0)).end(),
              Rectangle::new()
-                .color(ClayColor::rgba(44.0, 40.0, 40.0, 255.0))
+                .color(ClayColor::rgba(204.0, 40.0, 40.0, 255.0))
                 .corner_radius(CornerRadius::All(16.0))
                 .end()], |_ui|
             {
@@ -422,7 +480,7 @@ impl<'a> Ui<'a> {
                 state.layout.text(text, Text::new()
                     .font_id(font_id as u16)
                     .font_size(36)
-                    .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
+                    .color(ClayColor::rgba(225.0, 225.0, 225.0, 255.0))
                     .end());
 
                 let id = clay_layout::id::Id::new(id_name);
@@ -454,7 +512,7 @@ impl<'a> Ui<'a> {
         state.layout.text(text, Text::new()
             .font_id(font_id as u16)
             .font_size(36)
-            .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
+            .color(ClayColor::rgba(255.0, 255.0, 255.0, 205.0))
             .end());
 
         let id = clay_layout::id::Id::new(id_name);

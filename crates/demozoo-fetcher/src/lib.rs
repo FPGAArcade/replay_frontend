@@ -137,9 +137,38 @@ fn get_image(url: &str) -> io::Result<String> {
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// Searches for a file by checking the current and parent directories recursively.
+/// Once found, it returns the absolute path of the file.
+fn find_file_upwards(filename: &str) -> Option<PathBuf> {
+    let mut current_dir = std::env::current_dir().ok()?;
+    
+    loop {
+        let potential_path = current_dir.join(filename);
+        if potential_path.exists() {
+            return Some(potential_path);
+        }
+
+        if !current_dir.pop() { // Moves up one directory level
+            break;
+        }
+    }
+    None
+}
+
+fn load_file(filename: &str) -> io::Result<String> {
+    if let Some(file_path) = find_file_upwards(filename) {
+        fs::read_to_string(file_path)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("File '{}' not found in any parent directory.", filename),
+        ))
+    }
+}
+
 // TODO: This should be async on separate therad 
 pub fn get_demo_entry_by_file(url: &str) -> ProductionEntry {
-    std::fs::read_to_string(url)
+    load_file(url)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
         .and_then(|data| {
             let entry = parse_json(&data);
