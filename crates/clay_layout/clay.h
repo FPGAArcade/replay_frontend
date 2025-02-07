@@ -15,9 +15,9 @@
 #include <stddef.h>
 
 // SIMD includes on supported platforms
-#if defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64)
+#if !defined(CLAY_DISABLE_SIMD) && (defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64))
 #include <emmintrin.h>
-#elif __aarch64__
+#elif !defined(CLAY_DISABLE_SIMD) && defined(__aarch64__)
 #include <arm_neon.h>
 #endif
 
@@ -1384,13 +1384,13 @@ void Clay__CloseElement(void) {
 }
 
 bool Clay__MemCmp(const char *s1, const char *s2, int32_t length);
-#if defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64)
+#if !defined(CLAY_DISABLE_SIMD) && (defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64))
     bool Clay__MemCmp(const char *s1, const char *s2, int32_t length) {
         while (length >= 16) {
             __m128i v1 = _mm_loadu_si128((const __m128i *)s1);
             __m128i v2 = _mm_loadu_si128((const __m128i *)s2);
 
-            if (_mm_movemask_epi8(_mm_cmpeq_epi8(v1, v2)) != 0xFFFFFFFF) { // If any byte differs
+            if (_mm_movemask_epi8(_mm_cmpeq_epi8(v1, v2)) != 0xFFFF) { // If any byte differs
                 return false;
             }
 
@@ -1410,7 +1410,7 @@ bool Clay__MemCmp(const char *s1, const char *s2, int32_t length);
 
         return true;
     }
-#elif defined(__aarch64__)
+#elif !defined(CLAY_DISABLE_SIMD) && defined(__aarch64__)
     bool Clay__MemCmp(const char *s1, const char *s2, int32_t length) {
         while (length >= 16) {
             uint8x16_t v1 = vld1q_u8((const uint8_t *)s1);
@@ -2212,10 +2212,10 @@ void Clay__CalculateFinalLayout(void) {
                     sortMax--;
                 }
 
-                bool emitRectangle;
+                bool emitRectangle = false;
                 // Create the render commands for this element
                 Clay_SharedElementConfig *sharedConfig = Clay__FindElementConfigWithType(currentElement, CLAY__ELEMENT_CONFIG_TYPE_SHARED).sharedElementConfig;
-                if (sharedConfig) {
+                if (sharedConfig && sharedConfig->backgroundColor.a > 0) {
                    emitRectangle = true;
                 }
                 else if (!sharedConfig) {
@@ -2248,7 +2248,7 @@ void Clay__CalculateFinalLayout(void) {
                             renderCommand.commandType = CLAY_RENDER_COMMAND_TYPE_IMAGE;
                             renderCommand.renderData = CLAY__INIT(Clay_RenderData) {
                                 .image = {
-                                    .backgroundColor = emitRectangle ? sharedConfig->backgroundColor : CLAY__INIT(Clay_Color) { 255, 255, 255, 255 },
+                                    .backgroundColor = sharedConfig->backgroundColor,
                                     .cornerRadius = sharedConfig->cornerRadius,
                                     .sourceDimensions = elementConfig->config.imageElementConfig->sourceDimensions,
                                     .imageData = elementConfig->config.imageElementConfig->imageData,
@@ -2647,6 +2647,23 @@ Clay__RenderDebugLayoutData Clay__RenderDebugLayoutElementsList(int32_t initialR
                 }
                 for (int32_t elementConfigIndex = 0; elementConfigIndex < currentElement->elementConfigs.length; ++elementConfigIndex) {
                     Clay_ElementConfig *elementConfig = Clay__ElementConfigArraySlice_Get(&currentElement->elementConfigs, elementConfigIndex);
+                    if (elementConfig->type == CLAY__ELEMENT_CONFIG_TYPE_SHARED) {
+                        Clay_Color labelColor = {243,134,48,90};
+                        labelColor.a = 90;
+                        Clay_Color backgroundColor = elementConfig->config.sharedElementConfig->backgroundColor;
+                        Clay_CornerRadius radius = elementConfig->config.sharedElementConfig->cornerRadius;
+                        if (backgroundColor.a > 0) {
+                            CLAY({ .layout = { .padding = { 8, 8, 2, 2 } }, .backgroundColor = labelColor, .cornerRadius = CLAY_CORNER_RADIUS(4), .border = { .color = labelColor, .width = { 1, 1, 1, 1 } } }) {
+                                CLAY_TEXT(CLAY_STRING("Color"), CLAY_TEXT_CONFIG({ .textColor = offscreen ? CLAY__DEBUGVIEW_COLOR_3 : CLAY__DEBUGVIEW_COLOR_4, .fontSize = 16 }));
+                            }
+                        }
+                        if (radius.bottomLeft > 0) {
+                            CLAY({ .layout = { .padding = { 8, 8, 2, 2 } }, .backgroundColor = labelColor, .cornerRadius = CLAY_CORNER_RADIUS(4), .border = { .color = labelColor, .width = { 1, 1, 1, 1 } } }) {
+                                CLAY_TEXT(CLAY_STRING("Radius"), CLAY_TEXT_CONFIG({ .textColor = offscreen ? CLAY__DEBUGVIEW_COLOR_3 : CLAY__DEBUGVIEW_COLOR_4, .fontSize = 16 }));
+                            }
+                        }
+                        continue;
+                    }
                     Clay__DebugElementConfigTypeLabelConfig config = Clay__DebugGetElementConfigTypeLabel(elementConfig->type);
                     Clay_Color backgroundColor = config.color;
                     backgroundColor.a = 90;
@@ -2964,8 +2981,11 @@ void Clay__RenderDebugView(void) {
                         case CLAY__ELEMENT_CONFIG_TYPE_SHARED: {
                             Clay_SharedElementConfig *sharedConfig = elementConfig->config.sharedElementConfig;
                             CLAY({ .layout = { .padding = attributeConfigPadding, .childGap = 8, .layoutDirection = CLAY_TOP_TO_BOTTOM }}) {
+                                // .backgroundColor
+                                CLAY_TEXT(CLAY_STRING("Background Color"), infoTitleConfig);
+                                Clay__RenderDebugViewColor(sharedConfig->backgroundColor, infoTextConfig);
                                 // .cornerRadius
-                                CLAY_TEXT(CLAY_STRING("Color"), infoTitleConfig);
+                                CLAY_TEXT(CLAY_STRING("Corner Radius"), infoTitleConfig);
                                 Clay__RenderDebugViewCornerRadius(sharedConfig->cornerRadius, infoTextConfig);
                             }
                             break;
