@@ -36,7 +36,7 @@ pub struct Declaration {
 impl Declaration {
     #[inline]
     pub fn new() -> Self {
-        crate::mem::zeroed_init()
+        mem::zeroed_init()
     }
 
     #[inline]
@@ -59,8 +59,8 @@ impl Declaration {
     }
 
     #[inline]
-    pub fn layout(&mut self) -> layout::LayoutBuilder {
-        layout::LayoutBuilder::new(self)
+    pub fn layout(&mut self) -> LayoutBuilder {
+        LayoutBuilder::new(self)
     }
 
     #[inline]
@@ -285,32 +285,32 @@ impl<'a> Clay<'a> {
     ///
     /// This ID is global and must be unique across the entire scope.
     #[inline]
-    pub fn id(&self, label: &'a str) -> id::Id {
-        id::Id::new(label)
+    pub fn id(&self, label: &'a str) -> Id {
+        Id::new(label)
     }
 
     /// Generates a unique indexed ID based on the given `label` and `index`.
     ///
     /// This is useful when multiple elements share the same label but need distinct IDs.
     #[inline]
-    pub fn id_index(&self, label: &'a str, index: u32) -> id::Id {
-        id::Id::new_index(label, index)
+    pub fn id_index(&self, label: &'a str, index: u32) -> Id {
+        Id::new_index(label, index)
     }
 
     /// Generates a locally unique ID based on the given `label`.
     ///
     /// The ID is unique within a specific local scope but not globally.
     #[inline]
-    pub fn id_local(&self, label: &'a str) -> id::Id {
-        id::Id::new_index_local(label, 0)
+    pub fn id_local(&self, label: &'a str) -> Id {
+        Id::new_index_local(label, 0)
     }
 
     /// Generates a locally unique indexed ID based on the given `label` and `index`.
     ///
     /// This is useful for differentiating elements within a local scope while keeping their labels consistent.
     #[inline]
-    pub fn id_index_local(&self, label: &'a str, index: u32) -> id::Id {
-        id::Id::new_index_local(label, index)
+    pub fn id_index_local(&self, label: &'a str, index: u32) -> Id {
+        Id::new_index_local(label, index)
     }
 
     /// Sets the maximum number of element that clay supports
@@ -395,7 +395,7 @@ impl<'a> Clay<'a> {
         slice.iter().map(|command| RenderCommand::from(*command))
     }
 
-    /// Create an element, passing it's config and a function to add childrens
+    /// Create an element, passing its config and a function to add childrens
     /// ```
     /// // TODO: Add Example
     /// ```

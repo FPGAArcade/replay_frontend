@@ -97,7 +97,7 @@ fn get_extension(url: &str) -> &str {
 
 /// Checks if the image is already cached; otherwise, downloads it
 #[allow(dead_code)]
-fn get_image(url: &str) -> io::Result<String> {
+pub fn get_image(url: &str) -> io::Result<String> {
     // Ensure the cache directory exists
     fs::create_dir_all(CACHE_DIR)?;
 

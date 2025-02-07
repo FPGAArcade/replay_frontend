@@ -110,8 +110,6 @@ impl Driver for LocalFs {
             }
         }
 
-        dbg!();
-
         trace!("load_url: Loaded file {:?} to memory", path);
 
         Ok(LoadStatus::Data(output_data.into_boxed_slice()))

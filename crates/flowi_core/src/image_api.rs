@@ -62,19 +62,6 @@ fn build_srgb_to_linear_table() -> [i16; 1 << 8] {
     table
 }
 
-// TODO: Cleanup
-fn vec_i16_to_vec_u8(mut v: Vec<Color16>) -> Vec<u8> {
-    let len = v.len();
-    let capacity = v.capacity();
-    let ptr = v.as_mut_ptr();
-
-    // Prevent `v` from being dropped, which would deallocate its memory.
-    std::mem::forget(v);
-
-    // SAFETY:
-    unsafe { Vec::from_raw_parts(ptr as *mut u8, len * 8, capacity * 8) }
-}
-
 fn box_to_vec_u8<T>(b: Box<T>) -> Vec<u8> {
     let num_bytes = std::mem::size_of::<T>();
     let ptr = Box::into_raw(b) as *mut u8;
@@ -153,11 +140,9 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
         image_scaler::scale_image(&color16_output, dimensions.0 as _, dimensions.1 as _, 200, 200)
     };
 
-    dbg!(format);
-
     // TODO: handle multiple frames
     let image_info = Box::new(ImageInfo {
-        data: vec_i16_to_vec_u8(image.data),
+        data: image.data,
         format: format as u32,
         width: image.width as i32,
         height: image.height as i32,

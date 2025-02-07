@@ -1,4 +1,5 @@
 use crate::primitives::{Color, IVec2, Vec2};
+use image_scaler::Color16;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ImageFormat {
@@ -28,7 +29,7 @@ pub enum ImageLoadStatus {
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct ImageInfo {
-    pub data: Vec<u8>,
+    pub data: Vec<Color16>,
     /// Format of the image. See the ImageFormat enum
     pub format: u32,
     /// width of the image

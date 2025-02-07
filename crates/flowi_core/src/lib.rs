@@ -12,11 +12,10 @@ use crate::input::Input;
 use crate::io_handler::IoHandle;
 use glam::Vec4;
 
-use crate::image::ImageInfo;
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
-    math::Dimensions, render_commands::RenderCommand as ClayRenderCommand,
+    render_commands::RenderCommand as ClayRenderCommand,
     render_commands::RenderCommandConfig, Clay, Clay_Dimensions, Clay_StringSlice,
     Clay_TextElementConfig,
 };
@@ -29,6 +28,7 @@ use std::collections::HashMap;
 
 pub use crate::io_handler::IoHandle as ImageHandle;
 use font::{CachedString, FontHandle};
+pub use image::ImageInfo;
 
 pub use clay_layout::{
     color::Color as ClayColor,
@@ -38,8 +38,10 @@ pub use clay_layout::{
     layout::LayoutAlignmentY,
     layout::{Alignment, Padding, Sizing, LayoutDirection},
     text::TextConfig,
-    Declaration,
+    Declaration, math::Dimensions,
 };
+
+pub use image_scaler::Color16;
 
 use flowi_renderer::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
@@ -242,6 +244,11 @@ impl<'a> Ui<'a> {
                 .color(col)
                 .end());
         });
+    }
+
+    pub fn get_image(&self, handle: ImageHandle) -> Option<&ImageInfo> {
+        let state = unsafe { &mut *self.state.get() };
+        state.io_handler.get_loaded_as::<ImageInfo>(handle)
     }
 
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
