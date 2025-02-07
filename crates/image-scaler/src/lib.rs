@@ -131,6 +131,21 @@ fn calculate_scale_factor(original_width: usize, original_height: usize, target_
     max_scale_x.min(max_scale_y).max(1) // Ensure at least 1x scaling
 }
 
+pub fn apply_alpha_falloff(pixel: Color16, width: usize, height: usize, x: usize, y: usize) -> Color16 {
+    let dx = x as f32 / width as f32;  // Distance from right
+    let dy = (height - y) as f32 / height as f32; // Distance from bottom
+
+    // Apply a quadratic falloff (adjust power for stronger effect)
+    let alpha_factor = (dx * dy).powf(1.0); // Non-linear fade
+
+    Color16 {
+        r: (pixel.r as f32 * alpha_factor) as i16,
+        g: (pixel.g as f32 * alpha_factor) as i16,
+        b: (pixel.b as f32 * alpha_factor) as i16,
+        a: (pixel.a as f32 * alpha_factor) as i16,
+    }
+}
+
 //pub fn upscale_image_integer<const SHADE: bool>(
 pub fn upscale_image_integer(
     input_image: &[Color16],
@@ -161,7 +176,8 @@ pub fn upscale_image_integer(
 
                 let target_row = &mut output[target_y * out_width..(target_y + 1) * out_width];
                 for dx in 0..scale {
-                    target_row[start_x + dx] = color;
+                    let shaded_color = apply_alpha_falloff(color, width, height, x, y);
+                    target_row[start_x + dx] = shaded_color;
                 }
             }
         }
