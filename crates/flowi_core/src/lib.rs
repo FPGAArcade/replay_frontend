@@ -405,6 +405,12 @@ impl<'a> Ui<'a> {
         state.layout.id(name)
     }
 
+    #[inline]
+    pub fn id_index(&self, name: &str, index: u32) -> Id {
+        let state = unsafe { &mut *self.state.get() };
+        state.layout.id_index(name, index)
+    }
+
     pub fn input(&self) -> &mut Input {
         let state = unsafe { &mut *self.state.get() };
         &mut state.input
