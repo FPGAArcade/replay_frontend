@@ -257,12 +257,11 @@ impl<'a> Ui<'a> {
         if let Some(bg_image) = state.background_image.as_ref() {
             if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(bg_image.handle) {
                 let width = state.screen_size.0 as f32;
-                let height = state.screen_size.1 as f32;
 
                 let x0 = width - image.width as f32;
                 let y0 = 0.0;
                 let x1 = width;
-                let y1 = height as f32;
+                let y1 = image.height as _;
 
                 let render_command = RenderCommand {
                     bounding_box: [x0, y0, x1, y1],
