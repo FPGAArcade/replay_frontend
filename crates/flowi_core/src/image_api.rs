@@ -358,6 +358,7 @@ pub fn load(state: &mut State, filename: &str) -> IoHandle {
 }
 
 #[inline]
+#[allow(dead_code)]
 fn load_with_options(state: &mut State, filename: &str, options: &ImageOptions) -> IoHandle {
     let data = [*options];
 

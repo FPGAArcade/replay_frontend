@@ -7,7 +7,7 @@ edition = "2021"
 arena-allocator = { path = "../arena-allocator" }
 background-worker = { path = "../background_worker" }
 bitflags = "2.7.0"
-clay-layout = { path = "../clay_layout", features = ["debug"] }
+clay-layout = { path = "../clay_layout" }
 cosmic-text = "0.12"
 fileorama = { path = "../fileorama" }
 flowi-renderer = { path = "../flowi-renderer" }

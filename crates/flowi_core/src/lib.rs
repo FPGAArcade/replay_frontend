@@ -32,7 +32,7 @@ use font::{CachedString, FontHandle};
 
 pub use clay_layout::{
     color::Color as ClayColor,
-    fixed, grow,
+    fixed, grow, percent,
     id::Id,
     layout::LayoutAlignmentX,
     layout::LayoutAlignmentY,
@@ -62,6 +62,7 @@ pub enum BackgroundMode {
     AlignTopRight,
 }
 
+#[allow(dead_code)]
 struct BackgroundImage {
     handle: IoHandle,
     mode: BackgroundMode,
@@ -261,7 +262,7 @@ impl<'a> Ui<'a> {
                 let x0 = width - image.width as f32;
                 let y0 = 0.0;
                 let x1 = width;
-                let y1 = image.height as f32;
+                let y1 = height as f32;
 
                 let render_command = RenderCommand {
                     bounding_box: [x0, y0, x1, y1],
@@ -289,15 +290,11 @@ impl<'a> Ui<'a> {
                         config.corner_radii.bottom_right
                     ];
 
-                    if config.color.a == 0.0 {
-                        (RenderType::None, Self::color(config.color))
+                    if corners.iter().all(|&x| x == 0.0) {
+                        (RenderType::DrawRect, Self::color(config.color))
                     } else {
-                        if corners.iter().all(|&x| x == 0.0) {
-                            (RenderType::DrawRect, Self::color(config.color))
-                        } else {
-                            (RenderType::DrawRectRounded(DrawRectRoundedData { corners }),
-                             Self::color(config.color))
-                        }
+                        (RenderType::DrawRectRounded(DrawRectRoundedData { corners }),
+                         Self::color(config.color))
                     }
                 },
 

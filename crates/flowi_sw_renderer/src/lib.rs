@@ -1,4 +1,3 @@
-use std::arch::x86_64::__m128;
 use simd::*;
 
 pub mod raster;
@@ -30,7 +29,7 @@ pub struct Renderer {
     tiles: Vec<Tile>,
     tile_buffers: [Vec<i16>; 2],
     output: Vec<u8>,
-    tile_size: (usize, usize),
+    //tile_size: (usize, usize),
     screen_size: (usize, usize),
 }
 
@@ -338,7 +337,7 @@ impl flowi_renderer::Renderer for Renderer {
             tile_buffers: [t0, t1],
             tiles,
             screen_size,
-            tile_size,
+            //tile_size,
             output: vec![0; screen_size.0 * screen_size.1 * 3],
         }
     }

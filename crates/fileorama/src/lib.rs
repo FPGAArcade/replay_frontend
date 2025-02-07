@@ -1052,6 +1052,7 @@ impl<'a> Loader<'a> {
     }
 }
 
+#[allow(dead_code)]
 fn print_tree(state: &State, index: u32, _parent: u32, indent: usize) {
     let node = &state.nodes[index as usize];
 

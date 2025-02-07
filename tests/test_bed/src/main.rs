@@ -1,11 +1,11 @@
 use flowi::{Application};
 use flowi::Ui;
 use flowi::{
-    fixed, grow, Alignment, ClayColor, ImageHandle, LayoutAlignmentX, LayoutAlignmentY,
-    LayoutDirection, Padding, FontHandle,
+    fixed, grow, percent, Alignment, ClayColor, ImageHandle, LayoutAlignmentX, LayoutAlignmentY,
+    LayoutDirection, FontHandle, Padding,
     BackgroundMode, Declaration,
 };
-use log::*;
+//use log::*;
 use demozoo_fetcher::ProductionEntry;
 
 pub struct Fonts {
@@ -31,18 +31,17 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
         .id(ui.id("entry_info"))
         .layout()
             .width(grow!())
-            .height(grow!())
-            .child_gap(0)
+            .height(percent!(0.1))
             .direction(LayoutDirection::TopToBottom)
             .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Top))
-         .end(), |ui|
+         .end()
+            .background_color(ClayColor::rgba(0.0, 110.0, 0.0, 255.0)), |ui|
     {
         ui.with_layout(&Declaration::new()
             .id(ui.id("tile_info"))
             .layout()
                 .width(grow!())
                 .height(fixed!(40.0))
-                .child_gap(0)
                 .direction(LayoutDirection::LeftToRight)
             .end()
             .background_color(ClayColor::rgba(150.0, 0.0, 0.0, 255.0)), |ui|
@@ -65,7 +64,8 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
                         .padding(Padding::all(40))
                         .end());
         });
-        
+
+        /*
         ui.with_layout(&Declaration::new()
             .id(ui.id("platfrom_info"))
             .layout()
@@ -81,19 +81,9 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
 
             ui.button("DEMO");
             ui.button("AMIGA OCS/ECS");
-            //ui.button(&entry.platforms[0].name);
-            
-            /*
-            ui.text_with_layout("Demo",
-                78,
-                ClayColor::rgba(128.0, 128.0, 128.0, 255.0),
-                [Layout::new()
-                    .width(grow!())
-                    .padding(Padding::all(40))
-                    .height(fixed!(140.0))
-                    .end()]);
-            */
         });
+
+         */
 
         /*
         ui.text(entry.authors.join(", "));
@@ -106,7 +96,8 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
 
 
 
-fn draw_image_grid_unlimited_scroll(ui: &Ui, app: &App) {}
+#[allow(dead_code)]
+fn draw_image_grid_unlimited_scroll(_ui: &Ui, _app: &App) {}
 
 #[rustfmt::skip]
 fn main_loop(ui: &Ui, _app: &mut App) {
@@ -116,39 +107,8 @@ fn main_loop(ui: &Ui, _app: &mut App) {
             .height(grow!())
             .direction(LayoutDirection::TopToBottom)
         .end(), |ui|
-   {
-        ui.with_layout(&Declaration::new()
-            .id(ui.id("main"))
-            .layout()
-                .width(grow!())
-                .height(grow!())
-                .child_gap(2)
-                .direction(LayoutDirection::TopToBottom)
-            .end(), |ui|
-        {
-            display_demo_entry(ui, &_app, &_app.navigantion_entries[0]);
-            /*
-            ui.with_layout(Some("main2"), [
-                Layout::new()
-                    .height(grow!())
-                    .width(grow!())
-                    .child_gap(16)
-                    .direction(LayoutDirection::LeftToRight)
-                    .end(),
-                Rectangle::new()
-                    .color(ClayColor::rgba(20.0, 20.0, 10.0, 255.0))
-                    .end()], |_ui| 
-            {
-                //ui.image(_app.image);
-
-                /*
-                if ui.button("Foo2").hovering() {
-                    //println!("Hovering over Foo");
-                }
-                */
-            });
-            */
-        });
+    {
+        display_demo_entry(ui, &_app, &_app.navigantion_entries[0]);
     });
 }
 

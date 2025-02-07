@@ -252,11 +252,13 @@ macro_rules! fixed {
 }
 
 /// Shorthand macro for [`Sizing::Percent`].
+/// The value has to be in range `0.0..=1.0`.
 #[macro_export]
 macro_rules! percent {
-    ($percent:expr) => {
+    ($percent:expr) => {{
+        const _: () = assert!($percent >= 0.0 && $percent <= 1.0, "Percent value must be between 0.0 and 1.0.");
         $crate::layout::Sizing::Percent($percent)
-    };
+    }};
 }
 
 #[cfg(test)]

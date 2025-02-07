@@ -38,11 +38,6 @@ const CORNER_OFFSETS: [(f32, f32); 4] = [
     (0.0, 0.0), // BottomRight: Shift right and down
 ];
 
-const TEXT_WRITE_MASK: [u16; 16] = [
-    0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff,
-    0x0000, 0x0000, 0x0000, 0x0000,
-];
-
 #[derive(Copy, Clone)]
 #[allow(dead_code)]
 pub enum BlendMode {
@@ -556,26 +551,6 @@ pub(crate) fn render_internal<
         if ROUND_MODE == ROUND_MODE_ENABLED {
             rounding_y_current += rounding_y_step;
         }
-    }
-}
-
-#[inline(always)]
-fn process_text_pixel(
-    tile_line_ptr: *mut i16,
-    text_pixels: i16x8,
-    color: i16x8,
-    even: usize,
-    offset: usize,
-) {
-    let tile_line_ptr = unsafe { tile_line_ptr.add(offset) };
-
-    let bg_01 = i16x8::load_unaligned_ptr(tile_line_ptr);
-    let c0 = i16x8::lerp(bg_01, color, text_pixels);
-
-    if even & 1 == 0 {
-        i16x8::store_unaligned_ptr(c0, tile_line_ptr);
-    } else {
-        i16x8::store_unaligned_ptr_lower(c0, unsafe { tile_line_ptr.add(offset) });
     }
 }
 
