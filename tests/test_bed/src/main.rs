@@ -31,7 +31,7 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
         .id(ui.id("entry_info"))
         .layout()
             .width(grow!())
-            .height(percent!(0.2))
+            .height(percent!(0.5))
             .direction(LayoutDirection::TopToBottom)
             .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
             .child_gap(10)
@@ -111,10 +111,46 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
     });
 }
 
+#[allow(dead_code)]
+#[rustfmt::skip]
+fn draw_selection_entry(ui: &Ui, _app: &App, index: usize, is_selected: bool) {
+    let size = if is_selected {
+        (300.0, 300.0 * 1.4)
+    } else {
+        (250.0, 250.0 * 1.4)
+    };
 
+    ui.with_layout(&Declaration::new()
+        .id(ui.id_index("demo_selection", index as _))
+        .layout()
+            .width(fixed!(size.0))
+            .height(fixed!(size.1))
+        .end()
+        .corner_radius().all(16.0).end()
+        .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0)), |_ui|
+       {
+
+       });
+}
 
 #[allow(dead_code)]
-fn draw_image_grid_unlimited_scroll(_ui: &Ui, _app: &App) {}
+fn draw_image_grid_unlimited_scroll(ui: &Ui, _app: &App) {
+    ui.with_layout(&Declaration::new()
+        .id(ui.id("selection_grid"))
+        .layout()
+            .width(grow!())
+            .height(percent!(0.5))
+            .direction(LayoutDirection::LeftToRight)
+            .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+            .child_gap(64)
+            .padding(Padding::horizontal(64))
+        .end(), |ui|
+    {
+        for i in 0..6 {
+            draw_selection_entry(ui, _app, i, i == 0);
+        }
+    });
+}
 
 #[rustfmt::skip]
 fn main_loop(ui: &Ui, _app: &mut App) {
@@ -126,6 +162,7 @@ fn main_loop(ui: &Ui, _app: &mut App) {
         .end(), |ui|
     {
         display_demo_entry(ui, &_app, &_app.navigantion_entries[0]);
+        draw_image_grid_unlimited_scroll(ui, &_app);
     });
 }
 
