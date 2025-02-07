@@ -31,29 +31,34 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
         .id(ui.id("entry_info"))
         .layout()
             .width(grow!())
-            .height(percent!(0.1))
+            .height(percent!(0.2))
             .direction(LayoutDirection::TopToBottom)
-            .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Top))
-         .end()
-            .background_color(ClayColor::rgba(0.0, 110.0, 0.0, 255.0)), |ui|
+            .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+            .child_gap(10)
+         .end(), |ui|
+            //.background_color(ClayColor::rgba(0.0, 110.0, 0.0, 255.0)), |ui|
     {
         ui.with_layout(&Declaration::new()
             .id(ui.id("tile_info"))
             .layout()
                 .width(grow!())
-                .height(fixed!(40.0))
+                .height(fixed!(80.0))
+                .child_gap(40)
                 .direction(LayoutDirection::LeftToRight)
-            .end()
-            .background_color(ClayColor::rgba(150.0, 0.0, 0.0, 255.0)), |ui|
+            .end(), |ui|
+            //.background_color(ClayColor::rgba(150.0, 0.0, 0.0, 255.0)), |ui|
         {
             ui.set_font(app.fonts.thin);
+
+            let text_size = ui.text_size(&entry.title, 78);
 
             ui.text_with_layout(&entry.title, 78,
                 ClayColor::rgba(255.0, 255.0, 255.0, 255.0),
                 &Declaration::new()
                     .layout()
-                        .width(fixed!(680.0))
-                        .padding(Padding::all(20))
+                        .width(fixed!(text_size.width))
+                        .height(fixed!(text_size.height))
+                        .padding(Padding::horizontal(32))
                         .end());
 
             ui.text_with_layout("1992", 78,
@@ -61,29 +66,41 @@ fn display_demo_entry(ui: &Ui, app: &App, entry: &ProductionEntry) {
                 &Declaration::new()
                     .layout()
                         .width(grow!())
-                        .padding(Padding::all(40))
                         .end());
         });
 
-        /*
         ui.with_layout(&Declaration::new()
             .id(ui.id("platfrom_info"))
             .layout()
                 .width(grow!())
                 .height(fixed!(40.0))
-                .padding(Padding::all(0))
+                .padding(Padding::horizontal(32))
                 .child_gap(16)
                 .direction(LayoutDirection::LeftToRight)
-                //.child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
-                .end(), |ui|
+            .end(), |ui|
         {
             ui.set_font(app.fonts.default);
 
             ui.button("DEMO");
             ui.button("AMIGA OCS/ECS");
-        });
 
-         */
+            ui.text_with_layout("by", 36,
+                ClayColor::rgba(255.0, 255.0, 255.0, 255.0),
+                &Declaration::new()
+                    .layout()
+                        .width(fixed!(44.0))
+                        .end());
+
+            ui.set_font(app.fonts.bold);
+
+            ui.text_with_layout("Spaceballs", 36,
+                ClayColor::rgba(201.0, 22.0, 38.0, 255.0),
+                &Declaration::new()
+                    .layout()
+                        .width(grow!())
+                        .end());
+
+        });
 
         /*
         ui.text(entry.authors.join(", "));
