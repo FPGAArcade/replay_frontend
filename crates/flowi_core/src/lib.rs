@@ -161,6 +161,16 @@ impl<'a> Ui<'a> {
         Dimensions::new(size.0 as _, size.1 as _)
     }
 
+    pub fn text_size(&self, text: &str, font_size: u32) -> Dimensions {
+        let state = unsafe { &mut *self.state.get() };
+        let size = state
+            .text_generator
+            .measure_text_size(text, state.active_font, font_size as _)
+            .unwrap();
+
+        Dimensions::new(size.0 as _, size.1 as _)
+    }
+
     pub fn set_font(&self, font_id: FontHandle) {
         let state = unsafe { &mut *self.state.get() };
         state.active_font = font_id;
@@ -452,7 +462,7 @@ impl<'a> Ui<'a> {
             .end()
                 .corner_radius().all(16.0)
             .end()
-                .background_color(ClayColor::rgba(204.0, 40.0, 40.0, 255.0)), |_ui|
+                .background_color(ClayColor::rgba(152.0, 20.0, 31.0, 255.0)), |_ui|
             {
                 let font_id = state.active_font;
                 // TODO: Fix me
@@ -461,7 +471,7 @@ impl<'a> Ui<'a> {
                 state.layout.text(text, TextConfig::new()
                     .font_id(font_id as u16)
                     .font_size(36)
-                    .color(ClayColor::rgba(225.0, 225.0, 225.0, 255.0))
+                    .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
                     .end());
 
                 let id = state.layout.id(id_name);
