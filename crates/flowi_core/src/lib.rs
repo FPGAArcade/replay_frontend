@@ -228,6 +228,7 @@ impl<'a> Ui<'a> {
             state.layout.text(text, TextConfig::new()
                 .font_id(font_id as u16)
                 .font_size(font_size as _)
+                .wrap_mode(clay_layout::text::TextElementConfigWrapMode::None)
                 .color(col)
                 .end());
         });
