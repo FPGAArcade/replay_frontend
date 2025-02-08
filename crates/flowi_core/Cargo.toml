@@ -21,5 +21,6 @@ smallvec = "1.13"
 texture_packer = "0.29"
 thiserror = "2.0"
 tracing = { version = "0.1", features = ["log"] }
+color16 = { path = "../color16" }
 zune-core = "0.4.12"
 zune-image = { version = "0.4", default-features = false, features = ["metadata", "jpeg", "png"] }

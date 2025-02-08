@@ -1,5 +1,5 @@
 use crate::primitives::{Color, IVec2, Vec2};
-use image_scaler::Color16;
+use color16::Color16;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ImageFormat {

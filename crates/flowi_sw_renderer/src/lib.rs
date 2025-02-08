@@ -1,4 +1,5 @@
 use simd::*;
+use color16::Color16;
 
 pub mod raster;
 pub use raster::{BlendMode, Corner, Raster};
@@ -27,7 +28,7 @@ pub struct Renderer {
     srgb_to_linear_table: [u16; 1 << 8],
     // TODO: Arena
     tiles: Vec<Tile>,
-    tile_buffers: [Vec<i16>; 2],
+    tile_buffers: [Vec<Color16>; 2],
     output: Vec<u8>,
     //tile_size: (usize, usize),
     screen_size: (usize, usize),
@@ -96,7 +97,7 @@ pub fn get_color_from_floats_0_255(color: Color, srgb_to_linear_table: &[u16; 1 
 pub fn copy_tile_linear_to_srgb(
     linear_to_srgb_table: &[u8; 4096],
     output: &mut [u8],
-    tile: &[i16],
+    tile: &[Color16],
     tile_info: &Tile,
     width: usize,
 ) {
@@ -114,7 +115,7 @@ pub fn copy_tile_linear_to_srgb(
     for _y in 0..tile_height {
         let mut current_index = output_index;
         for _x in 0..(tile_width >> 1) {
-            let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr);
+            let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr as _);
             let rgba_rgba = rgba_rgba.shift_right::<LINEAR_TO_SRGB_SHIFT>();
 
             let r0 = (rgba_rgba.extract::<0>() as u16) & 0xfff;
@@ -134,7 +135,7 @@ pub fn copy_tile_linear_to_srgb(
                 let g1 = *linear_to_srgb_table.get_unchecked(g1 as usize);
                 let b1 = *linear_to_srgb_table.get_unchecked(b1 as usize);
 
-                tile_ptr = tile_ptr.add(8);
+                tile_ptr = tile_ptr.add(2);
 
                 *output.get_unchecked_mut(current_index + 0) = r0;
                 *output.get_unchecked_mut(current_index + 1) = g0;
@@ -177,7 +178,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
         // TODO: We should here support clearing the buffer with another color, bg image or have a
         // check during the binning if we need to clear at all.
         for t in tile_buffer.iter_mut() {
-            *t = 0;
+            *t = Color16::default();
         }
 
         for index in tile.data.iter() {
@@ -327,8 +328,8 @@ impl flowi_renderer::Renderer for Renderer {
             }
         }
 
-        let t0 = vec![i16::default(); tile_size.0 * tile_size.1 * 8];
-        let t1 = vec![i16::default(); tile_size.0 * tile_size.1 * 8];
+        let t0 = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
+        let t1 = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
 
         Self {
             linear_to_srgb_table: build_linear_to_srgb_table(),

@@ -14,7 +14,7 @@ use zune_core::{
 use crate::primitives::IVec2;
 
 use zune_image::{errors::ImageErrors as ZuneError, image::Image as ZuneImage};
-use image_scaler::Color16;
+use color16::Color16;
 
 //use zune_jpeg::zune_core::colorspace::ColorSpace;
 

@@ -41,7 +41,7 @@ pub use clay_layout::{
     Declaration, math::Dimensions,
 };
 
-pub use image_scaler::Color16;
+pub use color16::Color16;
 
 use flowi_renderer::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,

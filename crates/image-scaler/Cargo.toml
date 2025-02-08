@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 simd = { path = "../simd" }
+color16 = { path = "../color16" }
