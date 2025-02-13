@@ -1,5 +1,6 @@
+use flowi_core::Color16;
 use flowi_renderer::Renderer;
-use flowi_sw_renderer::Renderer as SofwareRenderer;
+use flowi_sw_renderer::Renderer as SoftwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
 
 use minifb::{Key, Window, WindowOptions};
@@ -86,9 +87,24 @@ fn draw_pixel_grid(output: &mut [u32], zoom: usize) {
     }
 }
 
+/*
+fn generate_sample_test_image() -> Image {
+    // colors
+    let colors = [
+        (121,209,81), (253,231,36), (52, 94, 141), (68, 190, 112), (189, 222, 48),
+        (68, 112, 112), (41, 120, 142), (34, 167, 132), (72, 45, 116), (64, 67, 135),
+        (41, 120, 142), (68,190,112), (64,67,135), (189,222,38), (68,1,84),
+        (72, 35, 116), (64, 67, 135), (52,94,141), (41,120,142), (32,144,140),
+        (41,120,142), (68,190,112), (68,1,84), (52,94,141), (72,35,116)
+    ];
+
+}
+
+ */
+
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
-    let mut tile_output = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
+    let mut tile_output = vec![Color16::default(); RENDER_WIDTH * RENDER_HEIGHT * 4];
     let mut tile_output_u32 = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
     let linear_to_srgb_table = flowi_sw_renderer::build_linear_to_srgb_table();
     let _application_settings = flowi_core::ApplicationSettings {
@@ -96,9 +112,9 @@ fn main() {
         height: HEIGHT,
     };
 
-    let mut core = flowi_core::Ui::new(Box::new(SofwareRenderer::new((WIDTH, HEIGHT), None)));
+    let mut core = flowi_core::Ui::new(Box::new(SoftwareRenderer::new((WIDTH, HEIGHT), None)));
     let font = core
-        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf")
+        .load_font("data/fonts/roboto/Roboto-Regular.ttf")
         .unwrap();
 
     let text_to_render = "Hello";
@@ -146,7 +162,7 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in tile_output.iter_mut() {
-            *i = 0x4000;
+            *i = Color16::new_splat(0x4000);
         }
 
         if let Some(text) = core.get_text(text_to_render, 16, font) {
@@ -187,7 +203,7 @@ fn main() {
 
 fn render_shapes(
     output: &mut [u32],
-    temp_output: &mut [i16],
+    temp_output: &mut [Color16],
     text_object: *const i16,
     text_object_width: usize,
     raster: &Raster,
@@ -293,7 +309,7 @@ fn render_shapes(
 pub fn copy_tile_linear_to_srgb(
     linear_to_srgb_table: &[u8; 4096],
     output: &mut [u32],
-    tile: &[i16],
+    tile: &[Color16],
 ) {
     let tile_width = RENDER_WIDTH;
     let tile_height = RENDER_HEIGHT;

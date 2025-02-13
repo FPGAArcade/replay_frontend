@@ -1,4 +1,4 @@
-use crate::image::{ImageFormat, ImageInfo, ImageOptions, ImageMode};
+use crate::image::{ImageFormat, ImageInfo, ImageMode, ImageOptions};
 use crate::io_handler::IoHandle;
 use crate::State;
 use resvg::{tiny_skia, usvg};
@@ -13,8 +13,8 @@ use zune_core::{
 
 use crate::primitives::IVec2;
 
+use image::{Color16, Falloff};
 use zune_image::{errors::ImageErrors as ZuneError, image::Image as ZuneImage};
-use color16::Color16;
 
 //use zune_jpeg::zune_core::colorspace::ColorSpace;
 
@@ -129,15 +129,24 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
         }
     };
 
+    let i = image::Image {
+        data: color16_output,
+        width: dimensions.0 as _,
+        height: dimensions.1 as _,
+        full_width: dimensions.0 as _,
+        full_height: dimensions.1 as _,
+        border_type: image::BorderType::None,
+    };
+
     let image = if let Some(image_opts) = image_options {
        if image_opts.mode == ImageMode::ScaleToTargetInteger {
-           image_scaler::upscale_image_integer(&color16_output, dimensions.0, dimensions.1,
-                                               image_opts.size.x as _, image_opts.size.y as _)
+           image::upscale_image_integer(&i, (image_opts.size.x as _, image_opts.size.y as _), Falloff::Enabled)
        } else {
            unimplemented!("Unsupported mode");
        }
     } else {
-        image_scaler::scale_image(&color16_output, dimensions.0 as _, dimensions.1 as _, 200, 200)
+        unimplemented!("No options");
+        //image_scaler::scale_image(&color16_output, dimensions.0 as _, dimensions.1 as _, 200, 200)
     };
 
     // TODO: handle multiple frames

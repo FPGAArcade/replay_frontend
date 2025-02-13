@@ -32,21 +32,21 @@ pub use image::ImageInfo;
 
 pub use clay_layout::{
     color::Color as ClayColor,
-    fixed, grow, percent,
-    id::Id,
+    fixed, grow, id::Id,
     layout::LayoutAlignmentX,
     layout::LayoutAlignmentY,
-    layout::{Alignment, Padding, Sizing, LayoutDirection},
-    text::TextConfig,
-    Declaration, math::Dimensions,
+    layout::{Alignment, LayoutDirection, Padding, Sizing},
+    math::Dimensions,
+    percent,
+    text::TextConfig, Declaration,
 };
-
-pub use color16::Color16;
 
 use flowi_renderer::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
     RenderType, Renderer, StringSlice,
 };
+
+pub use image::Color16;
 
 type FlowiKey = u64;
 

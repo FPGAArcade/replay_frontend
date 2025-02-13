@@ -1,7 +1,9 @@
 use simd::*;
-use color16::Color16;
+pub mod image;
 
 pub mod raster;
+pub use image::{RenderImage, Color16};
+
 pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
@@ -111,20 +113,22 @@ pub fn copy_tile_linear_to_srgb(
 
     let mut tile_ptr = tile.as_ptr();
     let mut output_index = ((y0 * width) + x0) * 3;
+    let and_mask = i16x8::new_splat(0xfff);
 
     for _y in 0..tile_height {
         let mut current_index = output_index;
         for _x in 0..(tile_width >> 1) {
             let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr as _);
             let rgba_rgba = rgba_rgba.shift_right::<LINEAR_TO_SRGB_SHIFT>();
+            let rgba_rgba = rgba_rgba.and(and_mask);
 
-            let r0 = (rgba_rgba.extract::<0>() as u16) & 0xfff;
-            let g0 = (rgba_rgba.extract::<1>() as u16) & 0xfff;
-            let b0 = (rgba_rgba.extract::<2>() as u16) & 0xfff;
+            let r0 = rgba_rgba.extract::<0>() as u16;
+            let g0 = rgba_rgba.extract::<1>() as u16;
+            let b0 = rgba_rgba.extract::<2>() as u16;
 
-            let r1 = (rgba_rgba.extract::<4>() as u16) & 0xfff;
-            let g1 = (rgba_rgba.extract::<5>() as u16) & 0xfff;
-            let b1 = (rgba_rgba.extract::<6>() as u16) & 0xfff;
+            let r1 = rgba_rgba.extract::<4>() as u16;
+            let g1 = rgba_rgba.extract::<5>() as u16;
+            let b1 = rgba_rgba.extract::<6>() as u16;
 
             unsafe {
                 let r0 = *linear_to_srgb_table.get_unchecked(r0 as usize);

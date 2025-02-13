@@ -1,5 +1,5 @@
 use simd::*;
-use color16::Color16;
+use image::Color16;
 
 pub struct ScaledImage {
     pub width: u16,

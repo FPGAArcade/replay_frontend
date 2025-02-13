@@ -1,8 +1,7 @@
 use flowi::ClayColor as Color;
 use flowi::Ui;
 use flowi::{
-    fixed, grow, Alignment, Layout, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding,
-    Rectangle,
+    fixed, grow, Alignment, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding,
 };
 
 #[derive(Copy, Clone)]
@@ -92,6 +91,7 @@ impl LeftSideMenu {
 
     #[rustfmt::skip]
     pub fn update(&mut self, ui: &Ui) {
+    /*
         self.offset += 0.01;
         ui.with_layout(Some("launcher_left_side"), [
             Layout::new()
@@ -125,5 +125,7 @@ impl LeftSideMenu {
                 }
             }
         });
+
+     */
     }
 }

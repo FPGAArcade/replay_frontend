@@ -2,13 +2,14 @@
 resolver = "2"
 members = [
     "crates/arena-allocator",
-    "crates/background_worker", "crates/demozoo-fetcher",
-    "crates/fileorama",
+    "crates/background_worker",
+    "crates/demozoo-fetcher",
     "crates/fileorama",
     "crates/flowi-renderer", 
     "crates/flowi_core", 
     "crates/flowi_sw_renderer", 
-    "crates/image-scaler", 
+    "crates/image",
+    "crates/image-scaler",
     "crates/simd",
     "main", 
     "tests/renderer_tests",

@@ -588,6 +588,7 @@ dependencies = [
  "fileorama",
  "flowi-renderer",
  "glam",
+ "image 0.1.0",
  "image-scaler",
  "log",
  "notify",
@@ -640,7 +641,6 @@ version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0299020c3ef3f60f526a4f64ab4a3d4ce116b1acbf24cdd22da0068e5d81dc3"
 dependencies = [
- "fontconfig-parser",
  "log",
  "memmap2",
  "slotmap",
@@ -917,6 +917,13 @@ dependencies = [
 
 [[package]]
 name = "image"
+version = "0.1.0"
+dependencies = [
+ "simd",
+]
+
+[[package]]
+name = "image"
 version = "0.25.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd6f44aed642f18953a158afeb30206f4d50da59fbc66ecb53c66488de73563b"
@@ -930,6 +937,7 @@ dependencies = [
 name = "image-scaler"
 version = "0.1.0"
 dependencies = [
+ "image 0.1.0",
  "simd",
 ]
 
@@ -1347,9 +1355,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.2"
+version = "1.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
+checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 
 [[package]]
 name = "openssl"
@@ -1655,6 +1663,7 @@ dependencies = [
  "flowi-renderer",
  "flowi_core",
  "flowi_sw_renderer",
+ "image 0.1.0",
  "minifb",
  "simd",
 ]
@@ -2124,7 +2133,7 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fd18766b2465d3a40ca28d9f62446ae872624ba0fdc060b24f11ee6b7e70d59"
 dependencies = [
- "image",
+ "image 0.25.5",
 ]
 
 [[package]]

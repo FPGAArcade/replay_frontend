@@ -8,6 +8,7 @@ use core::arch::aarch64::*;
 use core::arch::x86_64::*;
 
 use core::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::BitAnd;
 
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
@@ -352,6 +353,22 @@ impl f32x4 {
         }
     }
 
+    pub fn and(self, rhs: Self) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(self.v), vreinterpretq_u32_f32(rhs.v))),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_and_ps(self.v, rhs.v),
+            }
+        }
+    }
+
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]
     pub fn shuffle_2323(self) -> Self {
@@ -391,118 +408,110 @@ impl f32x4 {
 }
 
 impl i16x8 {
-    #[cfg(target_arch = "aarch64")]
     #[allow(clippy::too_many_arguments)]
     #[inline(always)]
     pub fn new(a: i16, b: i16, c: i16, d: i16, e: i16, f: i16, g: i16, h: i16) -> Self {
-        let temp = [a, b, c, d, e, f, g, h];
-        Self {
-            v: unsafe { vld1q_s16(temp.as_ptr()) },
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[allow(clippy::too_many_arguments)]
-    #[inline(always)]
-    pub fn new(a: i16, b: i16, c: i16, d: i16, e: i16, f: i16, g: i16, h: i16) -> Self {
-        Self {
-            v: unsafe { _mm_set_epi16(h, g, f, e, d, c, b, a) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn new_splat(a: i16) -> Self {
-        Self {
-            v: unsafe { vdupq_n_s16(a) },
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn new_splat(a: i16) -> Self {
-        Self {
-            v: unsafe { _mm_set1_epi16(a) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn load_unaligned(data: &[i16]) -> Self {
-        Self {
-            v: unsafe { vld1q_s16(data.as_ptr()) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn store_unaligned_ptr(self, data: *mut i16) {
+        #[cfg(target_arch = "aarch64")]
         unsafe {
-            vst1q_s16(data, self.v);
+            let temp = [a, b, c, d, e, f, g, h];
+            Self { v: vld1q_s16(temp.as_ptr()) }
+         }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe { Self { v: _mm_set_epi16(h, g, f, e, d, c, b, a) } }
+    }
+
+    #[inline(always)]
+    pub fn new_splat(a: i16) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self { v: vdupq_n_s16(a) }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self { v: _mm_set1_epi16(a) }
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
     #[inline(always)]
-    pub fn store_unaligned_ptr(self, data: *mut i16) {
+    pub fn load_unaligned<T: Sized>(data: &[T], offset: usize) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vld1q_s16(data.as_ptr().add(offset) as *const i16),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_loadu_si128(data.as_ptr().add(offset) as *const __m128i)
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn store_unaligned_ptr<T: Sized>(self, data: *const T) {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            vst1q_s16(data as *mut i16, self.v);
+        }
+
+        #[cfg(target_arch = "x86_64")]
         unsafe {
             _mm_storeu_si128(data as *mut __m128i, self.v);
         }
     }
 
-    #[cfg(target_arch = "aarch64")]
     #[inline(always)]
-    pub fn store_unaligned_ptr_lower(self, data: *mut i16) {
+    pub fn store_unaligned<T: Sized>(self, data: &mut [T], offset: usize) {
+        #[cfg(target_arch = "aarch64")]
         unsafe {
-            vst1_s16(data, vget_low_s16(self.v));
+            vst1q_s16(data.as_mut_ptr() as *mut i16, self.v);
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            _mm_storeu_si128(data.as_mut_ptr().add(offset) as *mut __m128i, self.v);
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
     #[inline(always)]
-    pub fn store_unaligned_ptr_lower(self, data: *mut i16) {
+    pub fn store_unaligned_lower<T: Sized>(self, data: &mut [T], offset: usize) {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            vst1_s16(data, vget_high_s16(self.v));
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            _mm_storeu_si64(data.as_mut_ptr().add(offset) as *mut u8, self.v);
+        }
+    }
+
+    #[inline(always)]
+    pub fn store_unaligned_ptr_lower<T: Sized>(self, data: *const T) {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            vst1_s16(data, vget_low_s16(self.v));
+        }
+
+        #[cfg(target_arch = "x86_64")]
         unsafe {
             _mm_storeu_si64(data as *mut u8, self.v);
         }
     }
 
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn load_unaligned(data: &[i16]) -> Self {
-        Self {
-            v: unsafe { _mm_loadu_si128(data.as_ptr() as *const __m128i) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn store_unaligned(self, data: &mut [i16]) {
+    pub fn load_unaligned_ptr<T: Sized>(data: *const T) -> Self {
+        #[cfg(target_arch = "aarch64")]
         unsafe {
-            vst1q_s16(data.as_mut_ptr(), self.v);
+            Self { v: vld1q_s16(data as *const i16) }
         }
-    }
 
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn store_unaligned(self, data: &mut [i16]) {
+        #[cfg(target_arch = "x86_64")]
         unsafe {
-            _mm_storeu_si128(data.as_mut_ptr() as *mut __m128i, self.v);
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn load_unaligned_ptr(data: *const i16) -> Self {
-        Self {
-            v: unsafe { vld1q_s16(data) },
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn load_unaligned_ptr(data: *const i16) -> Self {
-        Self {
-            v: unsafe { _mm_loadu_si128(data as *const __m128i) },
+            Self { v: _mm_loadu_si128(data as *const __m128i) }
         }
     }
 
@@ -601,6 +610,22 @@ impl i16x8 {
         let data = [6, 7, 6, 7, 6, 7, 16, 17, 14, 15, 14, 15, 14, 15, 16, 17];
 
         Self::tablebased_shuffle(self, splat_7fff, data)
+    }
+
+    pub fn and(self, rhs: Self) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vandq_s16(self.v, rhs.v),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_and_si128(self.v, rhs.v),
+            }
+        }
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -888,6 +913,23 @@ impl i32x4 {
         }
     }
 
+    #[inline(always)]
+    pub fn shift_right<const LANE: i32>(self) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vshrq_n_s32(self.v, LANE),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_srai_epi32::<LANE>(self.v),
+            }
+        }
+    }
+
     #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     pub fn min(self, rhs: Self) -> Self {
@@ -987,6 +1029,60 @@ impl i32x4 {
             let mut arr = [0; 4];
             _mm_storeu_si128(arr.as_mut_ptr() as *mut __m128i, self.v);
             arr
+        }
+    }
+}
+
+impl Mul for i32x4 {
+    type Output = Self;
+
+    #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
+    fn mul(self, rhs: Self) -> Self {
+        Self {
+            v: unsafe { vmulq_s32(self.v, rhs.v) },
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
+    fn mul(self, rhs: Self) -> Self {
+        Self {
+            v: unsafe { _mm_mullo_epi32(self.v, rhs.v) },
+        }
+    }
+}
+
+impl AddAssign for i32x4 {
+    #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
+    fn add_assign(&mut self, rhs: Self) {
+        self.v = unsafe { vaddq_s32(self.v, rhs.v) };
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
+    fn add_assign(&mut self, rhs: Self) {
+        self.v = unsafe { _mm_add_epi32(self.v, rhs.v) };
+    }
+}
+
+impl BitAnd for i32x4 {
+    type Output = Self;
+
+    #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
+    fn bitand(self, rhs: Self) -> Self {
+        Self {
+            v: unsafe { vandq_s32(self.v, rhs.v) },
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
+    fn bitand(self, rhs: Self) -> Self {
+        Self {
+            v: unsafe { _mm_and_si128(self.v, rhs.v) },
         }
     }
 }
@@ -1812,5 +1908,14 @@ mod simd_tests {
             result,
             [0x02, 0x01, 0x04, 0x03, 0x6, 0x5, 0x08, 0x07, 0, 0, 0, 0, 0, 0, 0, 0]
         );
+    }
+
+    #[test]
+    fn test_i16x8_and() {
+        let a = i16x8::new(0b1010, 0b0101, 0b1010, 0b0101, 0b1010, 0b0101, 0b1010, 0b0101);
+        let b = i16x8::new(0b1100, 0b1100, 0b0011, 0b0011, 0b1111, 0b1111, 0b0000, 0b0000);
+        let result = a.and(b).to_array();
+        assert_eq!(result, [0b1000, 0b0100, 0b0010, 0b0001, 0b1010, 0b0101, 0b0000, 0b0000]);
+
     }
 }

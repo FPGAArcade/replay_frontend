@@ -1,6 +1,6 @@
 use crate::TileInfo;
 use simd::*;
-use color16::Color16;
+use crate::image::{Color16, RenderImage};
 
 const TEXTURE_MODE_NONE: usize = 0;
 const TEXTURE_MODE_ALIGNED: usize = 1;
@@ -35,7 +35,7 @@ pub enum Corner {
 const CORNER_OFFSETS: [(f32, f32); 4] = [
     (1.0, 1.0), // TopLeft: No shift
     (0.0, 1.0), // TopRight: Shift down
-    (1.0, 0.0), // BottemLeft: Shift right
+    (1.0, 0.0), // BottomLeft: Shift right
     (0.0, 0.0), // BottomRight: Shift right and down
 ];
 
@@ -597,9 +597,9 @@ fn process_text_pixels<const COUNT: usize>(
             _ => unreachable!("Unexpected register index"),
         };
         if COUNT % 2 == 1 && i == num_registers - 1 {
-            i16x8::store_unaligned_ptr_lower(computed, dst_ptr as _);
+            i16x8::store_unaligned_ptr_lower(computed, dst_ptr);
         } else {
-            i16x8::store_unaligned_ptr(computed, dst_ptr as _);
+            i16x8::store_unaligned_ptr(computed, dst_ptr);
         }
     }
 }
@@ -619,8 +619,6 @@ fn calculate_render_params(
     coords: &[f32],
     tile_info: &TileInfo,
     scissor_rect: f32x4,
-    texture_width: usize,
-    text_data: *const i16,
 ) -> Option<RenderParams> {
     let x0y0x1y1_adjust =
         (f32x4::load_unaligned(coords) - tile_info.offsets) + f32x4::new_splat(0.5);
@@ -678,8 +676,6 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
         coords,
         tile_info,
         scissor_rect,
-        texture_width,
-        text_data,
     ) {
         params
     } else {
@@ -732,6 +728,74 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     }
 }
 
+fn hermite_intepolate(ai: f32, bi: f32, ci: f32, di: f32, t: f32) -> f32 {
+    let a = -ai / 2.0 + 3.0 * bi / 2.0 - 3.0 * ci / 2.0 + di / 2.0;
+    let b = ai - 5.0 * bi / 2.0 + 2.0 * ci - di / 2.0;
+    let c = -ai / 2.0 + ci / 2.0;
+    let d = b;
+    let t2 = t * t;
+    let t3 = t2 * t;
+    a * t3 + b * t2 + c * t + d
+}
+
+pub fn draw_scaled_image(
+    output: &mut [Color16],
+    scissor_rect: f32x4,
+    image: &RenderImage,
+    tile_info: &TileInfo,
+    coords: &[f32],
+    _color: i16x8)
+{
+    let _render_params = if let Some(params) = calculate_render_params(
+        coords,
+        tile_info,
+        scissor_rect,
+    ) {
+        params
+    } else {
+        return;
+    };
+
+    let x0 = _render_params.x0 as usize;
+    let y0 = _render_params.y0 as usize;
+    let x1 = _render_params.x1 as usize;
+    let y1 = _render_params.y1 as usize;
+
+    let ylen = y1 - y0;
+    let xlen = x1 - x0;
+
+    let tile_width = tile_info.width as usize;
+    let output = &mut output[(y0 * tile_width) + x0..(y1 * tile_width) + x1];
+    let mut output_ptr = output.as_mut_ptr();
+
+    let image_data = &image.real_data(0);
+
+    let y_step = ((image.height as u32) << 15) / ylen as u32;
+    let x_step = ((image.width as u32) << 15) / xlen as u32;
+    let mut y_current = 0u32;
+
+    for y in 0..ylen {
+        let y_img = ((y_current >> 15) * image.stride as u32) as usize;
+        let mut x_current = 0;
+
+        for x in 0..xlen {
+            let pos = y_img + (x_current >> 15) as usize;
+            let x_fract = (x_current & 0x7fff) as u16;
+            let offset = (y * tile_width) + x;
+
+
+            //let color = i16x8::load_unaligned(&image_data.data, pos);
+            //i16x8::store_unaligned_lower(color, output, offset);
+
+            x_current += x_step;
+        }
+
+        y_current += y_step;
+    }
+}
+
+
+
 impl Raster {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -748,36 +812,25 @@ impl Raster {
         texture_width: usize,
         texture_data: *const u64)
     {
-        let x0y0x1y1_adjust =
-            (f32x4::load_unaligned(coords) - tile_info.offsets) + f32x4::new_splat(0.5);
-        let x0y0x1y1 = x0y0x1y1_adjust.floor();
-        let x0y0x1y1_int = x0y0x1y1.as_i32x4();
-
-        // Make sure we intersect with the scissor rect otherwise skip rendering
-        if !f32x4::test_intersect(self.scissor_rect, x0y0x1y1) {
+        let rp = if let Some(params) = calculate_render_params(
+            coords,
+            tile_info,
+            self.scissor_rect,
+        ) {
+            params
+        } else {
             return;
-        }
+        };
 
-        let clip_diff = (x0y0x1y1_int - self.scissor_rect.as_i32x4())
-            .min(i32x4::new_splat(0))
-            .abs();
-
-        let clip_x = clip_diff.extract::<0>() as usize;
-        let clip_y = clip_diff.extract::<1>() as usize;
-
-        // Adjust for clipping
-        let mut text_data = unsafe { texture_data.add((clip_y * texture_width) + clip_x) };
-
-        let min_box = x0y0x1y1_int.min(self.scissor_rect.as_i32x4());
-        let max_box = x0y0x1y1_int.max(self.scissor_rect.as_i32x4());
-
-        let x0 = max_box.extract::<0>();
-        let y0 = max_box.extract::<1>();
-        let x1 = min_box.extract::<2>();
-        let y1 = min_box.extract::<3>();
+        let x0 = rp.x0;
+        let y0 = rp.y0;
+        let x1 = rp.x1;
+        let y1 = rp.y1;
 
         let ylen = y1 - y0;
         let xlen = x1 - x0;
+
+        let mut text_data = unsafe { texture_data.add((rp.clip_y * texture_width) + rp.clip_x) };
 
         let tile_width = tile_info.width as usize;
         let output = &mut output[(y0 as usize * tile_width + x0 as usize)..];

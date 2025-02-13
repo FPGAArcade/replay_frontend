@@ -1,7 +1,7 @@
 //use flowi::font::Font;
 use crate::left_side_menu::LeftSideMenu;
 use flowi::Application;
-use flowi::{grow, Layout, LayoutDirection};
+use flowi::{grow, LayoutDirection};
 use flowi::{FontHandle, Ui};
 
 mod config_loader;
@@ -31,6 +31,7 @@ pub(crate) struct App {
 
 #[rustfmt::skip]
 fn main_loop(ui: &Ui, app: &mut App) {
+    /*
     ui.with_layout(Some("main_view"), [
         Layout::new()
             .width(grow!())
@@ -40,6 +41,8 @@ fn main_loop(ui: &Ui, app: &mut App) {
     {
         app.left_side_menu.update(ui);
     });
+
+     */
 }
 
 fn main() {

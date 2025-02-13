@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-minifb = { path = "../../crates/rust_minifb" } 
+minifb = { path = "../../crates/rust_minifb" }
+image = { path = "../../crates/image" }
 simd = { path = "../../crates/simd" }
 flowi_core = { path = "../../crates/flowi_core" }
 flowi_sw_renderer = { path = "../../crates/flowi_sw_renderer" }
