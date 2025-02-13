@@ -1,4 +1,4 @@
-use simd::i16x8;
+use simd::{f32x4, i16x8, i32x4};
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Color16 {
@@ -36,57 +36,54 @@ pub enum BorderType {
     Repeat,
 }
 
-/// Image that holds pixels of type Color16 (16-bit value per color channel)
+/// RenderImage that holds pixels of type Color16 (16-bit value per color channel)
 /// The image data is made so there is a border around the image.
-pub struct Image {
+#[derive(Debug)]
+pub struct RenderImage {
     /// The image data. TODO: Arena
     pub data: Vec<Color16>,
-    /// Width of the image
+    /// Width of the image (this excludes the border)
     pub width: usize,
     /// Height of the image
     pub height: usize,
-    /// Width of the full image (including border)
-    pub full_width: usize,
-    /// Height of the full image (including border)
-    pub full_height: usize,
+    /// Full width of the image including the border
+    pub stride: usize,
+    /// Border size
+    pub border_size: usize,
+    /// Start of the data excluding the border
+    pub start_offset_ex_borders: usize,
     /// Type of border being used
     pub border_type: BorderType,
 }
 
-impl Image {
-    #[inline]
-    pub fn load_two_pixels(&self, offset: usize) -> simd::i16x8 {
-        simd::i16x8::load_unaligned_ptr(self.data[offset..].as_ptr() as _)
-    }
-
-    #[inline]
-    pub fn load_two_pixels_unchecked(&self, offset: usize) -> simd::i16x8 {
-        unsafe {
-            let ptr = self.data.get_unchecked(offset..).as_ptr();
-            simd::i16x8::load_unaligned_ptr(ptr as _)
+impl Default for RenderImage {
+    fn default() -> Self {
+        Self {
+            data: Vec::new(),
+            width: 0,
+            height: 0,
+            stride: 0,
+            border_size: 0,
+            start_offset_ex_borders: 0,
+            border_type: BorderType::None,
         }
     }
+}
 
+impl RenderImage {
+    /// Get the real data of the image (excluding the border)
     #[inline]
-    pub fn store_two_pixels(&mut self, offset: usize, value: simd::i16x8) {
-        let ptr = self.data[offset..].as_mut_ptr();
-        value.store_unaligned_ptr(ptr as _);
+    pub fn real_data(&self, offset: usize) -> &[Color16] {
+        &self.data[self.border_size + offset..]
     }
 
+    /// Gets the data image data with repect to a border offset. This is so we can
+    /// sample "outside" of the image for cases where we do samples around a pixel.
+    /// This is useful if we have a border size of two we can start from border 1.
     #[inline]
-    pub fn store_two_pixels_unchecked(&mut self, offset: usize, value: simd::i16x8) {
-        unsafe {
-            let ptr = self.data.get_unchecked_mut(offset..).as_mut_ptr();
-            value.store_unaligned_ptr(ptr as _);
-        }
-    }
-
-    #[inline]
-    pub fn store_single_unchecked(&mut self, offset: usize, value: simd::i16x8) {
-        unsafe {
-            let ptr = self.data.get_unchecked_mut(offset..).as_mut_ptr();
-            value.store_unaligned_ptr_lower(ptr as _);
-        }
+    pub fn data_with_border(&self, border: usize) -> &[Color16] {
+        let border_offset = (self.border_size * self.stride) + self.border_size;
+        &self.data[border_offset..]
     }
 }
 
@@ -120,29 +117,29 @@ pub enum Falloff {
 }
 
 pub fn upscale_image_integer(
-    image: &Image,
+    data: &[Color16],
+    size: (usize, usize),
     target_size: (usize, usize),
     falloff: Falloff,
-) -> Image {
-    let scale = calculate_scale_factor(image.width, image.height, target_size.0, target_size.1);
-    let width = image.width * scale;
-    let height = image.height * scale;
+) -> RenderImage {
+    let scale = calculate_scale_factor(size.0, size.1, target_size.0, target_size.1);
+    let out_width = size.0 * scale;
+    let out_height = size.1 * scale;
 
-    let mut output = Image {
-        data: vec![Color16::default(); width * height],
-        width,
-        height,
-        full_width: width,
-        full_height: height,
+    let mut output = RenderImage {
+        data: vec![Color16::default(); out_width * out_height], // TODO: Arena
+        width: out_width,
+        height: out_height,
+        border_size: 0,
+        start_offset_ex_borders: 0,
+        stride: out_width,
         border_type: BorderType::None,
     };
 
-    let out_width = image.width * scale;
-    let out_height = image.height * scale;
+    for y in 0..size.1 {
+        for x in 0..(size.0 >> 1) {
+            let rgba0_rgba1 = i16x8::load_unaligned(data, (y * size.0) + (x * 2)); // Load two pixels
 
-    for y in 0..image.height {
-        for x in 0..(image.width >> 1) {
-            let rgba0_rgba1 = image.load_two_pixels_unchecked((y * image.width) + (x * 2)); // Load two pixels
             let start_y = y * scale;
             let start_x = x * scale * 2;
 
@@ -172,14 +169,17 @@ pub fn upscale_image_integer(
 
                         // Store using SIMD-friendly vectorized writes
                         if dx + 1 < scale {
-                            output.store_two_pixels_unchecked(
+                            adjust_color.store_unaligned(
+                                &mut output.data,
                                 target_y_offset + current_x,
-                                adjust_color,
                             );
                             dx += 2;
                         } else {
-                            output
-                                .store_single_unchecked(target_y_offset + current_x, adjust_color);
+                            adjust_color.store_unaligned_lower(
+                                &mut output.data,
+                                target_y_offset + current_x,
+                            );
+
                             dx += 1;
                         }
                     }
@@ -194,27 +194,19 @@ pub fn upscale_image_integer(
     output
 }
 
-/*
-pub fn scale_image<const METHOD: usize>(image: &Image, target_size: (usize, usize)) -> Image {
 
-
-
-}
-
- */
-
-
-pub fn add_border(image: &Image, border_size: usize, border_type: BorderType) -> Image {
+pub fn add_border(image: &RenderImage, border_size: usize, border_type: BorderType) -> RenderImage {
     let full_width = image.width + border_size * 2;
     let full_height = image.height + border_size * 2;
     let total_size = full_width * full_height;
 
-    let mut new_image = Image {
+    let mut new_image = RenderImage {
         data: vec![Color16::default(); total_size],
         width: image.width,
         height: image.height,
-        full_width: full_width,
-        full_height: full_height,
+        stride: full_width,
+        border_size,
+        start_offset_ex_borders: border_size * full_width + border_size,
         border_type,
     };
 
@@ -236,7 +228,7 @@ pub fn add_border(image: &Image, border_size: usize, border_type: BorderType) ->
 
     // Fill the top and bottom borders
     for y in 0..border_size {
-        let index_top = y * new_image.full_width;
+        let index_top = y * new_image.stride;
         let target_start = index_top + border_size;
         let index_bottom = (full_height - 1 - y) * full_width;
         let target_end = index_bottom + border_size;
@@ -284,6 +276,133 @@ pub fn add_border(image: &Image, border_size: usize, border_type: BorderType) ->
     new_image
 }
 
+fn cubic_hermite_f32(ai: f32, bi: f32, ci: f32, di: f32, t: f32) -> f32 {
+    let a = -ai / 2.0 + (3.0 * bi) / 2.0 - (3.0 * ci) / 2.0 + di / 2.0;
+    let b = ai - (5.0 * bi) / 2.0 + 2.0 * ci - di / 2.0;
+    let c = -ai / 2.0 + ci / 2.0;
+    let d = bi;
+    let t2 = t * t;
+    let t3 = t2 * t;
+
+    a * t3 + b * t2 + c * t + d
+}
+
+fn cubic_hermite_c16(a: Color16, b: Color16, c: Color16, d: Color16, t: f32) -> Color16 {
+    let c0 = cubic_hermite_f32(a.r as f32, b.r as f32, c.r as f32, d.r as f32, t);
+    let c1 = cubic_hermite_f32(a.g as f32, b.g as f32, c.g as f32, d.g as f32, t);
+    let c2 = cubic_hermite_f32(a.b as f32, b.b as f32, c.b as f32, d.b as f32, t);
+    let c3 = cubic_hermite_f32(a.a as f32, b.a as f32, c.a as f32, d.a as f32, t);
+
+    let c0 = c0.max(0.0).min(32767.0) as i16;
+    let c1 = c1.max(0.0).min(32767.0) as i16;
+    let c2 = c2.max(0.0).min(32767.0) as i16;
+    let c3 = c3.max(0.0).min(32767.0) as i16;
+
+    Color16::new(c0, c1, c2, c3)
+}
+
+fn get_sample(image: &[Color16], y: i32, x: i32, width: usize) -> Color16 {
+    let x = x.max(0).min(4);
+    let y = y.max(0).min(4);
+    image[y as usize * width + x as usize]
+}
+
+pub fn draw_scaled_image(
+    output: &mut [Color16],
+    scissor_rect: f32x4,
+    image: &RenderImage,
+    tile_offsets: f32x4,
+    tile_width: usize,
+    coords: &[f32],
+    _color: i16x8)
+{
+    let x0y0x1y1_adjust =
+        (f32x4::load_unaligned(coords) - tile_offsets) + f32x4::new_splat(0.5);
+    let x0y0x1y1 = x0y0x1y1_adjust.floor();
+    let x0y0x1y1_int = x0y0x1y1.as_i32x4();
+
+    // Make sure we intersect with the scissor rect otherwise skip rendering
+    if !f32x4::test_intersect(scissor_rect, x0y0x1y1) {
+        return;
+    }
+
+    // Calculate the difference between the scissor rect and the current rect
+    // if diff is > 0 we return back a positive value to use for clipping
+    let clip_diff = (x0y0x1y1_int - scissor_rect.as_i32x4())
+        .min(i32x4::new_splat(0))
+        .abs();
+
+    let clip_x = clip_diff.extract::<0>() as usize;
+    let clip_y = clip_diff.extract::<1>() as usize;
+
+    let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
+    let max_box = x0y0x1y1_int.max(scissor_rect.as_i32x4());
+
+    let x0 = max_box.extract::<0>() as usize;
+    let y0 = max_box.extract::<1>() as usize;
+    let x1 = min_box.extract::<2>() as usize;
+    let y1 = min_box.extract::<3>() as usize;
+
+    let ylen = y1 - y0;
+    let xlen = x1 - x0;
+
+    let ylen = y1 - y0;
+    let xlen = x1 - x0;
+
+    let output = &mut output[(y0 as usize * tile_width) + x0..];
+    let mut output_ptr = output.as_mut_ptr();
+
+    let image_data = image.data.as_ref();
+
+    let y_step = ((image.height as u32) << 15) / ylen as u32;
+    let x_step = ((image.width as u32) << 15) / xlen as u32;
+    let mut y_current = 0u32;
+
+    for y in 0..ylen {
+        let y_int = (y_current >> 15) as i32;
+        let y_fract = (y_current & 0x7fff) as u16;
+        let mut x_current = 0;
+
+        for x in 0..xlen {
+            let x_int = ((x_current >> 15)) as i32;
+            let x_fract = (x_current & 0x7fff) as u16;
+            let offset = (y * tile_width) + x;
+
+            let p00 = get_sample(image_data, x_int - 1, y_int - 1, image.stride);
+            let p10 = get_sample(image_data, x_int + 0, y_int - 1, image.stride);
+            let p20 = get_sample(image_data, x_int + 1, y_int - 1, image.stride);
+            let p30 = get_sample(image_data, x_int + 2, y_int - 1, image.stride);
+
+            let p01 = get_sample(image_data, x_int - 1, y_int + 0, image.stride);
+            let p11 = get_sample(image_data, x_int + 0, y_int + 0, image.stride);
+            let p21 = get_sample(image_data, x_int + 1, y_int + 0, image.stride);
+            let p31 = get_sample(image_data, x_int + 2, y_int + 0, image.stride);
+
+            let p02 = get_sample(image_data, x_int - 1, y_int + 1, image.stride);
+            let p12 = get_sample(image_data, x_int + 0, y_int + 1, image.stride);
+            let p22 = get_sample(image_data, x_int + 1, y_int + 1, image.stride);
+            let p32 = get_sample(image_data, x_int + 2, y_int + 1, image.stride);
+
+            let p03 = get_sample(image_data, x_int - 1, y_int + 2, image.stride);
+            let p13 = get_sample(image_data, x_int + 0, y_int + 2, image.stride);
+            let p23 = get_sample(image_data, x_int + 1, y_int + 2, image.stride);
+            let p33 = get_sample(image_data, x_int + 2, y_int + 2, image.stride);
+
+            let col0 = cubic_hermite_c16(p00, p10, p20, p30, x_fract as f32 / 32768.0);
+            let col1 = cubic_hermite_c16(p01, p11, p21, p31, x_fract as f32 / 32768.0);
+            let col2 = cubic_hermite_c16(p02, p12, p22, p32, x_fract as f32 / 32768.0);
+            let col3 = cubic_hermite_c16(p03, p13, p23, p33, x_fract as f32 / 32768.0);
+            let val = cubic_hermite_c16(col0, col1, col2, col3, y_fract as f32 / 32768.0);
+
+            output[offset] = val;
+
+            x_current += x_step;
+        }
+
+        y_current += y_step;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,115 +443,6 @@ mod tests {
     }
 
     #[test]
-    fn test_load_two_pixels() {
-        let pixel0 = Color16::new(1, 2, 3, 4);
-        let pixel1 = Color16::new(5, 6, 7, 8);
-        let image = Image {
-            data: vec![pixel0, pixel1, Color16::default(), Color16::default()],
-            width: 2,
-            height: 2,
-            full_width: 2,
-            full_height: 2,
-            border_type: BorderType::None,
-        };
-
-        let simd_val = image.load_two_pixels(0);
-        let arr = simd_val.to_array();
-        assert_eq!(arr, [1, 2, 3, 4, 5, 6, 7, 8]);
-    }
-
-    #[test]
-    fn test_store_two_pixels() {
-        let pixel0 = Color16::new(1, 2, 3, 4);
-        let pixel1 = Color16::new(5, 6, 7, 8);
-        let data = vec![pixel0, pixel1];
-        let mut image = Image {
-            data,
-            width: 2,
-            height: 1,
-            full_width: 2,
-            full_height: 1,
-            border_type: BorderType::None,
-        };
-
-        // Create a new simd value from an array.
-        let new_arr = [10, 20, 30, 40, 50, 60, 70, 80];
-        let new_simd = simd::i16x8::load_unaligned_ptr(new_arr.as_ptr() as *const i16);
-        image.store_two_pixels(0, new_simd);
-
-        let simd_val = image.load_two_pixels(0);
-        let arr = simd_val.to_array();
-        assert_eq!(arr, new_arr);
-    }
-
-    #[test]
-    fn test_load_two_pixels_unchecked() {
-        let pixel0 = Color16::new(1, 2, 3, 4);
-        let pixel1 = Color16::new(5, 6, 7, 8);
-        let data = vec![pixel0, pixel1];
-        let image = Image {
-            data,
-            width: 2,
-            height: 1,
-            full_width: 2,
-            full_height: 1,
-            border_type: BorderType::None,
-        };
-
-        let simd_val = image.load_two_pixels_unchecked(0);
-        let arr = simd_val.to_array();
-        assert_eq!(arr, [1, 2, 3, 4, 5, 6, 7, 8]);
-    }
-
-    #[test]
-    fn test_store_two_pixels_unchecked() {
-        let pixel0 = Color16::default();
-        let pixel1 = Color16::default();
-        let data = vec![pixel0, pixel1];
-        let mut image = Image {
-            data,
-            width: 2,
-            height: 1,
-            full_width: 2,
-            full_height: 1,
-            border_type: BorderType::None,
-        };
-
-        let new_arr = [11, 12, 13, 14, 15, 16, 17, 18];
-        let new_simd = simd::i16x8::load_unaligned_ptr(new_arr.as_ptr() as *const i16);
-        image.store_two_pixels_unchecked(0, new_simd);
-
-        let simd_val = image.load_two_pixels_unchecked(0);
-        let arr = simd_val.to_array();
-        assert_eq!(arr, new_arr);
-    }
-
-    #[test]
-    fn test_store_single_unchecked() {
-        // Prepare an image with one pixel.
-        let data = vec![Color16::default()];
-        let mut image = Image {
-            data,
-            width: 1,
-            height: 1,
-            full_width: 1,
-            full_height: 1,
-            border_type: BorderType::None,
-        };
-
-        // Prepare a SIMD value whose lower four lanes are our target pixel values.
-        let arr = [100i16, 200, 300, 400, 999, 999, 999, 999];
-        let simd_val = simd::i16x8::load_unaligned_ptr(arr.as_ptr() as *const i16);
-        image.store_single_unchecked(0, simd_val);
-
-        let pixel = image.data[0];
-        assert_eq!(pixel.r, 100);
-        assert_eq!(pixel.g, 200);
-        assert_eq!(pixel.b, 300);
-        assert_eq!(pixel.a, 400);
-    }
-
-    #[test]
     fn test_calculate_scale_factor() {
         assert_eq!(calculate_scale_factor(2, 2, 4, 4), 2);
         // When the target is smaller than twice the original size, the scale factor should be 1.
@@ -449,13 +459,12 @@ mod tests {
         let pixel_c = Color16::new(3, 3, 3, 3);
         let pixel_d = Color16::new(4, 4, 4, 4);
         let input_data = vec![pixel_a, pixel_b, pixel_c, pixel_d];
-        let input_image = Image {
+        let input_image = RenderImage {
             data: input_data,
             width: 2,
             height: 2,
-            full_width: 2,
-            full_height: 2,
-            border_type: BorderType::None,
+            stride: 2,
+            ..Default::default()
         };
 
         // Upscale to 4x4. (Scale factor = 2)
@@ -502,13 +511,12 @@ mod tests {
         let pixel_c = Color16::new(30, 30, 30, 30);
         let pixel_d = Color16::new(40, 40, 40, 40);
         let input_data = vec![pixel_a, pixel_b, pixel_c, pixel_d];
-        let input_image = Image {
+        let input_image = RenderImage {
             data: input_data,
             width: 2,
             height: 2,
-            full_width: 2,
-            full_height: 2,
-            border_type: BorderType::None,
+            border_size: 0,
+            ..Default::default()
         };
 
         // For a target size of 6x6, the calculated scale factor is 3.
@@ -544,13 +552,12 @@ mod tests {
     #[test]
     fn test_add_border_black() {
         let pixel = Color16::new(1, 2, 3, 4);
-        let input_image = Image {
+        let input_image = RenderImage {
             data: vec![pixel; 4],
             width: 2,
             height: 2,
-            full_width: 2,
-            full_height: 2,
-            border_type: BorderType::None,
+            stride: 2,
+            ..Default::default()
         };
 
         let border_size = 1;
@@ -558,13 +565,15 @@ mod tests {
 
         assert_eq!(output_image.width, 2);
         assert_eq!(output_image.height, 2);
-        assert_eq!(output_image.full_width, 4);
-        assert_eq!(output_image.full_height, 4);
+        assert_eq!(output_image.border_size, 1);
+
+        let full_width = 4;
+        let full_height = 4;
 
         let black_pixel = Color16::default();
-        for y in 0..output_image.full_height {
-            for x in 0..output_image.full_width {
-                let index = y * output_image.full_width + x;
+        for y in 0..full_height {
+            for x in 0..full_width {
+                let index = y * output_image.stride + x;
                 if x == 0 || x == 3 || y == 0 || y == 3 {
                     assert_color_eq(&output_image.data[index], &black_pixel);
                 } else {
@@ -574,19 +583,18 @@ mod tests {
         }
     }
 
-#[test]
+    #[test]
     fn test_add_border_repeat() {
         let pixel0 = Color16::new(40, 40, 40, 40);
         let pixel1 = Color16::new(50, 50, 50, 50);
         let pixel2 = Color16::new(60, 60, 60, 60);
         let pixel3 = Color16::new(70, 70, 70, 70);
-        let input_image = Image {
+        let input_image = RenderImage {
             data: vec![pixel0, pixel1, pixel2, pixel3].to_vec(),
             width: 2,
             height: 2,
-            full_width: 2,
-            full_height: 2,
-            border_type: BorderType::None,
+            stride: 2,
+            ..Default::default()
         };
 
         let border_size = 1;
@@ -594,19 +602,21 @@ mod tests {
 
         assert_eq!(output_image.width, 2);
         assert_eq!(output_image.height, 2);
-        assert_eq!(output_image.full_width, 4);
-        assert_eq!(output_image.full_height, 4);
+        assert_eq!(output_image.border_size, 1);
 
-        let expected_data = vec![
+        let expected_data = &[
             pixel0, pixel0, pixel1, pixel1,
             pixel0, pixel0, pixel1, pixel1,
             pixel2, pixel2, pixel3, pixel3,
             pixel2, pixel2, pixel3, pixel3,
         ];
 
-        for y in 0..output_image.full_height {
-            for x in 0..output_image.full_width {
-                let index = y * output_image.full_width + x;
+        let full_width = 4;
+        let full_height = 4;
+
+        for y in 0..full_height {
+            for x in 0..full_width {
+                let index = y * output_image.stride + x;
                 assert_color_eq(&output_image.data[index], &expected_data[index]);
             }
         }

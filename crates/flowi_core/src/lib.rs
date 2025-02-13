@@ -11,6 +11,7 @@ pub mod widgets;
 use crate::input::Input;
 use crate::io_handler::IoHandle;
 use glam::Vec4;
+use ::image::RenderImage;
 
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
@@ -45,8 +46,6 @@ use flowi_renderer::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
     RenderType, Renderer, StringSlice,
 };
-
-pub use image::Color16;
 
 type FlowiKey = u64;
 
@@ -212,7 +211,7 @@ impl<'a> Ui<'a> {
     pub fn image(&self, handle: ImageHandle) {
         let state = unsafe { &mut *self.state.get() };
 
-        if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
+        if let Some(image) = state.io_handler.get_loaded_as::<RenderImage>(handle) {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
             unsafe {
@@ -246,9 +245,9 @@ impl<'a> Ui<'a> {
         });
     }
 
-    pub fn get_image(&self, handle: ImageHandle) -> Option<&ImageInfo> {
+    pub fn get_image(&self, handle: ImageHandle) -> Option<&RenderImage> {
         let state = unsafe { &mut *self.state.get() };
-        state.io_handler.get_loaded_as::<ImageInfo>(handle)
+        state.io_handler.get_loaded_as::<RenderImage>(handle)
     }
 
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
@@ -273,7 +272,7 @@ impl<'a> Ui<'a> {
         let mut primitives = Vec::with_capacity(1024);
 
         if let Some(bg_image) = state.background_image.as_ref() {
-            if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(bg_image.handle) {
+            if let Some(image) = state.io_handler.get_loaded_as::<RenderImage>(bg_image.handle) {
                 let width = state.screen_size.0 as f32;
 
                 let x0 = width - image.width as f32;

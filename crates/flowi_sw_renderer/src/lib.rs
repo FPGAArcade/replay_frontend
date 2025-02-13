@@ -1,5 +1,4 @@
 use simd::*;
-pub mod image;
 
 pub mod raster;
 pub use image::{RenderImage, Color16};
@@ -53,7 +52,7 @@ fn srgb_to_linear(x: f32) -> f32 {
 }
 
 // TODO: Verify that we are building the range correctly here
-fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
+pub fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
     let mut table = [0; 1 << 8];
 
     for (i, entry) in table.iter_mut().enumerate().take(1 << 8) {

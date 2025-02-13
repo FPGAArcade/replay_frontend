@@ -589,7 +589,6 @@ dependencies = [
  "flowi-renderer",
  "glam",
  "image 0.1.0",
- "image-scaler",
  "log",
  "notify",
  "raw-window-handle",
@@ -607,6 +606,7 @@ name = "flowi_sw_renderer"
 version = "0.1.0"
 dependencies = [
  "flowi-renderer",
+ "image 0.1.0",
  "raw-window-handle",
  "simd",
 ]
@@ -931,14 +931,6 @@ dependencies = [
  "bytemuck",
  "byteorder-lite",
  "num-traits",
-]
-
-[[package]]
-name = "image-scaler"
-version = "0.1.0"
-dependencies = [
- "image 0.1.0",
- "simd",
 ]
 
 [[package]]

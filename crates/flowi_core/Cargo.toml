@@ -12,7 +12,6 @@ cosmic-text = { version = "0.12", default-features = false, features = ["std", "
 fileorama = { path = "../fileorama" }
 flowi-renderer = { path = "../flowi-renderer" }
 glam = "0.29.0"
-image-scaler = { path = "../image-scaler" }
 log = "0.4"
 notify = "8.0"
 raw-window-handle = "0.6"
@@ -21,6 +20,6 @@ smallvec = "1.13"
 texture_packer = "0.29"
 thiserror = "2.0"
 tracing = { version = "0.1", features = ["log"] }
-image = { path = "../image" }
 zune-core = "0.4.12"
 zune-image = { version = "0.4", default-features = false, features = ["metadata", "jpeg", "png"] }
+image = { path = "../image" }

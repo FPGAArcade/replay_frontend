@@ -1,6 +1,6 @@
 use crate::TileInfo;
 use simd::*;
-use crate::image::{Color16, RenderImage};
+use image::{Color16, RenderImage};
 
 const TEXTURE_MODE_NONE: usize = 0;
 const TEXTURE_MODE_ALIGNED: usize = 1;

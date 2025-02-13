@@ -1,4 +1,4 @@
-use flowi_core::Color16;
+use image::{upscale_image_integer, Color16, RenderImage, BorderType};
 use flowi_renderer::Renderer;
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
@@ -22,6 +22,7 @@ enum Shape {
     RoundedBottomLeft,
     RoundedBottomRight,
     TextBuffer,
+    ScaleImage,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -87,30 +88,49 @@ fn draw_pixel_grid(output: &mut [u32], zoom: usize) {
     }
 }
 
-/*
-fn generate_sample_test_image() -> Image {
+fn generate_sample_test_image(srgb_to_linear: &[u16; 256]) -> RenderImage {
     // colors
     let colors = [
-        (121,209,81), (253,231,36), (52, 94, 141), (68, 190, 112), (189, 222, 48),
-        (68, 112, 112), (41, 120, 142), (34, 167, 132), (72, 45, 116), (64, 67, 135),
-        (41, 120, 142), (68,190,112), (64,67,135), (189,222,38), (68,1,84),
-        (72, 35, 116), (64, 67, 135), (52,94,141), (41,120,142), (32,144,140),
-        (41,120,142), (68,190,112), (68,1,84), (52,94,141), (72,35,116)
+        (121,209,81),   (253,231,36),   (52, 94, 141),  (68, 190, 112), (189, 222, 48),
+        (68, 112, 112), (41, 120, 142), (34, 167, 132), (72, 45, 116),  (64, 67, 135),
+        (41, 120, 142), (68,190,112),   (64,67,135),    (189,222,38),   (68,1,84),
+        (72, 35, 116),  (64, 67, 135),  (52,94,141),    (41,120,142),   (32,144,140),
+        (41,120,142),   (68,190,112),   (68,1,84),      (52,94,141),    (72,35,116)
     ];
 
+    let conv_data = colors.iter().map(|(r, g, b)| {
+        let r = srgb_to_linear[*r as usize] as _;
+        let g = srgb_to_linear[*g as usize] as _;
+        let b = srgb_to_linear[*b as usize] as _;
+        Color16::new(r, g, b, 0x7fff)
+    }).collect();
+
+    let render_image = RenderImage {
+        data: conv_data,
+        width: 5,
+        height: 5,
+        stride: 5,
+        ..RenderImage::default()
+    };
+
+    render_image
+
+    //image::add_border(&render_image, 3, BorderType::Repeat)
 }
 
- */
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
     let mut tile_output = vec![Color16::default(); RENDER_WIDTH * RENDER_HEIGHT * 4];
     let mut tile_output_u32 = vec![0; RENDER_WIDTH * RENDER_HEIGHT * 4];
+    let srgb_to_linear_table = flowi_sw_renderer::build_srgb_to_linear_table();
     let linear_to_srgb_table = flowi_sw_renderer::build_linear_to_srgb_table();
     let _application_settings = flowi_core::ApplicationSettings {
         width: WIDTH,
         height: HEIGHT,
     };
+
+    let scale_image = generate_sample_test_image(&srgb_to_linear_table);
 
     let mut core = flowi_core::Ui::new(Box::new(SoftwareRenderer::new((WIDTH, HEIGHT), None)));
     let font = core
@@ -153,7 +173,7 @@ fn main() {
         panic!("{}", e);
     });
 
-    let shape = Shape::RoundedTopLeft;
+    let shape = Shape::ScaleImage;
     let _render_mode = RenderMode::Flat;
     let _blend_mode = BlendMode::None;
 
@@ -162,37 +182,43 @@ fn main() {
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         for i in tile_output.iter_mut() {
-            *i = Color16::new_splat(0x4000);
+            *i = Color16::new_splat(0x1fff);
         }
 
-        if let Some(text) = core.get_text(text_to_render, 16, font) {
-            render_shapes(
-                &mut tile_output_u32,
-                &mut tile_output,
-                text.data.0 as _,
-                text.width as _,
-                &raster,
-                shape,
-                &[
-                    0.0,
-                    0.0,
-                    RENDER_WIDTH.min(text.width as _) as _,
-                    HEIGHT.min(text.height as _) as _,
-                ],
-                i16x8::new(
-                    0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
-                ),
-                i16x8::new(
-                    0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
-                ),
-                &linear_to_srgb_table,
-            );
+        /*
+        for y in 0..RENDER_HEIGHT {
+            for x in 0..RENDER_WIDTH {
+                let color = if (x + y) & 1 == 0 {
+                    0x3000
+                } else {
+                    0x7fff
+                };
+
+                tile_output[y * RENDER_WIDTH + x] = Color16::new_splat(color);
+            }
         }
+
+         */
+
+        if let Some(text) = core.get_text(text_to_render, 16, font) {
+            render_shapes(&mut tile_output_u32, &mut tile_output, text.data.0 as _, text.width as _, &scale_image, &raster, shape, &[
+                    0.0,
+                    0.0,
+                    128.0,
+                    128.0,
+                ], i16x8::new(
+                    0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
+                ), i16x8::new(
+                    0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
+                ), &linear_to_srgb_table);
+        }
+
+        //copy_tile_linear_to_srgb(&linear_to_srgb_table, &mut tile_output_u32, &tile_output);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
         window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
 
-        let zoom = 16;
+        let zoom = 1;
 
         zoom_buffer(&mut buffer, &tile_output_u32, zoom);
         //draw_pixel_grid(&mut buffer, zoom);
@@ -206,6 +232,7 @@ fn render_shapes(
     temp_output: &mut [Color16],
     text_object: *const i16,
     text_object_width: usize,
+    scale_image: &RenderImage,
     raster: &Raster,
     shape: Shape,
     coords: &[f32; 4],
@@ -300,6 +327,17 @@ fn render_shapes(
                 color_top,
             );
         }
+
+        Shape::ScaleImage => {
+            image::draw_scaled_image(
+                temp_output,
+                raster.scissor_rect,
+                scale_image,
+                tile_info.offsets,
+                RENDER_WIDTH,
+                coords,
+                color_top);
+        }
     }
 
     copy_tile_linear_to_srgb(linear_to_srgb_table, output, temp_output);
@@ -344,7 +382,7 @@ pub fn copy_tile_linear_to_srgb(
                 let rgb0 = (r0 << 16) | (g0 << 8) | b0;
                 let rgb1 = (r1 << 16) | (g1 << 8) | b1;
 
-                tile_ptr = tile_ptr.add(8);
+                tile_ptr = tile_ptr.add(2);
 
                 *output.get_unchecked_mut(current_index + 0) = rgb0;
                 *output.get_unchecked_mut(current_index + 1) = rgb1;

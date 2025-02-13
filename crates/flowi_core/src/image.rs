@@ -1,5 +1,6 @@
+use log::warn;
 use crate::primitives::{Color, IVec2, Vec2};
-pub use image::Color16;
+use image::Color16;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ImageFormat {
@@ -13,6 +14,20 @@ pub enum ImageFormat {
     Bgra = 3,
     /// 8-bit per channel Alpha only
     Alpha = 4,
+    /// 16-bit per channel Red, Green and Blue and Alpha
+    Rgba16 = 5,
+    /// 16-bit per channel Alpha only
+    Alpha16 = 6,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum BorderType {
+    /// No border
+    None,
+    /// A single pixel border
+    Black(usize),
+    /// Repeat the edge pixels
+    Repeat(usize),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -40,6 +55,8 @@ pub struct ImageInfo {
     pub frame_count: i32,
     /// How long each frame should be displayed for in milliseconds
     pub frame_delay: i32,
+    /// Border type of the image
+    pub border_type: BorderType
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

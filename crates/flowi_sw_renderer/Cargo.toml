@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 raw-window-handle = "0.6"
 simd = { path = "../simd" }
+image = { path = "../image" }
 flowi-renderer = { path = "../flowi-renderer" }
 

@@ -2,6 +2,7 @@ use crate::image::{ImageFormat, ImageInfo, ImageMode, ImageOptions};
 use crate::io_handler::IoHandle;
 use crate::State;
 use resvg::{tiny_skia, usvg};
+use image::{BorderType, Color16, Falloff};
 
 use fileorama::{Driver, DriverType, Error, Fileorama, LoadStatus, Progress};
 use thiserror::Error as ThisError;
@@ -12,8 +13,6 @@ use zune_core::{
 };
 
 use crate::primitives::IVec2;
-
-use image::{Color16, Falloff};
 use zune_image::{errors::ImageErrors as ZuneError, image::Image as ZuneImage};
 
 //use zune_jpeg::zune_core::colorspace::ColorSpace;
@@ -129,18 +128,11 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
         }
     };
 
-    let i = image::Image {
-        data: color16_output,
-        width: dimensions.0 as _,
-        height: dimensions.1 as _,
-        full_width: dimensions.0 as _,
-        full_height: dimensions.1 as _,
-        border_type: image::BorderType::None,
-    };
-
     let image = if let Some(image_opts) = image_options {
        if image_opts.mode == ImageMode::ScaleToTargetInteger {
-           image::upscale_image_integer(&i, (image_opts.size.x as _, image_opts.size.y as _), Falloff::Enabled)
+           let image_size = (dimensions.0 as _, dimensions.1 as _);
+           let output_size = (image_opts.size.x as _, image_opts.size.y as _);
+           Box::new(image::upscale_image_integer(&color16_output, image_size, output_size, Falloff::Enabled))
        } else {
            unimplemented!("Unsupported mode");
        }
@@ -150,16 +142,7 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
     };
 
     // TODO: handle multiple frames
-    let image_info = Box::new(ImageInfo {
-        data: image.data,
-        format: format as u32,
-        width: image.width as i32,
-        height: image.height as i32,
-        frame_delay: 0,
-        frame_count: 1,
-    });
-
-    Ok(box_to_vec_u8(image_info))
+    Ok(box_to_vec_u8(image))
 }
 
 fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8>, ImageErrors> {
@@ -203,6 +186,7 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
     let svg_data = pixmap.as_ref().data();
     let image_info_offset = std::mem::size_of::<ImageInfo>();
 
+    /*
     let _image_info = ImageInfo {
         data: Vec::new(),
         format: ImageFormat::Rgba as u32,
@@ -211,6 +195,8 @@ fn render_svg(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u8
         frame_count: 1,
         frame_delay: 0,
     };
+
+     */
 
     let mut output_data = vec![0u8; svg_data.len()]; // TODO: uninit
 
