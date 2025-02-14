@@ -689,6 +689,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "frontend-api"
+version = "0.1.0"
+
+[[package]]
 name = "fsevent-sys"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2113,9 +2117,11 @@ dependencies = [
 name = "test_bed"
 version = "0.1.0"
 dependencies = [
+ "arena-allocator",
  "demozoo-fetcher",
  "env_logger",
  "flowi",
+ "image 0.1.0",
  "log",
 ]
 
