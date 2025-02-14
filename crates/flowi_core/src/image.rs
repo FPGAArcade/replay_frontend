@@ -1,8 +1,9 @@
-use log::warn;
+// use log::warn;
 use crate::primitives::{Color, IVec2, Vec2};
 use image::Color16;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum ImageFormat {
     /// 8-bit per channel Red, Green and Blue
     Rgb = 0,

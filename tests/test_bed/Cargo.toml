@@ -7,6 +7,7 @@ edition = "2021"
 log = "0.4"
 env_logger = "0.10"
 flowi = { path = "../../crates/flowi" }
+image = { path = "../../crates/image" }
 demozoo-fetcher = { path = "../../crates/demozoo-fetcher" }
 
 [features]

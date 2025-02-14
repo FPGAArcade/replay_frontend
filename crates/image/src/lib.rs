@@ -82,7 +82,7 @@ impl RenderImage {
     /// This is useful if we have a border size of two we can start from border 1.
     #[inline]
     pub fn data_with_border(&self, border: usize) -> &[Color16] {
-        let border_offset = (self.border_size * self.stride) + self.border_size;
+        let border_offset = (border * self.stride) + border;
         &self.data[border_offset..]
     }
 }
@@ -307,7 +307,10 @@ fn get_sample(image: &[Color16], y: i32, x: i32, width: usize) -> Color16 {
     image[y as usize * width + x as usize]
 }
 
-pub fn draw_scaled_image(
+pub const SAMPLING_METHOD_REF_BICUBIC : usize = 0;
+pub const SAMPLING_METHOD_REF_BILINEAR : usize = 1;
+
+pub fn draw_scaled_image<const SAMPLING_METHOD: usize>(
     output: &mut [Color16],
     scissor_rect: f32x4,
     image: &RenderImage,
@@ -346,13 +349,8 @@ pub fn draw_scaled_image(
     let ylen = y1 - y0;
     let xlen = x1 - x0;
 
-    let ylen = y1 - y0;
-    let xlen = x1 - x0;
-
     let output = &mut output[(y0 as usize * tile_width) + x0..];
-    let mut output_ptr = output.as_mut_ptr();
-
-    let image_data = image.data.as_ref();
+    let image_data = image.real_data(clip_y * image.stride + clip_x);
 
     let y_step = ((image.height as u32) << 15) / ylen as u32;
     let x_step = ((image.width as u32) << 15) / xlen as u32;
@@ -362,39 +360,52 @@ pub fn draw_scaled_image(
         let y_int = (y_current >> 15) as i32;
         let y_fract = (y_current & 0x7fff) as u16;
         let mut x_current = 0;
+        let v_fraction = i16x8::new_splat(y_fract as i16);
 
         for x in 0..xlen {
             let x_int = ((x_current >> 15)) as i32;
             let x_fract = (x_current & 0x7fff) as u16;
             let offset = (y * tile_width) + x;
 
-            let p00 = get_sample(image_data, x_int - 1, y_int - 1, image.stride);
-            let p10 = get_sample(image_data, x_int + 0, y_int - 1, image.stride);
-            let p20 = get_sample(image_data, x_int + 1, y_int - 1, image.stride);
-            let p30 = get_sample(image_data, x_int + 2, y_int - 1, image.stride);
+            if SAMPLING_METHOD == SAMPLING_METHOD_REF_BICUBIC {
+                let p00 = get_sample(image_data, x_int - 1, y_int - 1, image.stride);
+                let p10 = get_sample(image_data, x_int + 0, y_int - 1, image.stride);
+                let p20 = get_sample(image_data, x_int + 1, y_int - 1, image.stride);
+                let p30 = get_sample(image_data, x_int + 2, y_int - 1, image.stride);
 
-            let p01 = get_sample(image_data, x_int - 1, y_int + 0, image.stride);
-            let p11 = get_sample(image_data, x_int + 0, y_int + 0, image.stride);
-            let p21 = get_sample(image_data, x_int + 1, y_int + 0, image.stride);
-            let p31 = get_sample(image_data, x_int + 2, y_int + 0, image.stride);
+                let p01 = get_sample(image_data, x_int - 1, y_int + 0, image.stride);
+                let p11 = get_sample(image_data, x_int + 0, y_int + 0, image.stride);
+                let p21 = get_sample(image_data, x_int + 1, y_int + 0, image.stride);
+                let p31 = get_sample(image_data, x_int + 2, y_int + 0, image.stride);
 
-            let p02 = get_sample(image_data, x_int - 1, y_int + 1, image.stride);
-            let p12 = get_sample(image_data, x_int + 0, y_int + 1, image.stride);
-            let p22 = get_sample(image_data, x_int + 1, y_int + 1, image.stride);
-            let p32 = get_sample(image_data, x_int + 2, y_int + 1, image.stride);
+                let p02 = get_sample(image_data, x_int - 1, y_int + 1, image.stride);
+                let p12 = get_sample(image_data, x_int + 0, y_int + 1, image.stride);
+                let p22 = get_sample(image_data, x_int + 1, y_int + 1, image.stride);
+                let p32 = get_sample(image_data, x_int + 2, y_int + 1, image.stride);
 
-            let p03 = get_sample(image_data, x_int - 1, y_int + 2, image.stride);
-            let p13 = get_sample(image_data, x_int + 0, y_int + 2, image.stride);
-            let p23 = get_sample(image_data, x_int + 1, y_int + 2, image.stride);
-            let p33 = get_sample(image_data, x_int + 2, y_int + 2, image.stride);
+                let p03 = get_sample(image_data, x_int - 1, y_int + 2, image.stride);
+                let p13 = get_sample(image_data, x_int + 0, y_int + 2, image.stride);
+                let p23 = get_sample(image_data, x_int + 1, y_int + 2, image.stride);
+                let p33 = get_sample(image_data, x_int + 2, y_int + 2, image.stride);
 
-            let col0 = cubic_hermite_c16(p00, p10, p20, p30, x_fract as f32 / 32768.0);
-            let col1 = cubic_hermite_c16(p01, p11, p21, p31, x_fract as f32 / 32768.0);
-            let col2 = cubic_hermite_c16(p02, p12, p22, p32, x_fract as f32 / 32768.0);
-            let col3 = cubic_hermite_c16(p03, p13, p23, p33, x_fract as f32 / 32768.0);
-            let val = cubic_hermite_c16(col0, col1, col2, col3, y_fract as f32 / 32768.0);
+                let col0 = cubic_hermite_c16(p00, p10, p20, p30, x_fract as f32 / 32768.0);
+                let col1 = cubic_hermite_c16(p01, p11, p21, p31, x_fract as f32 / 32768.0);
+                let col2 = cubic_hermite_c16(p02, p12, p22, p32, x_fract as f32 / 32768.0);
+                let col3 = cubic_hermite_c16(p03, p13, p23, p33, x_fract as f32 / 32768.0);
+                let val = cubic_hermite_c16(col0, col1, col2, col3, y_fract as f32 / 32768.0);
 
-            output[offset] = val;
+                output[offset] = val;
+            } else {
+                let image_offset = (y_int as usize * image.stride) + x_int as usize;
+
+                let u_fraction = i16x8::new_splat(x_fract as i16);
+                let rgba_rgba_0 = i16x8::load_unaligned(image_data, image_offset);
+                let rgba_rgba_1 = i16x8::load_unaligned(image_data, image_offset + image.stride);
+                let t0_t1 = i16x8::lerp(rgba_rgba_0, rgba_rgba_1, v_fraction);
+                let t = t0_t1.rotate_4();
+                let res = i16x8::lerp(t0_t1, t, u_fraction);
+                res.store_unaligned_lower(output, offset);
+            }
 
             x_current += x_step;
         }

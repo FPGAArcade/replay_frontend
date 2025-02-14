@@ -1,14 +1,15 @@
-use crate::image::{ImageFormat, ImageInfo, ImageMode, ImageOptions};
+//use crate::image::{ImageFormat, ImageInfo, ImageMode, ImageOptions};
+use crate::image::{ImageInfo, ImageMode, ImageOptions};
 use crate::io_handler::IoHandle;
 use crate::State;
 use resvg::{tiny_skia, usvg};
-use image::{BorderType, Color16, Falloff};
+use image::{Color16, Falloff};
 
 use fileorama::{Driver, DriverType, Error, Fileorama, LoadStatus, Progress};
 use thiserror::Error as ThisError;
 
 use zune_core::{
-    bit_depth::BitDepth, colorspace::ColorSpace as ZuneColorSpace,
+    bit_depth::BitDepth, // colorspace::ColorSpace as ZuneColorSpace,
     options::DecoderOptions as ZuneDecoderOptions,
 };
 
@@ -74,7 +75,7 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
     let srgb_to_linear = build_srgb_to_linear_table();
 
     let depth = image.depth();
-    let color_space = image.colorspace();
+    //let color_space = image.colorspace();
     let dimensions = image.dimensions();
 
     // Only supporting 8 bit depth for now
@@ -113,6 +114,8 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
         color16_output.push(Color16::new(r, g, b, a));
     }
 
+    // TODO: Handle different formats here
+    /*
     let format = match color_space {
         ZuneColorSpace::RGB => ImageFormat::Rgb,
         ZuneColorSpace::RGBA => ImageFormat::Rgba,
@@ -127,6 +130,8 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
             )))
         }
     };
+
+     */
 
     let image = if let Some(image_opts) = image_options {
        if image_opts.mode == ImageMode::ScaleToTargetInteger {

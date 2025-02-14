@@ -1,4 +1,4 @@
-use image::{upscale_image_integer, Color16, RenderImage, BorderType};
+use image::{Color16, RenderImage, BorderType};
 use flowi_renderer::Renderer;
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
@@ -113,9 +113,9 @@ fn generate_sample_test_image(srgb_to_linear: &[u16; 256]) -> RenderImage {
         ..RenderImage::default()
     };
 
-    render_image
+    //render_image
 
-    //image::add_border(&render_image, 3, BorderType::Repeat)
+    image::add_border(&render_image, 1, BorderType::Repeat)
 }
 
 
@@ -329,7 +329,7 @@ fn render_shapes(
         }
 
         Shape::ScaleImage => {
-            image::draw_scaled_image(
+            image::draw_scaled_image::<1>(
                 temp_output,
                 raster.scissor_rect,
                 scale_image,
@@ -355,20 +355,21 @@ pub fn copy_tile_linear_to_srgb(
 
     let mut tile_ptr = tile.as_ptr();
     let mut output_index = 0;
+    let and_mask = i16x8::new_splat(0xfff);
 
     for _y in 0..tile_height {
         let mut current_index = output_index;
         for _x in 0..(tile_width >> 1) {
             let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr);
-            let rgba_rgba = rgba_rgba.shift_right::<3>();
+            let rgba_rgba = rgba_rgba.shift_right::<3>().and(and_mask);
 
-            let r0 = (rgba_rgba.extract::<0>() as u16) & 0xfff;
-            let g0 = (rgba_rgba.extract::<1>() as u16) & 0xfff;
-            let b0 = (rgba_rgba.extract::<2>() as u16) & 0xfff;
+            let r0 = rgba_rgba.extract::<0>() as u16;
+            let g0 = rgba_rgba.extract::<1>() as u16;
+            let b0 = rgba_rgba.extract::<2>() as u16;
 
-            let r1 = (rgba_rgba.extract::<4>() as u16) & 0xfff;
-            let g1 = (rgba_rgba.extract::<5>() as u16) & 0xfff;
-            let b1 = (rgba_rgba.extract::<6>() as u16) & 0xfff;
+            let r1 = rgba_rgba.extract::<4>() as u16;
+            let g1 = rgba_rgba.extract::<5>() as u16;
+            let b1 = rgba_rgba.extract::<6>() as u16;
 
             unsafe {
                 let r0 = *linear_to_srgb_table.get_unchecked(r0 as usize) as u32;

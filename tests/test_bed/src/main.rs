@@ -4,9 +4,10 @@ use flowi::{
     fixed, grow, percent, Alignment, ClayColor, ImageHandle, LayoutAlignmentX, LayoutAlignmentY,
     LayoutDirection, FontHandle, Padding,
     BackgroundMode, Declaration,
-    ImageInfo, Color16,
+    ImageInfo,
     Dimensions,
 };
+use image::Color16;
 //use log::*;
 use demozoo_fetcher::ProductionEntry;
 

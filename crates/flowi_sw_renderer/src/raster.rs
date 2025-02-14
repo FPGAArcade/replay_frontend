@@ -1,6 +1,6 @@
 use crate::TileInfo;
 use simd::*;
-use image::{Color16, RenderImage};
+use image::{Color16};
 
 const TEXTURE_MODE_NONE: usize = 0;
 const TEXTURE_MODE_ALIGNED: usize = 1;
@@ -610,8 +610,8 @@ struct RenderParams {
     y1: i32,
     clip_y: usize,
     clip_x: usize,
-    ylen: i32,
-    xlen: i32,
+    _ylen: i32,
+    _xlen: i32,
 }
 
 #[inline(always)]
@@ -647,8 +647,8 @@ fn calculate_render_params(
     let x1 = min_box.extract::<2>();
     let y1 = min_box.extract::<3>();
 
-    let ylen = y1 - y0;
-    let xlen = x1 - x0;
+    let _ylen = y1 - y0;
+    let _xlen = x1 - x0;
 
     Some(RenderParams {
         x0,
@@ -657,8 +657,8 @@ fn calculate_render_params(
         y1,
         clip_x,
         clip_y,
-        ylen,
-        xlen,
+        _ylen,
+        _xlen,
     })
 }
 #[allow(clippy::too_many_arguments)]
@@ -727,74 +727,6 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
         text_line_ptr = text_data;
     }
 }
-
-fn hermite_intepolate(ai: f32, bi: f32, ci: f32, di: f32, t: f32) -> f32 {
-    let a = -ai / 2.0 + 3.0 * bi / 2.0 - 3.0 * ci / 2.0 + di / 2.0;
-    let b = ai - 5.0 * bi / 2.0 + 2.0 * ci - di / 2.0;
-    let c = -ai / 2.0 + ci / 2.0;
-    let d = b;
-    let t2 = t * t;
-    let t3 = t2 * t;
-    a * t3 + b * t2 + c * t + d
-}
-
-pub fn draw_scaled_image(
-    output: &mut [Color16],
-    scissor_rect: f32x4,
-    image: &RenderImage,
-    tile_info: &TileInfo,
-    coords: &[f32],
-    _color: i16x8)
-{
-    let _render_params = if let Some(params) = calculate_render_params(
-        coords,
-        tile_info,
-        scissor_rect,
-    ) {
-        params
-    } else {
-        return;
-    };
-
-    let x0 = _render_params.x0 as usize;
-    let y0 = _render_params.y0 as usize;
-    let x1 = _render_params.x1 as usize;
-    let y1 = _render_params.y1 as usize;
-
-    let ylen = y1 - y0;
-    let xlen = x1 - x0;
-
-    let tile_width = tile_info.width as usize;
-    let output = &mut output[(y0 * tile_width) + x0..(y1 * tile_width) + x1];
-    let mut output_ptr = output.as_mut_ptr();
-
-    let image_data = &image.real_data(0);
-
-    let y_step = ((image.height as u32) << 15) / ylen as u32;
-    let x_step = ((image.width as u32) << 15) / xlen as u32;
-    let mut y_current = 0u32;
-
-    for y in 0..ylen {
-        let y_img = ((y_current >> 15) * image.stride as u32) as usize;
-        let mut x_current = 0;
-
-        for x in 0..xlen {
-            let pos = y_img + (x_current >> 15) as usize;
-            let x_fract = (x_current & 0x7fff) as u16;
-            let offset = (y * tile_width) + x;
-
-
-            //let color = i16x8::load_unaligned(&image_data.data, pos);
-            //i16x8::store_unaligned_lower(color, output, offset);
-
-            x_current += x_step;
-        }
-
-        y_current += y_step;
-    }
-}
-
-
 
 impl Raster {
     #[allow(clippy::new_without_default)]
