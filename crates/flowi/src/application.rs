@@ -64,7 +64,7 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 
         state
             .ui
-            .begin(0.0, state.settings.width, state.settings.height);
+            .begin(state.ui.input().delta_time, state.settings.width, state.settings.height);
         user_trampoline_ud::<T>(state);
         state.ui.end();
 

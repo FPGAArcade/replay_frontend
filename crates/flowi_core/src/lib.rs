@@ -86,11 +86,30 @@ pub(crate) struct State<'a> {
     pub(crate) active_font: FontHandle,
     pub(crate) background_image: Option<BackgroundImage>,
     pub(crate) screen_size: (usize, usize),
+    pub(crate) delta_time: f32,
 }
 
 #[allow(dead_code)]
 pub struct Ui<'a> {
     state: UnsafeCell<State<'a>>,
+}
+
+/// The user can ask the system for action response for a given input. This allows us to make better
+/// choices for various inputs. Actions can be something like MoveDown,Up,etc. and we can map
+/// this to keyboard, mouse, gamepad, etc.
+pub enum ActionResponse {
+    None,
+    Pressed,
+    Holding(f32),
+}
+
+pub enum InputAction {
+    MoveUp,
+    MoveDown,
+    MoveLeft,
+    MoveRight,
+    Select,
+    Cancel,
 }
 
 impl<'a> Ui<'a> {
@@ -118,6 +137,7 @@ impl<'a> Ui<'a> {
             active_font: 0,
             background_image: None,
             screen_size: (0, 0),
+            delta_time: 0.0,
         };
 
         let data = Box::new(Ui {
@@ -177,7 +197,7 @@ impl<'a> Ui<'a> {
         state.active_font = font_id;
     }
 
-    pub fn begin(&mut self, _delta_time: f32, width: usize, height: usize) {
+    pub fn begin(&mut self, delta_time: f32, width: usize, height: usize) {
         let state = unsafe { &mut *self.state.get() };
         state
             .layout
@@ -187,6 +207,7 @@ impl<'a> Ui<'a> {
         state.primitives.rewind();
         state.button_id = 0;
         state.screen_size = (width, height);
+        state.delta_time = delta_time;
     }
 
     pub fn with_layout<F: FnOnce(&Ui)>(&self, declaration: &Declaration, f: F) {
@@ -250,6 +271,11 @@ impl<'a> Ui<'a> {
         state.io_handler.get_loaded_as::<RenderImage>(handle)
     }
 
+    pub fn update_scroll_containers(&self, scroll_delta: (f32, f32)) {
+        let state = unsafe { &mut *self.state.get() };
+        state.layout.update_scroll_containers(false, scroll_delta.into(), state.delta_time);
+    }
+
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
         let bb = render_command.bounding_box;
         [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
@@ -262,6 +288,22 @@ impl<'a> Ui<'a> {
             b: color.b,
             a: color.a,
         }
+    }
+
+    pub fn update_scroll(&self, id: Id, scroll_pos: (f32, f32)) {
+        let state = unsafe { &mut *self.state.get() };
+        if let Some(scroll_container) = state.layout.scroll_container_data(id) {
+            unsafe {
+                (*scroll_container.scrollPosition).x = scroll_pos.0;
+                (*scroll_container.scrollPosition).y = scroll_pos.1;
+            }
+        }
+    }
+
+    #[inline]
+    pub fn delta_time(&self) -> f32 {
+        let state = unsafe { &mut *self.state.get() };
+        state.delta_time
     }
 
     fn translate_clay_render_commands(
@@ -422,6 +464,10 @@ impl<'a> Ui<'a> {
         &mut state.input
     }
 
+    pub fn get_input_action(&self, action: InputAction) -> ActionResponse {
+        ActionResponse::None
+    }
+
     pub fn load_font(&mut self, path: &str) -> InternalResult<FontHandle> {
         let state = unsafe { &mut *self.state.get() };
         state.text_generator.load_font(path, &state.bg_worker)
@@ -488,7 +534,7 @@ impl<'a> Ui<'a> {
 
                 let id = state.layout.id(id_name);
 
-                if let Some(aabb) = state.layout.get_bounding_box(id) {
+                if let Some(aabb) = state.layout.bounding_box(id) {
                     let item = state.item_states.entry(id.id.id).or_insert(ItemState {
                         aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height),
                         ..Default::default()
@@ -520,7 +566,7 @@ impl<'a> Ui<'a> {
 
         let id = state.layout.id(id_name);
 
-        if let Some(aabb) = state.layout.get_bounding_box(id) {
+        if let Some(aabb) = state.layout.bounding_box(id) {
             let item = state.item_states.entry(id.id.id).or_insert(ItemState {
                 aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height),
                 ..Default::default()

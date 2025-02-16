@@ -334,6 +334,8 @@ impl Window for Sdl2Window {
             1.0 / 60.0
         };
 
+        input.delta_time = delta_time as f32;
+
         let _display_size = self.canvas.window().drawable_size();
         let _window_size = self.canvas.window().size();
 

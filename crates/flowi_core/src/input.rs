@@ -192,6 +192,7 @@ pub struct Input {
     pub(crate) mouse_pos: Vec2,
     pub(crate) mouse_pos_prev: Vec2,
     pub(crate) mouse_buttons: [MouseState; 5],
+    pub delta_time: f32,
 }
 
 impl Input {
@@ -207,6 +208,7 @@ impl Input {
                 key_repeat_delay: 0.250,
                 key_repeat_rate: 0.050,
             },
+            delta_time: 0.0,
         }
     }
 

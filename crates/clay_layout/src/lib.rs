@@ -373,13 +373,26 @@ impl<'a> Clay<'a> {
         unsafe { Clay_GetElementData(id.id) }
     }
 
-    pub fn get_bounding_box(&self, id: Id) -> Option<BoundingBox> {
+    pub fn bounding_box(&self, id: Id) -> Option<BoundingBox> {
         let element_data = Self::get_element_data(id);
 
         if element_data.found {
             Some(element_data.boundingBox.into())
         } else {
             None
+        }
+    }
+
+    pub fn scroll_container_data(&self, id: Id) -> Option<Clay_ScrollContainerData> {
+        unsafe {
+            Clay_SetCurrentContext(self.context);
+            let scroll_container_data = Clay_GetScrollContainerData(id.id);
+
+            if scroll_container_data.found {
+                Some(scroll_container_data)
+            } else {
+                None
+            }
         }
     }
 

@@ -186,6 +186,12 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
         for index in tile.data.iter() {
             let render_cmd = &commands[*index];
+            let blend_mode = if render_cmd.color.a == 255.0 {
+                raster::BlendMode::None
+            } else {
+                raster::BlendMode::WithBackground
+            };
+
             let color =
                 get_color_from_floats_0_255(render_cmd.color, &renderer.srgb_to_linear_table);
 
@@ -197,7 +203,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &tile_info,
                         &render_cmd.bounding_box,
                         color,
-                        raster::BlendMode::None,
+                        blend_mode,
                     );
                 }
 
@@ -210,7 +216,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &render_cmd.bounding_box,
                         color,
                         &rect.corners,
-                        raster::BlendMode::None,
+                        blend_mode,
                     );
                 }
 
