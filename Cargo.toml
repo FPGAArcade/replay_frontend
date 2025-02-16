@@ -15,22 +15,22 @@ members = [
     "tests/test_bed",
 ]
 
-[profile.dev.package.zune-png]
-opt-level = 3
-
-[profile.dev.package.zune-jpeg]
-opt-level = 3
-
-[profile.dev.package.resvg]
-opt-level = 3
-
-# [profile.dev.package.flowi_sw_renderer]
+# [profile.dev.package.zune-png]
 # opt-level = 3
+
+# [profile.dev.package.zune-jpeg]
+# opt-level = 3
+
+# [profile.dev.package.resvg]
+# opt-level = 3
+
+[profile.dev.package.flowi_sw_renderer]
+opt-level = 3
 
 # [profile.dev.package.image-scaler]
 # opt-level = 3
 
-[profile.release]
-opt-level = 3
-lto = "fat"
+# [profile.release]
+# opt-level = 3
+# lto = "fat"
 
