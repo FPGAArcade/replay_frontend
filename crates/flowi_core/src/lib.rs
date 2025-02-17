@@ -51,12 +51,12 @@ type FlowiKey = u64;
 
 #[derive(Debug, Default)]
 #[allow(dead_code)]
-struct ItemState {
-    aabb: Vec4,
-    was_hovered: bool,
-    was_clicked: bool,
-    hot: f32,
-    frame: u64,
+pub struct ItemState {
+    pub aabb: Vec4,
+    pub was_hovered: bool,
+    pub was_clicked: bool,
+    pub active: f32,
+    pub frame: u64,
 }
 
 pub enum BackgroundMode {
@@ -87,6 +87,7 @@ pub(crate) struct State<'a> {
     pub(crate) background_image: Option<BackgroundImage>,
     pub(crate) screen_size: (usize, usize),
     pub(crate) delta_time: f32,
+    pub(crate) focus_id: Option<Id>,
 }
 
 #[allow(dead_code)]
@@ -110,6 +111,13 @@ pub enum InputAction {
     MoveRight,
     Select,
     Cancel,
+}
+
+struct ItemStatus {
+    hot: f32,
+    frame_id: u64,
+    was_hovered: bool,
+    was_clicked: bool,
 }
 
 impl<'a> Ui<'a> {
@@ -138,6 +146,7 @@ impl<'a> Ui<'a> {
             background_image: None,
             screen_size: (0, 0),
             delta_time: 0.0,
+            focus_id: None,
         };
 
         let data = Box::new(Ui {
@@ -266,6 +275,11 @@ impl<'a> Ui<'a> {
         });
     }
 
+    pub fn set_focus_id(&self, id: Id) {
+        let state = unsafe { &mut *self.state.get() };
+        state.focus_id = Some(id);
+    }
+
     pub fn get_image(&self, handle: ImageHandle) -> Option<&RenderImage> {
         let state = unsafe { &mut *self.state.get() };
         state.io_handler.get_loaded_as::<RenderImage>(handle)
@@ -306,11 +320,18 @@ impl<'a> Ui<'a> {
         state.delta_time
     }
 
-    fn translate_clay_render_commands(
-        state: &State,
-        commands: impl Iterator<Item = ClayRenderCommand<'a>>,
-    ) -> Vec<RenderCommand> {
-        // TODO: Arena
+    pub fn end(&mut self) {
+        let state = unsafe { &mut *self.state.get() };
+
+        // TODO: Don't iterate over all boxes twices
+        let focus_id = if let Some(id) = state.focus_id {
+            id.id
+        } else {
+            state.layout.id("").id
+        };
+
+        let anime_rate = 1.0 - 2f32.powf(-8.0 * state.delta_time);
+
         let mut primitives = Vec::with_capacity(1024);
 
         if let Some(bg_image) = state.background_image.as_ref() {
@@ -338,7 +359,25 @@ impl<'a> Ui<'a> {
             }
         }
 
-        for command in commands {
+        dbg!("focus id {}", focus_id);
+
+        for command in state.layout.end() {
+            let aabb = Self::bounding_box(&command);
+
+            let item = state.item_states.entry(command.id).or_insert(ItemState {
+                ..Default::default()
+            });
+
+            let is_active = if command.id == focus_id.id {
+                1.0
+            } else {
+                0.0
+            };
+
+            item.active += anime_rate * (is_active - item.active);
+            item.aabb = Vec4::new(aabb[0], aabb[1], aabb[2], aabb[3]);
+            item.frame = state.current_frame;
+
             let (cmd, color) = match command.config {
                 RenderCommandConfig::Rectangle(ref config) => {
                     let corners = [
@@ -404,7 +443,7 @@ impl<'a> Ui<'a> {
                     ];
 
                     (RenderType::DrawBorder(DrawBorderData { outer_radius, inner_radius }),
-                        Self::color(border.color) )
+                     Self::color(border.color) )
                 }
 
                 RenderCommandConfig::ScissorStart() => {
@@ -430,14 +469,10 @@ impl<'a> Ui<'a> {
             primitives.push(cmd);
         }
 
-        primitives
-    }
+        // remove all items that doesn't match the current frame
+        //state.item_states.retain(|_, item| item.frame == state.current_frame);
 
-    pub fn end(&mut self) {
-        let state = unsafe { &mut *self.state.get() };
-
-        // TODO: Fix me
-        let primitives = Self::translate_clay_render_commands(state, state.layout.end());
+        //let primitives = Self::translate_clay_render_commands(state, commands);
         state.renderer.render(&primitives);
 
         // Generate primitives from all boxes
@@ -534,13 +569,8 @@ impl<'a> Ui<'a> {
 
                 let id = state.layout.id(id_name);
 
-                if let Some(aabb) = state.layout.bounding_box(id) {
-                    let item = state.item_states.entry(id.id.id).or_insert(ItemState {
-                        aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height),
-                        ..Default::default()
-                    });
-                    item.aabb = Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height);
-                    signal = self.signal(item)
+                if let Some(item) = state.item_states.get_mut(&id.id.id) {
+                    signal = self.signal(item);
                 }
             },
         );
@@ -566,6 +596,11 @@ impl<'a> Ui<'a> {
 
         let id = state.layout.id(id_name);
 
+        if let Some(item) = state.item_states.get_mut(&id.id.id) {
+            signal = self.signal(item);
+        }
+
+    /*
         if let Some(aabb) = state.layout.bounding_box(id) {
             let item = state.item_states.entry(id.id.id).or_insert(ItemState {
                 aabb: Vec4::new(aabb.x, aabb.y, aabb.x + aabb.width, aabb.y + aabb.height),
@@ -575,8 +610,15 @@ impl<'a> Ui<'a> {
             signal = self.signal(item)
         }
 
+     */
+
         state.button_id += 1;
         signal
+    }
+
+    pub fn item_state(&self, id: Id) -> Option<&ItemState> {
+        let state = unsafe { &mut *self.state.get() };
+        state.item_states.get(&id.id.id)
     }
 
     #[allow(dead_code)]

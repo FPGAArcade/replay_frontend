@@ -1,3 +1,9 @@
+mod content_selector;
+mod online_demo_selector;
+mod content_provider;
+mod demozoo_fetcher;
+
+use arena_allocator;
 use flowi::{Application};
 use flowi::Ui;
 use flowi::{
@@ -10,6 +16,7 @@ use flowi::{
 use image::Color16;
 //use log::*;
 use demozoo_fetcher::ProductionEntry;
+use crate::online_demo_selector::OnlineDemoSelector;
 
 pub struct Fonts {
     pub default: FontHandle,
@@ -18,6 +25,66 @@ pub struct Fonts {
     pub light: FontHandle,
 }
 
+#[allow(dead_code)]
+pub(crate) struct App {
+    width: usize,
+    height: usize,
+    fonts: Fonts,
+    online_demo_selector: OnlineDemoSelector,
+}
+
+#[rustfmt::skip]
+fn main_loop(ui: &Ui, app: &mut App) {
+    ui.with_layout(&Declaration::new()
+        .layout()
+            .width(grow!())
+            .height(grow!())
+            .direction(LayoutDirection::TopToBottom)
+        .end(), |ui|
+    {
+        app.online_demo_selector.update(ui);
+        //display_demo_entry(ui, &_app, &_app.demo_entries[0]);
+        //draw_image_grid_unlimited_scroll(ui, _app);
+    });
+}
+
+fn main() {
+    let width = 1920;
+    let height = 1080;
+
+    /*
+    let _ = env_logger::builder()
+        .filter_level(LevelFilter::max())
+        .init();
+    */
+
+    let settings = flowi::ApplicationSettings { width, height };
+
+    let mut flowi_app = Application::new(&settings); //.unwrap();
+    let ui = &mut flowi_app.ui;
+
+    //ui.set_background_image(image, BackgroundMode::AlignTopRight);
+
+    let fonts = Fonts {
+        bold: ui.load_font("data/fonts/roboto/Roboto-Bold.ttf").unwrap(),
+        default: ui.load_font("data/fonts/roboto/Roboto-Regular.ttf").unwrap(),
+        thin: ui.load_font("data/fonts/roboto/Roboto-Thin.ttf").unwrap(),
+        light: ui.load_font("data/fonts/roboto/Roboto-Light.ttf").unwrap(),
+    };
+
+    let app = Box::new(App {
+        width,
+        height,
+        fonts,
+        online_demo_selector: OnlineDemoSelector::new(),
+    });
+
+    if !flowi_app.run(app, main_loop) {
+        println!("Failed to create main application");
+    }
+}
+
+/*
 struct DemoEntry {
     metadata: ProductionEntry,
     thumbnail_screenshots: Vec<ImageHandle>,
@@ -105,15 +172,6 @@ impl DemoEntry {
             },
         }
     }
-}
-
-#[allow(dead_code)]
-pub(crate) struct App {
-    width: usize,
-    height: usize,
-    image: ImageHandle,
-    demo_entries: Vec<DemoEntry>,
-    fonts: Fonts,
 }
 
 
@@ -280,18 +338,18 @@ fn draw_image_grid_unlimited_scroll(ui: &Ui, _app: &mut App) {
     ui.with_layout(&Declaration::new()
         .id(ui.id("selection_grid"))
         .layout()
-            .width(grow!())
-            .height(percent!(0.5))
-            .direction(LayoutDirection::LeftToRight)
-            .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
-            .child_gap(64)
-            .padding(Padding::horizontal(64))
+        .width(grow!())
+        .height(percent!(0.5))
+        .direction(LayoutDirection::LeftToRight)
+        .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+        .child_gap(64)
+        .padding(Padding::horizontal(64))
         .end(), |ui|
-    {
-        for i in 0..6 {
-            draw_selection_entry(ui, _app, i, i == 0);
-        }
-    });
+                       {
+                           for i in 0..6 {
+                               draw_selection_entry(ui, _app, i, i == 0);
+                           }
+                       });
 }
 
 #[rustfmt::skip]
@@ -307,69 +365,37 @@ fn main_loop(ui: &Ui, _app: &mut App) {
         draw_image_grid_unlimited_scroll(ui, _app);
     });
 }
+*/
 
-fn main() {
-    let width = 1920;
-    let height = 1080;
+/*
+// This is obviously temporary but will do for now
+let mut demo_entries = vec![
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/2.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5312.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5313.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5314.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5315.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5316.json")),
+];
 
-    /*
-    let _ = env_logger::builder()
-        .filter_level(LevelFilter::max())
-        .init();
-    */
+// TODO: This should be done one-demand
 
-    let settings = flowi::ApplicationSettings { width, height };
-
-    let mut flowi_app = Application::new(&settings); //.unwrap();
-    let ui = &mut flowi_app.ui;
-
-    // This is obviously temporary but will do for now
-    let mut demo_entries = vec![
-        DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/2.json")),
-        DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5312.json")),
-        DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5313.json")),
-        DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5314.json")),
-        DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5315.json")),
-        DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5316.json")),
-    ];
-
-    // TODO: This should be done one-demand
-
-    /*
-    for entry in demo_entries.iter_mut() {
-        for screenshot in entry.metadata.screenshots.iter().take(1) {
-            println!("loading {:?}", &screenshot.thumbnail_url);
-            let local_path = demozoo_fetcher::get_image(&screenshot.thumbnail_url).unwrap();
-            let image = ui.load_image(&local_path).unwrap();
-            entry.thumbnail_screenshots.push(image);
-        }
-    }
-        :
-     */
-
-    //let image = flowi_app.ui.load_image("/Users/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
-    let image = ui
-        .load_background_image("data/test_data/image_cache/b9519e5917ab222fa311e1b642d03f227ce51cfb11f42e87e1f74f2bd23f2e90.png", (width as _, height as _))
-        .unwrap();
-
-    ui.set_background_image(image, BackgroundMode::AlignTopRight);
-
-    let fonts = Fonts {
-        bold: ui.load_font("data/fonts/roboto/Roboto-Bold.ttf").unwrap(),
-        default: ui.load_font("data/fonts/roboto/Roboto-Regular.ttf").unwrap(),
-        thin: ui.load_font("data/fonts/roboto/Roboto-Thin.ttf").unwrap(),
-        light: ui.load_font("data/fonts/roboto/Roboto-Light.ttf").unwrap(),
-    };
-
-    let app = Box::new(App {
-        width,
-        height,
-        image,
-        demo_entries,
-        fonts,
-    });
-
-    if !flowi_app.run(app, main_loop) {
-        println!("Failed to create main application");
+/*
+for entry in demo_entries.iter_mut() {
+    for screenshot in entry.metadata.screenshots.iter().take(1) {
+        println!("loading {:?}", &screenshot.thumbnail_url);
+        let local_path = demozoo_fetcher::get_image(&screenshot.thumbnail_url).unwrap();
+        let image = ui.load_image(&local_path).unwrap();
+        entry.thumbnail_screenshots.push(image);
     }
 }
+    :
+ */
+
+//let image = flowi_app.ui.load_image("/Users/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
+let image = ui
+.load_background_image("data/test_data/image_cache/b9519e5917ab222fa311e1b642d03f227ce51cfb11f42e87e1f74f2bd23f2e90.png", (width as _, height as _))
+.unwrap();
+
+ */
+

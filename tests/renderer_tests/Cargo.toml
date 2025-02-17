@@ -9,4 +9,4 @@ simd = { path = "../../crates/simd" }
 image = { path = "../../crates/image" }
 flowi_core = { path = "../../crates/flowi_core" }
 flowi_sw_renderer = { path = "../../crates/flowi_sw_renderer" }
-flowi-renderer = { path = "../../crates/flowi-renderer" }
+flowi-renderer = { path = "../../crates/flowi-api" }

@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-log = "0.4"
+arena-allocator = { path = "../../crates/arena-allocator" }
 env_logger = "0.10"
 flowi = { path = "../../crates/flowi" }
 image = { path = "../../crates/image" }
-demozoo-fetcher = { path = "../../crates/demozoo-fetcher" }
+log = "0.4"
+nanoserde = { version = "0.2.0-beta.0", default-features = false, features = ["std", "json"] }
+sha2 = "0.10"
+ureq = "3.0"
 
 [features]
 default = []
