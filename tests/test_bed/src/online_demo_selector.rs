@@ -2,7 +2,7 @@ use flowi::{fixed, grow, percent, Alignment, ClayColor, Declaration, LayoutAlign
 use crate::{App};
 use crate::content_provider::{ContentProvider, Item};
 use crate::content_selector::ContentSelector;
-
+use flowi_api::ImageHandle;
 
 static DUMMY_STRINGS: [&str; 10] = [
     "Demo list 1",
@@ -26,8 +26,8 @@ impl OnlineDemoContentProvider {
         let mut items = Vec::new();
         for i in 0..100 {
             items.push(Item {
-                unselected_image: None,
-                selected_image: None,
+                unselected_image: 0,
+                selected_image: 0,
                 id: i + 1,
             });
         }
@@ -36,13 +36,16 @@ impl OnlineDemoContentProvider {
 }
 
 impl ContentProvider for OnlineDemoContentProvider {
+    fn set_image_sizes(&mut self, _unselected: (f32, f32), _selected: (f32, f32)) {
+        // We don't care about the image sizes in this example
+    }
     fn get_item(&self, row: u64, col: u64) -> &Item {
         if let Some(t) = self.items.get((row * 10 + col) as usize) {
             t
         } else {
             &Item {
-                unselected_image: None,
-                selected_image: None,
+                unselected_image: 0,
+                selected_image: 0,
                 id: u64::MAX,
             }
         }
@@ -72,9 +75,11 @@ fn update(ui: &Ui, selector: &mut ContentSelector, content: &OnlineDemoContentPr
 
 impl OnlineDemoSelector {
     pub(crate) fn new() -> OnlineDemoSelector {
+        let mut content_provider = OnlineDemoContentProvider::new();
+
         OnlineDemoSelector {
-            content_selector: ContentSelector::new(),
-            content_provider: OnlineDemoContentProvider::new(),
+            content_selector: ContentSelector::new(&mut content_provider),
+            content_provider,
         }
     }
 

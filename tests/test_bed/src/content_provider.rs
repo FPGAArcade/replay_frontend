@@ -1,11 +1,12 @@
+use flowi_api::ImageHandle;
 use image::RenderImage;
 pub(crate) struct Item {
     /// This image is being shown when the item is non-selected. We used a scaled down image
     /// that fits the screen size we need exactly to save performance.
-    pub unselected_image: Option<RenderImage>,
+    pub unselected_image: ImageHandle,
     /// This image is being shown when the item is selected. This has the original size when
     /// loaded from the source, unless it's very large it will have been downsized as well.
-    pub selected_image: Option<RenderImage>,
+    pub selected_image: ImageHandle,
     /// The ID of the item. This is used to identify the item when it's selected.
     pub id: u64,
 }
@@ -17,6 +18,10 @@ pub(crate) struct Item {
 /// idea is that the content selector should be as generic as possible and not have any knowledge
 /// of the data source as we want to support demos, games, etc., from various sources.
 pub(crate) trait ContentProvider {
+    /// Set the image sizes for the content provider. This is used to scale the images to the
+    /// correct size when displaying them in the content selector. For some renderers this matters
+    /// as if the image is 1:1 with output resolution it will be faster to render.
+    fn set_image_sizes(&mut self, unselected: (f32, f32), selected: (f32, f32));
     /// Get the item at the given column and row. If the item is not available at the given
     /// position it should return None.
     fn get_item(&self, row: u64, col: u64) -> &Item;

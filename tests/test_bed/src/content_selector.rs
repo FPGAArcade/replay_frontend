@@ -29,6 +29,7 @@ struct ItemState {
     hot: f32,
 }
 
+const UNSELECTED_IMAGE_SIZE: (f32, f32) = (250.0, 187.5);
 const ENTRY_ID: &str = "selection_entry";
 
 pub(crate) struct ContentSelector {
@@ -50,10 +51,9 @@ pub(crate) struct ContentSelector {
     item_states: HashMap<u64, ItemState>,
 }
 
-
 impl ContentSelector {
-    pub fn new() -> ContentSelector {
-        let reserve_size = 1 * 1024 * 1024 * 1024;
+    pub fn new(provider: &mut dyn ContentProvider) -> ContentSelector {
+        provider.set_image_sizes(UNSELECTED_IMAGE_SIZE, UNSELECTED_IMAGE_SIZE);
         ContentSelector {
             selected_item: RowColumn::default(),
             transition_row: 0,
@@ -148,7 +148,6 @@ impl ContentSelector {
         if self.state == State::Idle && down {
             self.transition_row = self.selected_item.row + 1;
             let item = provider.get_item(self.transition_row, 0);
-            dbg!("Set focus id to {} {}", ENTRY_ID, item.id);
             ui.set_focus_id(ui.id_index(ENTRY_ID, item.id as _));
             self.state = State::RowTransition;
         }
@@ -160,70 +159,26 @@ impl ContentSelector {
 fn draw_selection_entry(time: f32, ui: &Ui, item: &Item, is_selected: bool, opacity: f32) {
     // TODO: Get the data from settings structs as this is affected by the screen size
     let mut size = (250.0, 187.5);
+    let id = ui.id_index(ENTRY_ID, item.id as _);
 
-    if let Some(image) = item.unselected_image.as_ref() {
-        let source_dimensions = Dimensions::new(
-            image.width as _,
-            image.height as _);
+    if is_selected {
+        // Extra layout here so we can animate the selected item with the fixed border without
+        // affecting the size of the parent.
+        ui.with_layout(&Declaration::new()
+            .id(ui.id_index(ENTRY_ID, (item.id + 10000) as _))
+            .layout()
+                .width(fixed!(size.0))
+                .height(fixed!(size.1))
+                .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
+            .end(), |ui|
+        {
+           if let Some(item_state) = ui.item_state(id) {
+               size = ((250.0 + (item_state.active * 40.0),  187.5 + (item_state.active * 40.0)));
+           }
 
-        unsafe {
-            ui.with_layout(&Declaration::new()
-                .id(ui.id_index(ENTRY_ID, item.id as _))
-                .layout()
-                    .width(fixed!(image.width as _))
-                    .height(fixed!(image.height as _))
-                .end()
-                .corner_radius().all(16.0).end()
-                .image()
-                    .data_ptr(image.data.as_ptr() as _)
-                    .source_dimensions(source_dimensions)
-                .end()
-                .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)), |_ui|
-            {
-
-            });
-        }
+            ui.image_with_opts(id, item.selected_image, opacity, size);
+        });
     } else {
-        if !is_selected {
-            ui.with_layout(&Declaration::new()
-                .id(ui.id_index(ENTRY_ID, item.id as _))
-                .layout()
-                    .width(fixed!(size.0))
-                    .height(fixed!(size.1))
-                .end()
-                .corner_radius().all(8.0).end()
-                .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)), |_ui| {});
-        } else {
-            // Extra layout here so we can animate the selected item with the fixed border without
-            // affecting the size of the parent.
-            ui.with_layout(&Declaration::new()
-                .id(ui.id_index(ENTRY_ID, (item.id + 10000) as _))
-                .layout()
-                    .width(fixed!(size.0))
-                    .height(fixed!(size.1))
-                    .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
-                .end(), |ui|
-           {
-               let id = ui.id_index(ENTRY_ID, item.id as _);
-
-               if let Some(item_state) = ui.item_state(id) {
-                   //dbg!(item_state.active);
-                   size = ((250.0 + (item_state.active * 40.0),  187.5 + (item_state.active * 40.0)));
-               }
-
-               //let size = ((250.0 + f32::sin(time) * 80.0, 187.5 + f32::sin(time) * 80.0));
-
-                ui.with_layout(&Declaration::new()
-                    .id(id)
-                    .layout()
-                        .width(fixed!(size.0))
-                        .height(fixed!(size.1))
-                    .end()
-                    .corner_radius().all(8.0).end()
-                    .background_color(ClayColor::rgba(0.0, 100.0, 255.0, 255.0 * opacity)), |_ui| {});
-            });
-        }
+        ui.image_with_opts(id, item.unselected_image, opacity, size);
     }
 }
-
-
