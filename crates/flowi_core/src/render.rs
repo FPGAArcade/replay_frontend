@@ -1,4 +1,4 @@
-use flowi_renderer::{RenderCommand, Renderer};
+use flowi_api::{RenderCommand, Renderer};
 use raw_window_handle::RawWindowHandle;
 
 pub struct DummyRenderer {}

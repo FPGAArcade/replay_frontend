@@ -75,7 +75,7 @@ fn parse_json(json_data: &str) -> ProductionEntry {
 
 /// Directory to store cached images
 #[allow(dead_code)]
-const CACHE_DIR: &str = "image_cache";
+const CACHE_DIR: &str = "target/image_cache";
 
 /// Computes a SHA256 hash of the URL to use as a unique filename
 #[allow(dead_code)]

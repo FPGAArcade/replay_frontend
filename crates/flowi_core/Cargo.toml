@@ -10,7 +10,7 @@ bitflags = "2.7.0"
 clay-layout = { path = "../clay_layout" }
 cosmic-text = { version = "0.12", default-features = false, features = ["std", "swash"] }
 fileorama = { path = "../fileorama" }
-flowi-renderer = { path = "../flowi-api" }
+flowi-api = { path = "../flowi-api" }
 glam = "0.29.0"
 log = "0.4"
 notify = "8.0"

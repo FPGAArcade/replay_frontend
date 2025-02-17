@@ -15,4 +15,4 @@ pub use flowi_core::{
     InputAction, ActionResponse,
 };
 
-pub use flowi_renderer::Renderer;
+pub use flowi_api::Renderer;

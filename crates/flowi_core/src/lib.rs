@@ -42,7 +42,7 @@ pub use clay_layout::{
     text::TextConfig, Declaration,
 };
 
-use flowi_renderer::{
+use flowi_api::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
     RenderType, Renderer, StringSlice,
 };
@@ -248,15 +248,43 @@ impl<'a> Ui<'a> {
                 state.layout.with(&Declaration::new()
                     .id(state.layout.id("image_test"))
                     .layout()
-                    .width(fixed!(source_dimensions.width as _))
-                    .height(fixed!(source_dimensions.height as _))
-                    .padding(Padding::all(30))
+                        .width(fixed!(source_dimensions.width as _))
+                        .height(fixed!(source_dimensions.height as _))
                     .end()
                     .image()
                     .data_ptr(image.data.as_ptr() as _)
                     .source_dimensions(source_dimensions).end(), |_ui| {},
                 );
             }
+        }
+    }
+
+    pub fn image_with_opts(&self, id: Id, handle: ImageHandle, opacity: f32, size: (f32, f32)) {
+        let state = unsafe { &mut *self.state.get() };
+
+        if let Some(image) = state.io_handler.get_loaded_as::<RenderImage>(handle) {
+            let source_dimensions = Dimensions::new(image.width as _, image.height as _);
+
+            unsafe {
+                state.layout.with(&Declaration::new()
+                    .id(id)
+                    .layout()
+                        .width(fixed!(size.0))
+                        .height(fixed!(size.1))
+                    .end()
+                    .image()
+                        .data_ptr(image.data.as_ptr() as _)
+                        .source_dimensions(source_dimensions).end(), |_ui| {},
+                );
+            }
+        } else {
+            state.layout.with(&Declaration::new()
+                .id(id)
+                .layout()
+                    .width(fixed!(size.0))
+                    .height(fixed!(size.1))
+                .end()
+                .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)), |_ui| {});
         }
     }
 
@@ -295,8 +323,8 @@ impl<'a> Ui<'a> {
         [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
     }
 
-    fn color(color: ClayColor) -> flowi_renderer::Color {
-        flowi_renderer::Color {
+    fn color(color: ClayColor) -> flowi_api::Color {
+        flowi_api::Color {
             r: color.r,
             g: color.g,
             b: color.b,
@@ -358,8 +386,6 @@ impl<'a> Ui<'a> {
                 primitives.push(render_command);
             }
         }
-
-        dbg!("focus id {}", focus_id);
 
         for command in state.layout.end() {
             let aabb = Self::bounding_box(&command);
@@ -470,7 +496,7 @@ impl<'a> Ui<'a> {
         }
 
         // remove all items that doesn't match the current frame
-        //state.item_states.retain(|_, item| item.frame == state.current_frame);
+        state.item_states.retain(|_, item| item.frame == state.current_frame);
 
         //let primitives = Self::translate_clay_render_commands(state, commands);
         state.renderer.render(&primitives);

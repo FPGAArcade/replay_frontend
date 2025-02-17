@@ -9,10 +9,10 @@ use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
 use flowi_core::ApplicationSettings;
 use flowi_core::Ui;
-use flowi_renderer::SoftwareRenderData;
+use flowi_api::SoftwareRenderData;
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 
-use flowi_renderer::Renderer;
+use flowi_api::Renderer;
 
 //use flowi_core::Instance;
 //use flowi_core::Result;
