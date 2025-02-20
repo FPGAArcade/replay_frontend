@@ -270,8 +270,11 @@ fn hash_url_to_string(url: &str, output: &mut String) {
     write!(output, "{:x}", hash).unwrap(); // Write hex without "0x" prefix
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum State {
     Idle,
+    FetchParty,
+    WaitFetchingParty,
     ShowParty,
 }
 
@@ -307,7 +310,7 @@ impl OnlineDemoContentProvider {
         fs::create_dir_all(CACHE_DIR).expect("Failed to create cache directory");
         Self {
             active_party: None,
-            state: State::ShowParty,
+            state: State::FetchParty,
             party_show_id: 92,
             hash_string: String::with_capacity(32),
             url_string: String::with_capacity(128),
@@ -344,7 +347,7 @@ impl OnlineDemoContentProvider {
         match self.state {
             State::Idle => {}
 
-            State::ShowParty => {
+            State::FetchParty => {
                 self.url_string.clear();
                 write!(self.url_string, "https://demozoo.org/api/v1/parties/{}", self.party_show_id).unwrap();
                 if self.is_url_hashed() {
@@ -352,15 +355,21 @@ impl OnlineDemoContentProvider {
                         load_party_from_file_job,
                         Box::new(self.hash_string.clone())).unwrap());
                 }
-                    /*
                 else {
                     self.load_party_handle = Some(ui.job_system().schedule_job(
                         load_party_from_remote_job,
                         Box::new(self.url_string.clone())).unwrap());
                 }
 
-                     */
-                self.state = State::Idle;
+                self.state = State::WaitFetchingParty;
+            }
+
+            State::WaitFetchingParty => {
+                if let Some(handle) = self.load_party_handle.as_ref() {
+                    // TODO: Proper error handling
+                    self.active_party = Some(handle.try_get_result::<Party>().unwrap().unwrap());
+                    self.state = State::ShowParty;
+                }
             }
 
             _ => {},
@@ -369,8 +378,19 @@ impl OnlineDemoContentProvider {
 }
 
 impl ContentProvider for OnlineDemoContentProvider {
-    fn get_item(&self, row: u64, col: u64) -> &Item {
-        &Item {
+    fn get_item(&self, row: u64, col: u64) -> Item {
+        if self.state == State::ShowParty {
+            if let Some(party) = self.active_party.as_ref() {
+                let id = party.competitions[row as usize].results[col as usize].production.id as u64;
+                return Item {
+                    unselected_image: id,
+                    selected_image: id,
+                    id,
+                }
+            }
+        }
+
+        Item {
             unselected_image: 0,
             selected_image: 0,
             id: u64::MAX / 2,
@@ -378,15 +398,33 @@ impl ContentProvider for OnlineDemoContentProvider {
     }
 
     fn get_column_count(&self, row: u64) -> u64 {
+        if self.state == State::ShowParty {
+            if let Some(party) = self.active_party.as_ref() {
+                return party.competitions[row as usize].results.len() as u64;
+            }
+        }
+
         0
     }
 
     fn get_total_row_count(&self) -> u64 {
+        if self.state == State::ShowParty {
+            if let Some(party) = self.active_party.as_ref() {
+                return party.competitions.len() as u64;
+            }
+        }
+
         0
     }
 
     fn get_row_name(&self, row: u64) -> &str {
-       "Dummy name"
+        if self.state == State::ShowParty {
+            if let Some(party) = self.active_party.as_ref() {
+                return &party.competitions[row as usize].name;
+            }
+        }
+
+        ""
     }
 }
 

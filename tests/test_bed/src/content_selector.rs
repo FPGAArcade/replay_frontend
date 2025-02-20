@@ -105,7 +105,7 @@ impl ContentSelector {
             for col in 0..column_count {
                 let item = provider.get_item(row, col);
                 let is_selected = col == 0;
-                draw_selection_entry(self.temp_time, ui, item, is_selected, opacity);
+                draw_selection_entry(self.temp_time, ui, &item, is_selected, opacity);
             }
        });
     }

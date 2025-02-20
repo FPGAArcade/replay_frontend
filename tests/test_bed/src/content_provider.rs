@@ -20,7 +20,7 @@ pub(crate) struct Item {
 pub(crate) trait ContentProvider {
     /// Get the item at the given column and row. If the item is not available at the given
     /// position it should return None.
-    fn get_item(&self, row: u64, col: u64) -> &Item;
+    fn get_item(&self, row: u64, col: u64) -> Item;
     /// Get the number of columns in the grid
     fn get_total_row_count(&self) -> u64;
     fn get_column_count(&self, row: u64) -> u64;
