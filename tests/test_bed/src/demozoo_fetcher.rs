@@ -1,8 +1,8 @@
+/*
 use nanoserde::DeJson;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use sha2::{Sha256, Digest};
 use ureq;
 
 /// The JSON “author_nicks” array is an array of objects. We only care about the name.
@@ -259,3 +259,5 @@ mod tests {
         assert_eq!(get_extension(""), "bin");
     }
 }
+
+ */

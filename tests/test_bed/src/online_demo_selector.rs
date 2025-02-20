@@ -1,68 +1,395 @@
-use flowi::{fixed, grow, percent, Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui};
-use crate::{App};
+/// This file is the main code for the online demo browser for the frontend. It is responsible for
+/// displaying a list of items that can be selected. It acts very similar to how movie based
+/// selectors for many streaming services works. The user can scroll through a list of items and
+/// select one of them. The selected item will be displayed in a larger size than the other items.
+/// THe backend uses the Demozoo API to fetch the metadata along with screenshots from it's db.
+use flowi::{
+    fixed,
+    grow,
+    percent, Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui,
+    job_system::{BoxAnySend, JobHandle, JobResult, JobSystem},
+};
 use crate::content_provider::{ContentProvider, Item};
 use crate::content_selector::ContentSelector;
-use flowi_api::ImageHandle;
+use std::{fs, io};
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use nanoserde::DeJson;
+//use std::io::Write;
+use std::fmt::Write;
+use std::hash::Hasher;
 
-static DUMMY_STRINGS: [&str; 10] = [
-    "Demo list 1",
-    "Demo list 2",
-    "Demo list 3",
-    "Demo list 4",
-    "Demo list 5",
-    "Demo list 6",
-    "Demo list 7",
-    "Demo list 8",
-    "Demo list 9",
-    "Demo list 10",
-];
+/// The JSON “author_nicks” array is an array of objects. We only care about the name.
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct AuthorNick {
+    pub name: String,
+    // Other fields (like abbreviation or releaser) are ignored.
+}
+
+/// The JSON “credits” array holds more detailed information about a production’s credits.
+/// We use this struct to capture the “nick” (an AuthorNick) plus a category and role.
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct Credit {
+    pub nick: AuthorNick,
+    pub category: String,
+    pub role: String,
+}
+
+/// The JSON “download_links” array contains objects with a link class and a URL.
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct DownloadLink {
+    pub link_class: String,
+    pub url: String,
+}
+
+/// The JSON “platforms” array gives details for each platform. (We only really care about the name.)
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct Platform {
+    pub url: String,
+    pub id: u32,
+    pub name: String,
+}
+
+/// The JSON “screenshots” array has keys like “original_url” which we map into our struct.
+/// We use Serde’s rename attribute to change the JSON key into our field name.
+#[derive(DeJson, Debug)]
+#[allow(dead_code)]
+pub struct Screenshot {
+    pub original_url: String,
+    pub original_width: u32,
+    pub original_height: u32,
+    pub standard_url: String,
+    pub standard_width: u32,
+    pub standard_height: u32,
+    pub thumbnail_url: String,
+    pub thumbnail_width: u32,
+    pub thumbnail_height: u32,
+}
+
+/// The main ProductionEntry struct gathers the fields we care about from the JSON.
+#[derive(DeJson, Debug)]
+pub struct ProductionEntry {
+    pub title: String,
+    pub release_date: String,
+    pub author_nicks: Vec<AuthorNick>,
+    pub credits: Vec<Credit>,
+    pub download_links: Vec<DownloadLink>,
+    pub platforms: Vec<Platform>,
+    pub screenshots: Vec<Screenshot>,
+    pub tags: Vec<String>,
+}
+#[derive(DeJson, Debug)]
+pub struct Invitation {
+    pub url: String,
+    pub demozoo_url: String,
+    pub id: u32,
+    pub title: String,
+    pub author_nicks: Vec<AuthorNick>,
+    pub author_affiliation_nicks: Vec<String>, // Assuming it's an empty array, using String
+    pub release_date: String,
+    pub supertype: String,
+    pub platforms: Vec<Platform>,
+    pub types: Vec<ProductionType>,
+    pub tags: Vec<String>,
+}
+
+#[derive(DeJson, Debug)]
+pub struct Party {
+    pub url: String,
+    pub demozoo_url: String,
+    pub id: i32,
+    pub name: String,
+    pub tagline: String,
+    pub party_series: PartySeries,
+    pub start_date: String,
+    pub end_date: String,
+    pub location: String,
+    pub is_online: bool,
+    pub country_code: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub website: String,
+    pub invitations: Vec<Invitation>, // Assuming empty array means Vec<String>
+    pub releases: Vec<Release>,
+    pub competitions: Vec<Competition>,
+}
+
+#[derive(DeJson, Debug)]
+pub struct PartySeries {
+    pub url: String,
+    pub demozoo_url: String,
+    pub id: i32,
+    pub name: String,
+    pub website: String,
+}
+
+#[derive(DeJson, Debug)]
+pub struct Release {
+    pub url: String,
+    pub demozoo_url: String,
+    pub id: i32,
+    pub title: String,
+    pub author_nicks: Vec<AuthorNick>,
+    pub author_affiliation_nicks: Vec<AuthorNick>, // Empty in the example, but could be similar to author_nicks
+    pub release_date: String,
+    pub supertype: String,
+    pub platforms: Vec<Platform>,
+    pub types: Vec<ProductionType>,
+    pub tags: Vec<String>,
+}
+
+#[derive(DeJson, Debug)]
+pub struct Releaser {
+    pub url: String,
+    pub id: i32,
+    pub name: String,
+    pub is_group: bool,
+}
+
+#[derive(DeJson, Debug)]
+pub struct ProductionType {
+    pub url: String,
+    pub id: i32,
+    pub name: String,
+    pub supertype: String,
+}
+
+#[derive(DeJson, Debug)]
+pub struct Competition {
+    pub id: i32,
+    pub demozoo_url: String,
+    pub name: String,
+    pub shown_date: String,
+    pub platform: Option<Platform>,
+    pub production_type: ProductionType,
+    pub results: Vec<Result>,
+}
+
+#[derive(DeJson, Debug)]
+pub struct Result {
+    pub position: i32,
+    pub ranking: String,
+    pub score: String,
+    pub production: Release,
+}
+
+fn parse_production_entry(json_data: &str) -> ProductionEntry {
+    DeJson::deserialize_json(json_data).expect("Failed to parse JSON")
+}
+
+fn parse_party(json_data: &str) -> Party {
+    DeJson::deserialize_json(json_data).expect("Failed to parse JSON")
+}
+
+/// Directory to store cached images
+#[allow(dead_code)]
+const CACHE_DIR: &str = "target/cache";
+
+/// Computes a SHA256 hash of the URL to use as a unique filename
+
+/// Extracts the file extension from the URL or defaults to "bin" if not found
+#[allow(dead_code)]
+fn get_extension(url: &str) -> &str {
+    Path::new(url)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .filter(|ext| !ext.is_empty()) // Ensure we don't return an empty extension
+        .unwrap_or("bin") // Default to "bin" if no valid extension found
+}
+
+/// Checks if the image is already cached; otherwise, downloads it
+#[allow(dead_code)]
+pub fn get_from_remote(url: &str) -> io::Result<Vec<u8>> {
+    // Fetch the image from the URL
+    println!("Downloading: {}", url);
+    let resp = ureq::get(url)
+        .call()
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+
+    let mut reader = resp
+        .into_body()
+        .into_with_config()
+        .reader();
+
+    // Read binary data from response using `response.into_reader()`
+    let mut bytes = Vec::new();
+    reader.read_to_end(&mut bytes)?;  // Changed to use `reader()`
+
+    let mut hasher = fxhash::FxHasher64::default();
+    hasher.write(url.as_bytes());
+    let hash = hasher.finish(); // Returns u64
+
+    let mut output = String::with_capacity(32);
+
+    // Format the u64 as hexadecimal
+    use std::fmt::Write;
+    write!(output, "{}/{:x}", CACHE_DIR, hash).unwrap(); // Write hex without "0x" prefix
+
+    // Write the image to the cache directory
+    {
+        use std::io::Write;
+        let mut file = File::create(&output)?;
+        file.write_all(&bytes)?;
+    }
+
+    println!("Saved to cache: {}", output);
+    Ok(bytes)
+}
+
+fn load_cached_file(filename: &str) -> io::Result<Vec<u8>> {
+    let mut file = File::open(filename)?;
+    let mut contents = Vec::new();
+    file.read_to_end(&mut contents)?;
+    Ok(contents)
+}
+
+fn load_cached_party(id: u64) -> io::Result<Party> {
+    let file_path = format!("target/data_cache/party_{}.json", id);
+    let data = load_cached_file(&file_path)?;
+    let string = std::str::from_utf8(&data).expect("Failed to convert to string");
+    let parsed_data = parse_party(&string);
+    Ok(parsed_data)
+}
+
+fn hash_url_to_string(url: &str, output: &mut String) {
+    let mut hasher = fxhash::FxHasher64::default();
+    hasher.write(url.as_bytes());
+    let hash = hasher.finish(); // Returns u64
+
+    output.clear();
+    output.push_str(CACHE_DIR);
+    output.reserve(16); // Reserve space for 16 chars (e.g., "1a2b3c4d5e6f7890")
+
+    // Format the u64 as hexadecimal
+    use std::fmt::Write; // For write! macro
+    write!(output, "{:x}", hash).unwrap(); // Write hex without "0x" prefix
+}
+
+enum State {
+    Idle,
+    ShowParty,
+}
+
+fn load_party_from_file_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
+    let filename = data.downcast::<String>().unwrap();
+    let data = load_cached_file(&filename).unwrap();
+    let string = std::str::from_utf8(&data).expect("Failed to convert to string");
+    dbg!("starting to parse party");
+    let party = parse_party(&string);
+    Ok(Box::new(party) as BoxAnySend)
+}
+
+fn load_party_from_remote_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
+    let url = data.downcast::<String>().unwrap();
+    let data = get_from_remote(&url).unwrap();
+    let string = std::str::from_utf8(&data).expect("Failed to convert to string");
+    let party = parse_party(&string);
+    Ok(Box::new(party) as BoxAnySend)
+}
 
 struct OnlineDemoContentProvider {
-    items: Vec<Item>,
+    active_party: Option<Party>,
+    state: State,
+    party_show_id: u64,
+    /// We pre-allocate these so we don't have to do dynamic allocs in runtime
+    url_string: String,
+    hash_string: String,
+    load_party_handle: Option<JobHandle>,
 }
 
 impl OnlineDemoContentProvider {
-    pub(crate) fn new() -> OnlineDemoContentProvider {
-        let mut items = Vec::new();
-        for i in 0..100 {
-            items.push(Item {
-                unselected_image: 0,
-                selected_image: 0,
-                id: i + 1,
-            });
+    pub(crate) fn new() -> Self {
+        fs::create_dir_all(CACHE_DIR).expect("Failed to create cache directory");
+        Self {
+            active_party: None,
+            state: State::ShowParty,
+            party_show_id: 92,
+            hash_string: String::with_capacity(32),
+            url_string: String::with_capacity(128),
+            load_party_handle: None,
         }
-        OnlineDemoContentProvider { items }
+    }
+
+    fn is_url_hashed(&mut self) -> bool {
+        let mut hasher = fxhash::FxHasher64::default();
+        hasher.write(self.url_string.as_bytes());
+        let hash = hasher.finish(); // Returns u64
+
+        self.hash_string.clear();
+        self.hash_string.reserve(32); // Reserve space for 16 chars (e.g., "1a2b3c4d5e6f7890")
+
+        // Format the u64 as hexadecimal
+        use std::fmt::Write; // For write! macro
+        write!(self.hash_string, "{}/{:x}", CACHE_DIR, hash).unwrap(); // Write hex without "0x" prefix
+
+        dbg!(&self.hash_string);
+
+        // check if file exists
+        match fs::exists(&self.hash_string) {
+            Ok(true) => true,
+            _ => false,
+        }
+    }
+
+    pub fn select_party(&mut self, party_id: u64) {
+        self.party_show_id = party_id;
+    }
+
+    pub fn update(&mut self, ui: &Ui) {
+        match self.state {
+            State::Idle => {}
+
+            State::ShowParty => {
+                self.url_string.clear();
+                write!(self.url_string, "https://demozoo.org/api/v1/parties/{}", self.party_show_id).unwrap();
+                if self.is_url_hashed() {
+                    self.load_party_handle = Some(ui.job_system().schedule_job(
+                        load_party_from_file_job,
+                        Box::new(self.hash_string.clone())).unwrap());
+                }
+                    /*
+                else {
+                    self.load_party_handle = Some(ui.job_system().schedule_job(
+                        load_party_from_remote_job,
+                        Box::new(self.url_string.clone())).unwrap());
+                }
+
+                     */
+                self.state = State::Idle;
+            }
+
+            _ => {},
+        }
     }
 }
 
 impl ContentProvider for OnlineDemoContentProvider {
-    fn set_image_sizes(&mut self, _unselected: (f32, f32), _selected: (f32, f32)) {
-        // We don't care about the image sizes in this example
-    }
     fn get_item(&self, row: u64, col: u64) -> &Item {
-        if let Some(t) = self.items.get((row * 10 + col) as usize) {
-            t
-        } else {
-            &Item {
-                unselected_image: 0,
-                selected_image: 0,
-                id: u64::MAX,
-            }
+        &Item {
+            unselected_image: 0,
+            selected_image: 0,
+            id: u64::MAX / 2,
         }
     }
 
     fn get_column_count(&self, row: u64) -> u64 {
-        10
+        0
     }
 
     fn get_total_row_count(&self) -> u64 {
-        10
+        0
     }
 
     fn get_row_name(&self, row: u64) -> &str {
-        DUMMY_STRINGS[row as usize]
+       "Dummy name"
     }
 }
+
 
 pub(crate) struct OnlineDemoSelector {
     content_selector: ContentSelector,
@@ -112,6 +439,7 @@ impl OnlineDemoSelector {
         {
 
          */
+       self.content_provider.update(ui);
        update(ui, &mut self.content_selector, &self.content_provider);
         //});
     }

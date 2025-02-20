@@ -13,6 +13,7 @@ use crate::io_handler::IoHandle;
 use glam::Vec4;
 use ::image::RenderImage;
 
+use job_system::JobSystem;
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
@@ -46,6 +47,8 @@ use flowi_api::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
     RenderType, Renderer, StringSlice,
 };
+
+pub use job_system;
 
 type FlowiKey = u64;
 
@@ -88,6 +91,7 @@ pub(crate) struct State<'a> {
     pub(crate) screen_size: (usize, usize),
     pub(crate) delta_time: f32,
     pub(crate) focus_id: Option<Id>,
+    pub(crate) job_system: JobSystem,
 }
 
 #[allow(dead_code)]
@@ -147,6 +151,7 @@ impl<'a> Ui<'a> {
             screen_size: (0, 0),
             delta_time: 0.0,
             focus_id: None,
+            job_system: JobSystem::new(2).unwrap(),
         };
 
         let data = Box::new(Ui {
@@ -178,6 +183,12 @@ impl<'a> Ui<'a> {
         let ui = &*(user_data as *const Ui);
 
         ui.measure_text(text, &text_config).into()
+    }
+
+    #[inline]
+    pub fn job_system(&self) -> &JobSystem {
+        let state = unsafe { &mut *self.state.get() };
+        &state.job_system
     }
 
     fn measure_text(&self, text: &str, config: &TextConfig) -> Dimensions {

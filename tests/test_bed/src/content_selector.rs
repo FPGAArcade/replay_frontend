@@ -53,7 +53,6 @@ pub(crate) struct ContentSelector {
 
 impl ContentSelector {
     pub fn new(provider: &mut dyn ContentProvider) -> ContentSelector {
-        provider.set_image_sizes(UNSELECTED_IMAGE_SIZE, UNSELECTED_IMAGE_SIZE);
         ContentSelector {
             selected_item: RowColumn::default(),
             transition_row: 0,
@@ -67,22 +66,28 @@ impl ContentSelector {
     }
 
     #[rustfmt::skip]
-    fn draw_row(&self, ui: &Ui, name: &str, provider: &dyn ContentProvider, row: u64, opacity: f32) {
-        let id = ui.id(name);
+    fn draw_row(&self, ui: &Ui, provider: &dyn ContentProvider, row: u64, opacity: f32) {
+        let name = provider.get_row_name(row);
+        let id = ui.id_index(name, row as _);
 
-        ui.update_scroll(id, (0.0, self.scroll_value));
+        ui.text_with_layout(name, 36,
+            ClayColor::rgba(255.0, 255.0, 255.0, 255.0 * opacity),
+            &Declaration::new()
+                .layout()
+                    .width(grow!())
+                    .end());
 
         ui.with_layout(&Declaration::new()
             .id(id)
             .layout()
                 .width(grow!())
-                .height(fixed!(400.0))
+                .height(fixed!(360.0))
                 .direction(LayoutDirection::LeftToRight)
                 .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
                 .child_gap(64)
-                .padding(Padding::horizontal(64))
+                .padding(Padding::horizontal(20))
             .end()
-            .scroll(true, true), |ui|
+            .scroll(true, false), |ui|
        {
             let total_rows = provider.get_total_row_count();
 
@@ -107,9 +112,24 @@ impl ContentSelector {
 
     #[rustfmt::skip]
     pub fn update(&mut self, ui: &Ui, provider: &dyn ContentProvider) {
-        self.draw_row(ui, "row 0", provider, self.selected_item.row, self.row_transition_fade_out);
-        self.draw_row(ui, "row 1", provider, self.selected_item.row + 1, 1.0);
-        self.draw_row(ui, "row 2", provider, self.selected_item.row + 2, 1.0);
+        let id = ui.id("content_selector");
+        ui.update_scroll(id, (0.0, self.scroll_value));
+
+        ui.with_layout(&Declaration::new()
+            .id(id)
+            .layout()
+                .width(grow!())
+                .height(grow!())
+                .direction(LayoutDirection::TopToBottom)
+                .padding(Padding::horizontal(20))
+                .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Top))
+            .end()
+            .scroll(false, true), |ui|
+        {
+            self.draw_row(ui, provider, self.selected_item.row, self.row_transition_fade_out);
+            self.draw_row(ui, provider, self.selected_item.row + 1, 1.0);
+            self.draw_row(ui, provider, self.selected_item.row + 2, 1.0);
+        });
 
         let dt = ui.delta_time();
         self.temp_time += dt;

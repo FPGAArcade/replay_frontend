@@ -682,6 +682,8 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
         return;
     };
 
+    let color = premultiply_alpha(color);
+
     // Adjust for clipping
     let mut text_data = unsafe { text_data.add((render_params.clip_y * texture_width) + render_params.clip_x) };
 

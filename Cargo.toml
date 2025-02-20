@@ -8,7 +8,7 @@ members = [
     "crates/flowi-api",
     "crates/flowi_core", 
     "crates/flowi_sw_renderer", "crates/frontend-api",
-    "crates/image",
+    "crates/image", "crates/job-system",
     "crates/simd",
     "main", 
     "tests/renderer_tests",

@@ -15,7 +15,7 @@ use flowi::{
 };
 use image::Color16;
 //use log::*;
-use demozoo_fetcher::ProductionEntry;
+//use demozoo_fetcher::ProductionEntry;
 use crate::online_demo_selector::OnlineDemoSelector;
 
 pub struct Fonts {

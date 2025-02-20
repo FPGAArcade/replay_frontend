@@ -11,7 +11,7 @@ flowi = { path = "../../crates/flowi" }
 image = { path = "../../crates/image" }
 log = "0.4"
 nanoserde = { version = "0.2.0-beta.0", default-features = false, features = ["std", "json"] }
-sha2 = "0.10"
+fxhash = "0.2"
 ureq = "3.0"
 
 [features]
