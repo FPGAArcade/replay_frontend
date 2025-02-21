@@ -11,6 +11,7 @@ use flowi::{
 };
 use crate::content_provider::{ContentProvider, Item};
 use crate::content_selector::ContentSelector;
+use log::*;
 use std::{fs, io};
 use std::fs::File;
 use std::io::Read;
@@ -19,6 +20,7 @@ use nanoserde::DeJson;
 //use std::io::Write;
 use std::fmt::Write;
 use std::hash::Hasher;
+use std::time::Duration;
 
 /// The JSON “author_nicks” array is an array of objects. We only care about the name.
 #[derive(DeJson, Debug)]
@@ -248,26 +250,18 @@ fn load_cached_file(filename: &str) -> io::Result<Vec<u8>> {
     Ok(contents)
 }
 
-fn load_cached_party(id: u64) -> io::Result<Party> {
-    let file_path = format!("target/data_cache/party_{}.json", id);
-    let data = load_cached_file(&file_path)?;
-    let string = std::str::from_utf8(&data).expect("Failed to convert to string");
-    let parsed_data = parse_party(&string);
-    Ok(parsed_data)
-}
 
-fn hash_url_to_string(url: &str, output: &mut String) {
+fn hash_url_to_string(url: &str) -> String {
     let mut hasher = fxhash::FxHasher64::default();
     hasher.write(url.as_bytes());
     let hash = hasher.finish(); // Returns u64
 
-    output.clear();
-    output.push_str(CACHE_DIR);
-    output.reserve(16); // Reserve space for 16 chars (e.g., "1a2b3c4d5e6f7890")
+    let mut output = String::with_capacity(32);
 
     // Format the u64 as hexadecimal
     use std::fmt::Write; // For write! macro
-    write!(output, "{:x}", hash).unwrap(); // Write hex without "0x" prefix
+    write!(output, "{}/{:x}", CACHE_DIR, hash).unwrap();
+    output
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -282,7 +276,6 @@ fn load_party_from_file_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
     let filename = data.downcast::<String>().unwrap();
     let data = load_cached_file(&filename).unwrap();
     let string = std::str::from_utf8(&data).expect("Failed to convert to string");
-    dbg!("starting to parse party");
     let party = parse_party(&string);
     Ok(Box::new(party) as BoxAnySend)
 }
@@ -295,14 +288,59 @@ fn load_party_from_remote_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
     Ok(Box::new(party) as BoxAnySend)
 }
 
+fn fetch_data_string<T: Sized + Send + 'static, F: FnOnce(&str) -> T>(data: BoxAnySend, callback: F) -> JobResult<BoxAnySend> {
+    let url = data.downcast::<String>().unwrap();
+
+    let cached_filename = hash_url_to_string(&url);
+    dbg!(&cached_filename);
+
+    if let Ok(data) = load_cached_file(&cached_filename) {
+        debug!("Read url {} from cache {}", url, cached_filename);
+        let string = std::str::from_utf8(&data).expect("Failed to convert to string");
+        Ok(Box::new(callback(&string)) as BoxAnySend)
+    } else {
+        debug!("Failed to read url {} from cache {}. Fetching from remote.", url, cached_filename);
+        dbg!(&url);
+        let data = get_from_remote(&url).unwrap();
+        let string = std::str::from_utf8(&data).expect("Failed to convert to string");
+        Ok(Box::new(callback(&string)) as BoxAnySend)
+    }
+}
+
+fn fetch_data_bin<T: Sized + Send + 'static, F: FnOnce(&[u8]) -> T>(data: BoxAnySend, callback: F) -> JobResult<BoxAnySend> {
+    let url = data.downcast::<String>().unwrap();
+
+    let cached_filename = hash_url_to_string(&url);
+
+    if let Ok(data) = load_cached_file(&cached_filename) {
+        Ok(Box::new(callback(&data)) as BoxAnySend)
+    } else {
+        let data = get_from_remote(&url).unwrap();
+        Ok(Box::new(callback(&data)) as BoxAnySend)
+    }
+}
+
+fn fetch_party_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
+    fetch_data_string(data, |string| parse_party(string))
+}
+
+fn fetch_production_entry_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
+    fetch_data_string(data, |string| parse_production_entry(string))
+}
+
+enum FetchItem {
+    Release((u64, String)),
+    Screenshot((u64, String)),
+}
+
 struct OnlineDemoContentProvider {
     active_party: Option<Party>,
     state: State,
     party_show_id: u64,
-    /// We pre-allocate these so we don't have to do dynamic allocs in runtime
     url_string: String,
-    hash_string: String,
+    time: std::time::Instant,
     load_party_handle: Option<JobHandle>,
+    fetch_queue: Vec<FetchItem>,
 }
 
 impl OnlineDemoContentProvider {
@@ -312,30 +350,10 @@ impl OnlineDemoContentProvider {
             active_party: None,
             state: State::FetchParty,
             party_show_id: 92,
-            hash_string: String::with_capacity(32),
             url_string: String::with_capacity(128),
             load_party_handle: None,
-        }
-    }
-
-    fn is_url_hashed(&mut self) -> bool {
-        let mut hasher = fxhash::FxHasher64::default();
-        hasher.write(self.url_string.as_bytes());
-        let hash = hasher.finish(); // Returns u64
-
-        self.hash_string.clear();
-        self.hash_string.reserve(32); // Reserve space for 16 chars (e.g., "1a2b3c4d5e6f7890")
-
-        // Format the u64 as hexadecimal
-        use std::fmt::Write; // For write! macro
-        write!(self.hash_string, "{}/{:x}", CACHE_DIR, hash).unwrap(); // Write hex without "0x" prefix
-
-        dbg!(&self.hash_string);
-
-        // check if file exists
-        match fs::exists(&self.hash_string) {
-            Ok(true) => true,
-            _ => false,
+            time: std::time::Instant::now(),
+            fetch_queue: Vec::new(),
         }
     }
 
@@ -350,16 +368,9 @@ impl OnlineDemoContentProvider {
             State::FetchParty => {
                 self.url_string.clear();
                 write!(self.url_string, "https://demozoo.org/api/v1/parties/{}", self.party_show_id).unwrap();
-                if self.is_url_hashed() {
-                    self.load_party_handle = Some(ui.job_system().schedule_job(
-                        load_party_from_file_job,
-                        Box::new(self.hash_string.clone())).unwrap());
-                }
-                else {
-                    self.load_party_handle = Some(ui.job_system().schedule_job(
-                        load_party_from_remote_job,
-                        Box::new(self.url_string.clone())).unwrap());
-                }
+                self.load_party_handle = Some(ui.job_system().schedule_job(
+                    fetch_party_job,
+                    Box::new(self.url_string.clone())).unwrap());
 
                 self.state = State::WaitFetchingParty;
             }

@@ -67,6 +67,12 @@ impl ContentSelector {
 
     #[rustfmt::skip]
     fn draw_row(&self, ui: &Ui, provider: &dyn ContentProvider, row: u64, opacity: f32) {
+        let total_rows = provider.get_total_row_count();
+
+        if row >= total_rows {
+            return;
+        }
+
         let name = provider.get_row_name(row);
         let id = ui.id_index(name, row as _);
 
@@ -89,11 +95,6 @@ impl ContentSelector {
             .end()
             .scroll(true, false), |ui|
        {
-            let total_rows = provider.get_total_row_count();
-
-            if row >= total_rows {
-                return;
-            }
 
             // Get the number of columns we have for this row
             let column_count = provider.get_column_count(row);
@@ -134,6 +135,8 @@ impl ContentSelector {
         let dt = ui.delta_time();
         self.temp_time += dt;
 
+        let down = false; //ui.input().is_action_active(ActionResponse::Down);
+        /*
         // Simulate a transition to a new row ever 5 seconds
         let down = if self.temp_time > 5.0 {
             self.temp_time = 0.0;
@@ -141,6 +144,8 @@ impl ContentSelector {
         } else {
             false
         };
+
+         */
 
         if self.state == State::Init {
             let item = provider.get_item(0, 0);
