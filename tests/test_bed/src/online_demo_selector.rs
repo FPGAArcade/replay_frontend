@@ -22,7 +22,6 @@ use std::fmt::Write;
 use std::hash::Hasher;
 use std::time::Duration;
 
-/// The JSON “author_nicks” array is an array of objects. We only care about the name.
 #[derive(DeJson, Debug)]
 #[allow(dead_code)]
 pub struct AuthorNick {
@@ -30,8 +29,6 @@ pub struct AuthorNick {
     // Other fields (like abbreviation or releaser) are ignored.
 }
 
-/// The JSON “credits” array holds more detailed information about a production’s credits.
-/// We use this struct to capture the “nick” (an AuthorNick) plus a category and role.
 #[derive(DeJson, Debug)]
 #[allow(dead_code)]
 pub struct Credit {
@@ -40,7 +37,6 @@ pub struct Credit {
     pub role: String,
 }
 
-/// The JSON “download_links” array contains objects with a link class and a URL.
 #[derive(DeJson, Debug)]
 #[allow(dead_code)]
 pub struct DownloadLink {
@@ -48,7 +44,6 @@ pub struct DownloadLink {
     pub url: String,
 }
 
-/// The JSON “platforms” array gives details for each platform. (We only really care about the name.)
 #[derive(DeJson, Debug)]
 #[allow(dead_code)]
 pub struct Platform {
@@ -57,8 +52,6 @@ pub struct Platform {
     pub name: String,
 }
 
-/// The JSON “screenshots” array has keys like “original_url” which we map into our struct.
-/// We use Serde’s rename attribute to change the JSON key into our field name.
 #[derive(DeJson, Debug)]
 #[allow(dead_code)]
 pub struct Screenshot {
@@ -73,7 +66,6 @@ pub struct Screenshot {
     pub thumbnail_height: u32,
 }
 
-/// The main ProductionEntry struct gathers the fields we care about from the JSON.
 #[derive(DeJson, Debug)]
 pub struct ProductionEntry {
     pub title: String,
@@ -192,17 +184,6 @@ fn parse_party(json_data: &str) -> Party {
 #[allow(dead_code)]
 const CACHE_DIR: &str = "target/cache";
 
-/// Computes a SHA256 hash of the URL to use as a unique filename
-
-/// Extracts the file extension from the URL or defaults to "bin" if not found
-#[allow(dead_code)]
-fn get_extension(url: &str) -> &str {
-    Path::new(url)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .filter(|ext| !ext.is_empty()) // Ensure we don't return an empty extension
-        .unwrap_or("bin") // Default to "bin" if no valid extension found
-}
 
 /// Checks if the image is already cached; otherwise, downloads it
 #[allow(dead_code)]
@@ -272,27 +253,10 @@ enum State {
     ShowParty,
 }
 
-fn load_party_from_file_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
-    let filename = data.downcast::<String>().unwrap();
-    let data = load_cached_file(&filename).unwrap();
-    let string = std::str::from_utf8(&data).expect("Failed to convert to string");
-    let party = parse_party(&string);
-    Ok(Box::new(party) as BoxAnySend)
-}
-
-fn load_party_from_remote_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
-    let url = data.downcast::<String>().unwrap();
-    let data = get_from_remote(&url).unwrap();
-    let string = std::str::from_utf8(&data).expect("Failed to convert to string");
-    let party = parse_party(&string);
-    Ok(Box::new(party) as BoxAnySend)
-}
-
 fn fetch_data_string<T: Sized + Send + 'static, F: FnOnce(&str) -> T>(data: BoxAnySend, callback: F) -> JobResult<BoxAnySend> {
     let url = data.downcast::<String>().unwrap();
 
     let cached_filename = hash_url_to_string(&url);
-    dbg!(&cached_filename);
 
     if let Ok(data) = load_cached_file(&cached_filename) {
         debug!("Read url {} from cache {}", url, cached_filename);
@@ -300,7 +264,6 @@ fn fetch_data_string<T: Sized + Send + 'static, F: FnOnce(&str) -> T>(data: BoxA
         Ok(Box::new(callback(&string)) as BoxAnySend)
     } else {
         debug!("Failed to read url {} from cache {}. Fetching from remote.", url, cached_filename);
-        dbg!(&url);
         let data = get_from_remote(&url).unwrap();
         let string = std::str::from_utf8(&data).expect("Failed to convert to string");
         Ok(Box::new(callback(&string)) as BoxAnySend)
@@ -329,6 +292,7 @@ fn fetch_production_entry_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
 }
 
 enum FetchItem {
+    Party(u64, String),
     Release((u64, String)),
     Screenshot((u64, String)),
 }

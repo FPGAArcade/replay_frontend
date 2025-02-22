@@ -13,6 +13,7 @@ log = "0.4"
 nanoserde = { version = "0.2.0-beta.0", default-features = false, features = ["std", "json"] }
 fxhash = "0.2"
 ureq = "3.0"
+request-manager = { path = "../../crates/request-manager" }
 
 [features]
 default = []

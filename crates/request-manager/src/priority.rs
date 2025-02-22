@@ -15,6 +15,7 @@ pub struct PriorityInfo {
 
 #[derive(Debug, Clone)]
 pub struct PrioritizedRequest {
+    // TODO: String allocator
     pub url: String,
     pub id: RequestId,
     pub position: Position,
@@ -24,13 +25,13 @@ pub struct PrioritizedRequest {
 
 impl PrioritizedRequest {
     pub fn new(
-        url: String,
+        url: &str,
         id: RequestId,
         position: Position,
         priority: PriorityInfo,
     ) -> Self {
         Self {
-            url,
+            url: url.to_string(),
             id,
             position,
             priority,
@@ -68,14 +69,13 @@ impl PriorityInfo {
     pub fn new(
         frame: u64,
         weights: &PriorityWeights,
-        is_cached: bool,
         is_visible: bool,
         is_selected: bool,
         position: Position,
         selected_position: Option<Position>,
     ) -> Self {
         let mut info = Self {
-            base_score: if is_cached { weights.cached } else { 0 },
+            base_score: 0,
             visibility_score: if is_visible { weights.visible } else { 0 },
             selection_score: if is_selected { weights.selected } else { 0 },
             distance_score: 0,

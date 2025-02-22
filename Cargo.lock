@@ -1712,6 +1712,8 @@ dependencies = [
 name = "request-manager"
 version = "0.1.0"
 dependencies = [
+ "fxhash",
+ "log",
  "tempfile",
  "thiserror",
 ]
@@ -2177,6 +2179,7 @@ dependencies = [
  "image 0.1.0",
  "log",
  "nanoserde",
+ "request-manager",
  "ureq",
 ]
 

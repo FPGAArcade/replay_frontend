@@ -1,6 +1,5 @@
 // types.rs
 use std::path::PathBuf;
-use std::time::Instant;
 
 pub type RequestId = u64;
 
@@ -18,22 +17,14 @@ impl Position {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct CacheEntry {
-    pub path: PathBuf,
-    //pub fetched_at: Instant,
-}
-
 #[derive(Debug)]
 pub enum FetchJob {
     Cached {
-        url: String,
         path: PathBuf,
         id: RequestId,
     },
     NeedsRequest {
         url: String,
         id: RequestId,
-        execute_after: Instant,
     },
 }

@@ -1,16 +1,16 @@
 // lib.rs
-use std::collections::{HashMap, BinaryHeap};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::collections::{HashMap, BinaryHeap, HashSet};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use thiserror::Error;
+use log::*;
 
 mod types;
 mod priority;
 mod cache;
 
 pub use types::{Position, FetchJob, RequestId};
-use types::CacheEntry;
+//use types::CacheEntry;
 use priority::{PriorityInfo, PrioritizedRequest};
 use cache::CacheStore;
 
@@ -55,9 +55,10 @@ impl Default for PriorityWeights {
 }
 
 pub struct RequestManager {
-    cache_store: CacheStore,
+    pub cache_store: CacheStore,
     request_queue: BinaryHeap<PrioritizedRequest>,
     pending_requests: HashMap<RequestId, PrioritizedRequest>,
+    inflight_requests: HashSet<RequestId>,
     current_frame: u64,
     last_request: Instant,
     min_delay: Duration,
@@ -78,6 +79,7 @@ impl RequestManager {
             min_delay: config.min_delay,
             selected_position: None,
             priority_weights: config.priority_weights,
+            inflight_requests: HashSet::new(),
         })
     }
 
@@ -88,17 +90,19 @@ impl RequestManager {
     }
 
     pub fn begin_frame(&mut self) {
-        self.current_frame += 1;
-        println!("\nBeginning frame {}", self.current_frame);
-
+        /*
         // Clear old requests that haven't been touched in the current frame
         self.pending_requests.retain(|_, req| {
-            let retain = req.priority.frame_touched >= self.current_frame - 1;
+            let retain = req.priority.frame_touched >= self.current_frame;
             if !retain {
                 println!("Removing stale request: {}", req.url);
             }
             retain
         });
+
+         */
+
+        self.current_frame += 1;
     }
 
     pub fn set_selected_position(&mut self, pos: Option<Position>) {
@@ -108,16 +112,32 @@ impl RequestManager {
 
     pub fn request_data(
         &mut self,
-        url: String,
+        url: &str,
         id: RequestId,
         position: Position,
         is_visible: bool,
         is_selected: bool,
-    ) {
+    ) -> Option<FetchJob> {
+        // if this request is being processed we skip updating the queue
+        if self.inflight_requests.contains(&id) {
+            return None;
+        }
+
+        // If we have the url in the cache we return the job directly as it can
+        // be processed immediately. We also add it to the inflight set to avoid
+        // duplicate requests even if the caller shouldn't add it twice
+        if let Some(cached) = self.cache_store.get_path(url).as_ref() {
+            self.inflight_requests.insert(id);
+
+            return Some(FetchJob::Cached {
+                path: cached.clone(),
+                id,
+            });
+        }
+
         let priority = PriorityInfo::new(
             self.current_frame,
             &self.priority_weights,
-            self.cache_store.contains_key(&url),
             is_visible,
             is_selected,
             position,
@@ -132,88 +152,59 @@ impl RequestManager {
         );
 
         self.pending_requests.insert(id, request);
+
+        None
     }
 
     pub fn process_frame(&mut self) -> Option<FetchJob> {
         // Move current frame requests to queue
         self.update_queue();
 
-        // Debug print the queue state
-        println!("Current frame: {}", self.current_frame);
-        println!("Queue size: {}", self.request_queue.len());
-        println!("Pending requests: {}", self.pending_requests.len());
-
         // If queue is empty after update, nothing to do
         if self.request_queue.is_empty() {
-            println!("Queue is empty after update");
             return None;
         }
 
         // Get the next request
         let next_request = self.request_queue.peek().unwrap().clone();
-        println!("Processing request for URL: {} (priority: {})",
-                 next_request.url, next_request.priority.total_score());
-
-        // Check cache first
-        if let Some(path) = self.cache_store.get_path(&next_request.url) {
-            println!("Found in cache: {}", next_request.url);
-            // Remove from queues after we have all the data we need
-            self.request_queue.pop();
-            self.pending_requests.remove(&next_request.id);
-
-            return Some(FetchJob::Cached {
-                url: next_request.url,
-                path,
-                id: next_request.id,
-            });
-        }
 
         // Check rate limiting
         let now = Instant::now();
         let time_since_last = now.duration_since(self.last_request);
-        println!("Time since last request: {:?} (min delay: {:?})",
+        debug!("Time since last request: {:?} (min delay: {:?})",
                  time_since_last, self.min_delay);
 
         if time_since_last >= self.min_delay {
-            println!("Rate limit passed, processing request");
+            debug!("Rate limit passed, processing request");
             // Remove from queues
             self.request_queue.pop();
             self.pending_requests.remove(&next_request.id);
+            self.inflight_requests.insert(next_request.id);
             self.last_request = now;
 
             return Some(FetchJob::NeedsRequest {
                 url: next_request.url,
                 id: next_request.id,
-                execute_after: now,
             });
         }
 
-        println!("Rate limited, no request processed");
         None
     }
 
-    pub fn add_to_cache(&mut self, url: String, path: PathBuf) -> Result<()> {
-        self.cache_store.insert(url, path)
+    pub fn add_to_cache(&mut self, path: PathBuf) {
+        self.cache_store.insert(path)
     }
 
     fn update_queue(&mut self) {
         // Clear the queue first to avoid duplicates
         self.request_queue.clear();
 
-        println!("\nUpdating queue for frame {}", self.current_frame);
-        println!("Pending requests before update: {}", self.pending_requests.len());
-
         // Add all requests from current frame
         for request in self.pending_requests.values() {
-            println!("Checking request {} (frame touched: {}, current frame: {})",
-                     request.url, request.priority.frame_touched, self.current_frame);
             if request.priority.frame_touched == self.current_frame {
-                println!("Adding to queue: {}", request.url);
                 self.request_queue.push(request.clone());
             }
         }
-
-        println!("Queue size after update: {}", self.request_queue.len());
     }
 
     fn update_distance_scores(&mut self) {
@@ -255,7 +246,7 @@ mod tests {
 
         // Request some data
         manager.request_data(
-            "test_url".to_string(),
+            "test_url",
             1,
             Position { x: 0.0, y: 0.0 },
             true,
@@ -279,7 +270,7 @@ mod tests {
 
         // Request items with different priorities
         manager.request_data(
-            "selected.json".to_string(),
+            "selected.json",
             1,
             Position { x: 0.0, y: 0.0 },
             true,
@@ -287,7 +278,7 @@ mod tests {
         );
 
         manager.request_data(
-            "visible.json".to_string(),
+            "visible.json",
             2,
             Position { x: 10.0, y: 10.0 },
             true,
@@ -295,7 +286,7 @@ mod tests {
         );
 
         manager.request_data(
-            "hidden.json".to_string(),
+            "hidden.json",
             3,
             Position { x: 20.0, y: 20.0 },
             false,
@@ -328,11 +319,17 @@ mod tests {
         let (mut manager, _temp) = setup_test_manager();
         manager.begin_frame();
 
+        let requests = vec![
+            "url0.json",
+            "url1.json",
+            "url2.json",
+        ];
+
         // Request multiple items
         for i in 0..3 {
             manager.request_data(
-                format!("url{}.json", i),
-                i,
+                &requests[i],
+                i as _,
                 Position { x: 0.0, y: 0.0 },
                 true,
                 false,
@@ -348,32 +345,30 @@ mod tests {
 
     #[test]
     fn test_cache_hit() {
-        let (mut manager, temp_dir) = setup_test_manager();
+        let (mut manager, _temp_dir) = setup_test_manager();
 
         // Add item to cache and ensure it's properly inserted
-        let url = "cached.json".to_string();
-        let cache_path = temp_dir.path().join(&url);
+        let url = "cached.json";
+        let cache_path = manager.cache_store.get_path_for_url(url).to_owned();
         std::fs::write(&cache_path, "test content").unwrap(); // Create the actual file
-        manager.add_to_cache(url.clone(), cache_path.clone()).unwrap();
+        manager.add_to_cache(cache_path.clone());
 
         // Verify the item is in the cache
-        assert!(manager.cache_store.contains_key(&url), "Cache should contain the item");
+        assert!(manager.cache_store.contains_key(url), "Cache should contain the item");
 
         manager.begin_frame();
-        manager.request_data(
-            url,
+        let cached_request = manager.request_data(
+            &url,
             1,
             Position { x: 0.0, y: 0.0 },
             true,
             false,
         );
 
-        // Should get cached response
-        match manager.process_frame() {
-            Some(FetchJob::Cached { path, .. }) => {
-                assert_eq!(path, cache_path);
-            }
-            other => panic!("Expected cached response, got {:?}", other),
+        if let Some(FetchJob::Cached { path, .. }) = cached_request {
+            assert_eq!(path, cache_path);
+        } else {
+            panic!("Expected cached response");
         }
     }
 
@@ -388,7 +383,7 @@ mod tests {
 
         // Request items at different distances
         manager.request_data(
-            "near.json".to_string(),
+            "near.json",
             1,
             Position { x: 10.0, y: 10.0 },
             true,
@@ -396,7 +391,7 @@ mod tests {
         );
 
         manager.request_data(
-            "far.json".to_string(),
+            "far.json",
             2,
             Position { x: 100.0, y: 100.0 },
             true,
