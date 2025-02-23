@@ -3,13 +3,16 @@ mod image;
 mod image_api;
 pub mod input;
 mod internal_error;
-mod io_handler;
 pub mod primitives;
 pub mod render;
 pub mod signal;
 pub mod widgets;
+pub mod content_selector;
+pub mod content_provider;
+mod io;
+
 use crate::input::Input;
-use crate::io_handler::IoHandle;
+use io::io_handler_old::IoHandle;
 use glam::Vec4;
 use ::image::RenderImage;
 
@@ -23,12 +26,12 @@ use clay_layout::{
 };
 use fileorama::Fileorama;
 use internal_error::InternalResult;
-pub use io_handler::IoHandler;
+pub use io::io_handler_old::IoHandler;
 use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 
-pub use crate::io_handler::IoHandle as ImageHandle;
+pub use io::io_handler_old::IoHandle as ImageHandle;
 use font::{CachedString, FontHandle};
 pub use image::ImageInfo;
 

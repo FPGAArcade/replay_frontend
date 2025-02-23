@@ -1,18 +1,14 @@
 // lib.rs
-use std::collections::{HashMap, BinaryHeap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use thiserror::Error;
 use log::*;
 
-mod types;
-mod priority;
-mod cache;
-
-pub use types::{Position, FetchJob, RequestId};
+pub use flowi_core::io::types::{FetchJob, Position, RequestId};
 //use types::CacheEntry;
-use priority::{PriorityInfo, PrioritizedRequest};
-use cache::CacheStore;
+use flowi_core::io::priority::{PrioritizedRequest, PriorityInfo};
+use flowi_core::io::cache::CacheStore;
 
 #[derive(Error, Debug)]
 pub enum CacheError {

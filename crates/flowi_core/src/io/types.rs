@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 pub type RequestId = u64;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Position {
     pub x: f32,
     pub y: f32,

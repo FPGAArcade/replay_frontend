@@ -202,7 +202,9 @@ checksum = "7e36cc9d416881d2e24f9a963be5fb1cd90966419ac844274161d10488b3e825"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "wasm-bindgen",
  "windows-targets",
 ]
 
@@ -1216,9 +1218,9 @@ checksum = "9374ef4228402d4b7e403e5838cb880d9ee663314b0a900d5a6aabf0c213552e"
 
 [[package]]
 name = "log"
-version = "0.4.25"
+version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04cbf5b083de1c7e0222a7a51dbfdba1cbe1c6ab0b15e29fff3f6c077fd9cd9f"
+checksum = "30bde2b3dc3671ae49d8e2e9f044c7c005836e7a023ee57cffa25ab82764bb9e"
 
 [[package]]
 name = "lzma-rs"
@@ -1398,6 +1400,17 @@ name = "once_cell"
 version = "1.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
+
+[[package]]
+name = "online-demo-display"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "flowi_core",
+ "log",
+ "nanoserde",
+ "request-manager",
+]
 
 [[package]]
 name = "openssl"
@@ -2172,15 +2185,13 @@ name = "test_bed"
 version = "0.1.0"
 dependencies = [
  "arena-allocator",
+ "chrono",
  "env_logger",
  "flowi",
  "flowi-api",
- "fxhash",
  "image 0.1.0",
  "log",
- "nanoserde",
- "request-manager",
- "ureq",
+ "online-demo-display",
 ]
 
 [[package]]

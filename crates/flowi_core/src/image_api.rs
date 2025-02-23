@@ -1,6 +1,6 @@
 //use crate::image::{ImageFormat, ImageInfo, ImageMode, ImageOptions};
 use crate::image::{ImageInfo, ImageMode, ImageOptions};
-use crate::io_handler::IoHandle;
+use crate::io::io_handler_old::IoHandle;
 use crate::State;
 use resvg::{tiny_skia, usvg};
 use image::{Color16, Falloff};

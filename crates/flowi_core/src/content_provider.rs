@@ -1,6 +1,6 @@
 use flowi_api::ImageHandle;
 use image::RenderImage;
-pub(crate) struct Item {
+pub struct Item {
     /// This image is being shown when the item is non-selected. We used a scaled down image
     /// that fits the screen size we need exactly to save performance.
     pub unselected_image: ImageHandle,
@@ -17,12 +17,10 @@ pub(crate) struct Item {
 /// is responsible for loading the data from the source and provide it to the content selector. The
 /// idea is that the content selector should be as generic as possible and not have any knowledge
 /// of the data source as we want to support demos, games, etc., from various sources.
-pub(crate) trait ContentProvider {
+pub trait ContentProvider {
     /// Get the item at the given column and row. If the item is not available at the given
     /// position it should return None.
     fn get_item(&self, row: u64, col: u64) -> Item;
-    /// Get the number of columns in the grid
-    fn get_total_row_count(&self) -> u64;
     fn get_column_count(&self, row: u64) -> u64;
     /// Get the name of the row
     fn get_row_name(&self, row: u64) -> &str;

@@ -44,7 +44,7 @@ type Job = Box<dyn FnOnce(BoxAnySend) -> JobResult<BoxAnySend> + Send>;
 
 /// Handle to a scheduled job
 pub struct JobHandle {
-    receiver: Receiver<JobResult<BoxAnySend>>,
+    pub receiver: Receiver<JobResult<BoxAnySend>>,
 }
 
 impl JobHandle {

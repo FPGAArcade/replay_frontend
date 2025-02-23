@@ -1,22 +1,17 @@
-mod content_selector;
-mod online_demo_selector;
-mod content_provider;
-mod demozoo_fetcher;
 
 use arena_allocator;
-use flowi::{Application};
+use flowi::Application;
 use flowi::Ui;
 use flowi::{
-    fixed, grow, percent, Alignment, ClayColor, ImageHandle, LayoutAlignmentX, LayoutAlignmentY,
-    LayoutDirection, FontHandle, Padding,
-    BackgroundMode, Declaration,
-    ImageInfo,
-    Dimensions,
+    grow,
+    Declaration, FontHandle
+    , LayoutDirection
+
+    ,
 };
-use image::Color16;
 //use log::*;
 //use demozoo_fetcher::ProductionEntry;
-use crate::online_demo_selector::OnlineDemoSelector;
+use online_demo_display::online_demo_selector::OnlineDemoSelector;
 
 pub struct Fonts {
     pub default: FontHandle,

@@ -2,11 +2,11 @@
 /// similar to how movie based selectors for many streaming services works. The user can scroll
 /// through a list of items and select one of them. The selected item will be displayed in a larger
 /// size than the other items. Each item has an ID that
+/// TODO: This shouldn't really be part of core-flowi, but we will keep it here for now.
 
 use image::RenderImage;
 use arena_allocator::TypedArena;
-use flowi::{fixed, grow, percent, ActionResponse, Alignment, ClayColor, Declaration, Dimensions, ImageHandle, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, InputAction};
-use crate::{App};
+use crate::{fixed, grow, percent, ActionResponse, Alignment, ClayColor, Declaration, Dimensions, ImageHandle, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, InputAction};
 use crate::content_provider::{ContentProvider, Item};
 use std::collections::HashMap;
 
@@ -32,7 +32,7 @@ struct ItemState {
 const UNSELECTED_IMAGE_SIZE: (f32, f32) = (250.0, 187.5);
 const ENTRY_ID: &str = "selection_entry";
 
-pub(crate) struct ContentSelector {
+pub struct ContentSelector {
     /// Selected item in row, col format
     selected_item: RowColumn,
     /// If we are about to transition to a new row this is the row we are transitioning to.
@@ -67,13 +67,12 @@ impl ContentSelector {
 
     #[rustfmt::skip]
     fn draw_row(&self, ui: &Ui, provider: &dyn ContentProvider, row: u64, opacity: f32) {
-        let total_rows = provider.get_total_row_count();
+        let name = provider.get_row_name(row);
 
-        if row >= total_rows {
+        if name.is_empty() {
             return;
         }
 
-        let name = provider.get_row_name(row);
         let id = ui.id_index(name, row as _);
 
         ui.text_with_layout(name, 36,

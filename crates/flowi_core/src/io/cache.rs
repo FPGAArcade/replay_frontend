@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::fs;
 //use crate::types::CacheEntry;
-use crate::Result;
+use request_manager::Result;
 use std::hash::Hasher;
 
 pub struct CacheStore {
@@ -44,27 +44,40 @@ impl CacheStore {
 
     #[allow(dead_code)]
     pub fn contains_key(&mut self, url: &str) -> bool {
-        let path = self.build_path(url).to_owned();
+        let mut cache_path = PathBuf::with_capacity(128);
+        Self::get_cache_path(url, &self.cache_dir, &mut cache_path);
         // TODO: Fix clone
-        self.entries.contains(&path)
+        self.entries.contains(&cache_path)
     }
 
-    fn u64_to_hex(n: u64, s: &mut String) {
+    fn u64_to_hex(n: u64, output: &mut [u8; 16]) {
         let hex = b"0123456789abcdef";
         let mut num = n;
 
-        // Safety: We assume the string has capacity >= 16
-        unsafe {
-            let bytes = s.as_mut_vec();
-            bytes.set_len(16); // Set length to what we'll write
-
-            for i in (0..16).rev() {
-                bytes[i] = hex[(num & 0xF) as usize];
-                num >>= 4;
-            }
+        for i in (0..16).rev() {
+            output[i] = hex[(num & 0xF) as usize];
+            num >>= 4;
         }
     }
 
+   fn get_cache_path<'a, P>(url: &'a str, dir: P, output: &'a mut PathBuf) -> &'a PathBuf
+    where
+        P: AsRef<Path>,
+    {
+        let mut hex_string_buffer = [0u8; 16];
+        let mut hasher = fxhash::FxHasher64::default();
+        hasher.write(url.as_bytes());
+        let hash = hasher.finish();
+
+        Self::u64_to_hex(hash, &mut hex_string_buffer);
+
+        output.clear();
+        output.push(dir.as_ref());
+        output.push(unsafe { std::str::from_utf8_unchecked(&hex_string_buffer) });
+        output
+    }
+
+    /*
     fn build_path(&mut self, url: &str) -> &PathBuf {
         let mut hasher = fxhash::FxHasher64::default();
         hasher.write(url.as_bytes());
@@ -78,12 +91,19 @@ impl CacheStore {
         &self.temp_path
     }
 
+     */
+
+    /*
     pub fn get_path_for_url(&mut self, url: &str) -> &PathBuf {
-        self.build_path(url)
+        let mut cache_path = PathBuf::with_capacity(128);
+        Self::get_cache_path(url, &self.cache_dir, &mut cache_path);
     }
 
+     */
+
     pub fn get_path(&mut self, url: &str) -> Option<PathBuf> {
-        let path = self.build_path(url).to_owned();
+        let mut path = PathBuf::with_capacity(128);
+        Self::get_cache_path(url, &self.cache_dir, &mut path);
         self.entries.get(&path).map(|entry| entry.to_owned())
     }
 
@@ -95,10 +115,12 @@ impl CacheStore {
 
     #[allow(dead_code)]
     fn remove(&mut self, url: &str) -> bool {
-        let path = self.build_path(url).to_owned();
+        let mut path = PathBuf::with_capacity(128);
+        Self::get_cache_path(url, &self.cache_dir, &mut path);
 
         if self.entries.remove(&path) {
             // Try to remove the file, but don't fail if we can't
+            // TODO: We shouldn't do this here because it may stall the main-thread
             let _ = fs::remove_file(&path);
             true
         } else {

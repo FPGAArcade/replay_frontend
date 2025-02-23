@@ -1,8 +1,8 @@
 // priority.rs
 use std::cmp::Ordering;
 use std::time::Instant;
-use crate::types::{Position, RequestId};
-use crate::PriorityWeights;
+use request_manager::types::{Position, RequestId};
+use request_manager::PriorityWeights;
 
 #[derive(Debug, Clone)]
 pub struct PriorityInfo {

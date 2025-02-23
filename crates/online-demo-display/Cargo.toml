@@ -1,0 +1,11 @@
+[package]
+name = "online-demo-display"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4"
+nanoserde = { version = "0.2.0-beta.0", default-features = false, features = ["std", "json"] }
+request-manager = { path = "../request-manager" }
+flowi_core = { path = "../flowi_core" }
+log = "0.4.26"
