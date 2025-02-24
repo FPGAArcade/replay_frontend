@@ -4,9 +4,9 @@
 /// size than the other items. Each item has an ID that
 /// TODO: This shouldn't really be part of core-flowi, but we will keep it here for now.
 
-use image::RenderImage;
+//use image_old::RenderImage;
 use arena_allocator::TypedArena;
-use crate::{fixed, grow, percent, ActionResponse, Alignment, ClayColor, Declaration, Dimensions, ImageHandle, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, InputAction};
+use crate::{fixed, grow, percent, ActionResponse, Alignment, ClayColor, Declaration, Dimensions, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, InputAction};
 use crate::content_provider::{ContentProvider, Item};
 use std::collections::HashMap;
 

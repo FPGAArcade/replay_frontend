@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::fs;
 //use crate::types::CacheEntry;
-use request_manager::Result;
 use std::hash::Hasher;
 
 pub struct CacheStore {

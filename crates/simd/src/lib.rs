@@ -481,7 +481,7 @@ impl i16x8 {
     pub fn store_unaligned_lower<T: Sized>(self, data: &mut [T], offset: usize) {
         #[cfg(target_arch = "aarch64")]
         unsafe {
-            vst1_s16(data, vget_high_s16(self.v));
+            vst1_s16(data.as_mut_ptr().add(offset) as _, vget_high_s16(self.v));
         }
 
         #[cfg(target_arch = "x86_64")]
@@ -494,7 +494,7 @@ impl i16x8 {
     pub fn store_unaligned_ptr_lower<T: Sized>(self, data: *const T) {
         #[cfg(target_arch = "aarch64")]
         unsafe {
-            vst1_s16(data, vget_low_s16(self.v));
+            vst1_s16(data as _, vget_low_s16(self.v));
         }
 
         #[cfg(target_arch = "x86_64")]
@@ -1551,7 +1551,7 @@ mod i16x8_tests {
     #[test]
     fn test_load_unaligned() {
         let data = [1, 2, 3, 4, 5, 6, 7, 8];
-        let vec = i16x8::load_unaligned(&data);
+        let vec = i16x8::load_unaligned(&data, 0);
         assert_eq!(vec.to_array(), data);
     }
 
@@ -1559,7 +1559,7 @@ mod i16x8_tests {
     fn test_store_unaligned() {
         let vec = i16x8::new(1, 2, 3, 4, 5, 6, 7, 8);
         let mut data = [0; 8];
-        vec.store_unaligned(&mut data);
+        vec.store_unaligned(&mut data, 0);
         assert_eq!(data, [1, 2, 3, 4, 5, 6, 7, 8]);
     }
 
@@ -1685,7 +1685,7 @@ mod simd_tests {
     #[test]
     fn test_i16x_splat_1() {
         // Test splatting a specific lane of an i16x8 register
-        let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8], 0);
         let result = vec.splat::<1>().to_array();
         assert_eq!(result, [2, 2, 2, 2, 2, 2, 2, 2]);
     }
@@ -1693,7 +1693,7 @@ mod simd_tests {
     #[test]
     fn test_i16x_splat_2() {
         // Test splatting a specific lane of an i16x8 register
-        let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        let vec = i16x8::load_unaligned(&[1, 2, 3, 4, 5, 6, 7, 8], 0);
         let result = vec.splat::<2>().to_array();
         assert_eq!(result, [3, 3, 3, 3, 3, 3, 3, 3]);
     }

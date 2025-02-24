@@ -3,7 +3,7 @@ use crate::image::{ImageInfo, ImageMode, ImageOptions};
 use crate::io::io_handler_old::IoHandle;
 use crate::State;
 use resvg::{tiny_skia, usvg};
-use image::{Color16, Falloff};
+use image_old::{Color16, Falloff};
 
 use fileorama::{Driver, DriverType, Error, Fileorama, LoadStatus, Progress};
 use thiserror::Error as ThisError;
@@ -137,7 +137,7 @@ fn decode_zune(data: &[u8], image_options: Option<ImageOptions>) -> Result<Vec<u
        if image_opts.mode == ImageMode::ScaleToTargetInteger {
            let image_size = (dimensions.0 as _, dimensions.1 as _);
            let output_size = (image_opts.size.x as _, image_opts.size.y as _);
-           Box::new(image::upscale_image_integer(&color16_output, image_size, output_size, Falloff::Enabled))
+           Box::new(image_old::upscale_image_integer(&color16_output, image_size, output_size, Falloff::Enabled))
        } else {
            unimplemented!("Unsupported mode");
        }

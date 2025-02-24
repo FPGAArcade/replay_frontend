@@ -1,12 +1,11 @@
-use flowi_api::ImageHandle;
-use image::RenderImage;
+use crate::io::io::IoHandle;
 pub struct Item {
     /// This image is being shown when the item is non-selected. We used a scaled down image
     /// that fits the screen size we need exactly to save performance.
-    pub unselected_image: ImageHandle,
+    pub unselected_image: IoHandle,
     /// This image is being shown when the item is selected. This has the original size when
     /// loaded from the source, unless it's very large it will have been downsized as well.
-    pub selected_image: ImageHandle,
+    pub selected_image: IoHandle,
     /// The ID of the item. This is used to identify the item when it's selected.
     pub id: u64,
 }

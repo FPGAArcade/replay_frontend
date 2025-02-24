@@ -5,11 +5,10 @@ use std::time::{Duration, Instant};
 use std::collections::HashMap;
 use job_system::{JobHandle, BoxAnySend};
 use crate::io::cache::CacheStore;
+use crate::io::io::LoadState::Loaded;
 
-pub type IoHandle = u64;
+pub struct IoHandle(u64);
 pub type Callback<T> = Box<dyn Fn(&[u8]) -> T + Send + 'static>;
-
-const CACHE_DIR: &str = "target/cache";
 
 pub struct IoSettings {
     pub cache_dir: String,
@@ -21,12 +20,11 @@ struct JobInfo {
     url: String,
 }
 
-struct Io {
+pub struct IoHandler {
     cache_store: CacheStore,
     settings: IoSettings,
     id_counter: u64,
-    id_handles: HashMap<IoHandle, JobInfo>,
-    finished_requests: HashMap<IoHandle, BoxAnySend>,
+    jobs: HashMap<u64, JobInfo>,
 }
 
 pub enum Priority {
@@ -43,7 +41,7 @@ pub enum LoadState {
     Failed(String)
 }
 
-impl Io {
+impl IoHandler {
     pub fn new(remote_delay: Duration) -> Self {
         let settings = IoSettings {
             cache_dir: CACHE_DIR.to_string(),
@@ -52,6 +50,7 @@ impl Io {
 
         Self {
             cache_store: CacheStore::new(&settings.cache_dir).unwrap(),
+            jobs: HashMap::with_capacity(256),
             settings,
             id_counter: 1,
         }
@@ -70,36 +69,25 @@ impl Io {
         0 // Placeholder return value
     }
 
-    pub fn update_priority(&mut self, handle: IoHandle, priority: Priority) {
-        // Implementation here
-    }
-
-    pub fn get_loaded(&mut self, handle: IoHandle) -> Result<Option<&[u8]>, LoadError> {
-        match self.states.get(&handle.0) {
-            Some(LoadState::Loading) => Ok(None), // Still loading
-            Some(LoadState::Done(data)) => Ok(Some(data)),
-            Some(LoadState::Failed(error)) => {
-                // Option 1: Remove the state after reporting error
-                self.states.remove(&handle.0);
-                Err(error.clone())
-            }
-            None => Err(LoadError::NotFound),
-        }
-    }
-
-
-    pub fn update(&mut self) {
-        for (handle, job) in self.id_handles.iter() {
-            if let Ok(done) = job.handle.receiver.try_recv() {
-                match done {
-                    Ok(result) => self.finished_requests.insert(*handle, result),
-                    Err(e) => error!("Failed to load data: {} error {}", &job.url, e),
+    pub fn get_loaded(&mut self, handle: IoHandle, priority: Priority) -> LoadState {
+        if let Some(job_info) = self.jobs.get(&handle.0) {
+            match job_info.handle.receiver.try_recv() {
+                Ok(data) => {
+                    self.jobs.remove(&handle.0);
+                    match data {
+                        Ok(data) => LoadState::Loaded(data),
+                        Err(e) => LoadState::Failed(format!("{}", e)),
+                    }
                 }
+                // TODO: Handle more states here.
+                _ => LoadState::Loading(0.0),
             }
+
+        } else {
+            LoadState::NotStarted
         }
     }
 }
-
 
 /// Directory to store cached images
 #[allow(dead_code)]

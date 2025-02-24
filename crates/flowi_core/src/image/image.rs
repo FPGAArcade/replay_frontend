@@ -1,6 +1,6 @@
 // use log::warn;
 use crate::primitives::{Color, IVec2, Vec2};
-use image::Color16;
+use image_old::Color16;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(dead_code)]

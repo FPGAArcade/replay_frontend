@@ -1,6 +1,4 @@
 pub mod font;
-mod image;
-mod image_api;
 pub mod input;
 mod internal_error;
 pub mod primitives;
@@ -11,10 +9,13 @@ pub mod content_selector;
 pub mod content_provider;
 mod io;
 
+pub mod image;
+
+pub mod render_api;
+
 use crate::input::Input;
-use io::io_handler_old::IoHandle;
+use io::io::IoHandle;
 use glam::Vec4;
-use ::image::RenderImage;
 
 use job_system::JobSystem;
 use arena_allocator::Arena;
@@ -26,14 +27,13 @@ use clay_layout::{
 };
 use fileorama::Fileorama;
 use internal_error::InternalResult;
-pub use io::io_handler_old::IoHandler;
+pub use io::io::IoHandler;
 use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 
-pub use io::io_handler_old::IoHandle as ImageHandle;
 use font::{CachedString, FontHandle};
-pub use image::ImageInfo;
+//pub use image::ImageInfo;
 
 pub use clay_layout::{
     color::Color as ClayColor,
@@ -46,7 +46,7 @@ pub use clay_layout::{
     text::TextConfig, Declaration,
 };
 
-use flowi_api::{
+pub use render_api::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
     RenderType, Renderer, StringSlice,
 };
