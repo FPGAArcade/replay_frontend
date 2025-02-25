@@ -1,14 +1,7 @@
-
 use arena_allocator;
 use flowi::Application;
 use flowi::Ui;
-use flowi::{
-    grow,
-    Declaration, FontHandle
-    , LayoutDirection
-
-    ,
-};
+use flowi::{grow, Declaration, FontHandle, LayoutDirection};
 //use log::*;
 //use demozoo_fetcher::ProductionEntry;
 use online_demo_display::OnlineDemoDisplay;
@@ -62,7 +55,9 @@ fn main() {
 
     let fonts = Fonts {
         bold: ui.load_font("data/fonts/roboto/Roboto-Bold.ttf").unwrap(),
-        default: ui.load_font("data/fonts/roboto/Roboto-Regular.ttf").unwrap(),
+        default: ui
+            .load_font("data/fonts/roboto/Roboto-Regular.ttf")
+            .unwrap(),
         thin: ui.load_font("data/fonts/roboto/Roboto-Thin.ttf").unwrap(),
         light: ui.load_font("data/fonts/roboto/Roboto-Light.ttf").unwrap(),
     };
@@ -393,4 +388,3 @@ let image = ui
 .unwrap();
 
  */
-

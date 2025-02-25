@@ -1,7 +1,7 @@
 // cache.rs
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 //use crate::types::CacheEntry;
 use std::hash::Hasher;
 
@@ -59,7 +59,7 @@ impl CacheStore {
         }
     }
 
-   pub fn get_cache_path<P>(url: &str, dir: P, output: &mut PathBuf)
+    pub fn get_cache_path<P>(url: &str, dir: P, output: &mut PathBuf)
     where
         P: AsRef<Path>,
     {

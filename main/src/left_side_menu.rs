@@ -1,8 +1,6 @@
 use flowi::ClayColor as Color;
 use flowi::Ui;
-use flowi::{
-    fixed, grow, Alignment, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding,
-};
+use flowi::{fixed, grow, Alignment, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding};
 
 #[derive(Copy, Clone)]
 #[allow(dead_code)]

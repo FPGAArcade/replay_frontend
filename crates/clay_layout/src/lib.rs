@@ -19,9 +19,9 @@ use id::Id;
 use math::{BoundingBox, Dimensions, Vector2};
 use render_commands::RenderCommand;
 
+pub use bindings::{Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig};
 pub use color::Color;
 pub use layout::*;
-pub use bindings::{Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig};
 
 #[cfg(feature = "std")]
 use text::TextConfig;

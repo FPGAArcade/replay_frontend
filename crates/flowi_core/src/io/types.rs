@@ -19,12 +19,6 @@ impl Position {
 
 #[derive(Debug)]
 pub enum FetchJob {
-    Cached {
-        path: PathBuf,
-        id: RequestId,
-    },
-    NeedsRequest {
-        url: String,
-        id: RequestId,
-    },
+    Cached { path: PathBuf, id: RequestId },
+    NeedsRequest { url: String, id: RequestId },
 }

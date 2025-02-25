@@ -1,6 +1,6 @@
 use crate::TileInfo;
+use flowi_core::primitives::Color16;
 use simd::*;
-use flowi_core::primitives::{Color16};
 
 const TEXTURE_MODE_NONE: usize = 0;
 const TEXTURE_MODE_ALIGNED: usize = 1;
@@ -672,20 +672,18 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     coords: &[f32],
     color: i16x8,
 ) {
-    let render_params = if let Some(params) = calculate_render_params(
-        coords,
-        tile_info,
-        scissor_rect,
-    ) {
-        params
-    } else {
-        return;
-    };
+    let render_params =
+        if let Some(params) = calculate_render_params(coords, tile_info, scissor_rect) {
+            params
+        } else {
+            return;
+        };
 
     let color = premultiply_alpha(color);
 
     // Adjust for clipping
-    let mut text_data = unsafe { text_data.add((render_params.clip_y * texture_width) + render_params.clip_x) };
+    let mut text_data =
+        unsafe { text_data.add((render_params.clip_y * texture_width) + render_params.clip_x) };
 
     let x0 = render_params.x0;
     let y0 = render_params.y0;
@@ -696,7 +694,7 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     let xlen = x1 - x0;
 
     let tile_width = tile_info.width as usize;
-    let output = &mut output[((y0 as usize * tile_width + x0 as usize))..];
+    let output = &mut output[(y0 as usize * tile_width + x0 as usize)..];
     let mut output_ptr = output.as_mut_ptr();
 
     let mut tile_line_ptr = output_ptr;
@@ -739,18 +737,16 @@ impl Raster {
     }
 
     // TODO: Unify the setup for these functions as they are very similar
-    pub fn draw_background(&self,
+    pub fn draw_background(
+        &self,
         output: &mut [Color16],
         tile_info: &TileInfo,
         coords: &[f32],
         texture_width: usize,
-        texture_data: *const u64)
-    {
-        let rp = if let Some(params) = calculate_render_params(
-            coords,
-            tile_info,
-            self.scissor_rect,
-        ) {
+        texture_data: *const u64,
+    ) {
+        let rp = if let Some(params) = calculate_render_params(coords, tile_info, self.scissor_rect)
+        {
             params
         } else {
             return;

@@ -63,9 +63,7 @@ impl WorkSystem {
 
             let name = format!("background_worker_{}", i);
 
-            let _ = thread::Builder::new()
-                .name(name.to_owned())
-                .spawn(move || {
+            let _ = thread::Builder::new().name(name.to_owned()).spawn(move || {
                 while let Ok((id, data, response_sender)) = worker_receiver.recv() {
                     if let Some(Some((callback, state))) = worker_callbacks.lock().unwrap().get(id)
                     {

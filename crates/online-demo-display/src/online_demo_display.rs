@@ -1,28 +1,28 @@
+use crate::data::*;
+use flowi_core::content_provider::{ContentProvider, Item};
+use flowi_core::content_selector::ContentSelector;
 /// This file is the main code for the online demo browser for the frontend. It is responsible for
 /// displaying a list of items that can be selected. It acts very similar to how movie based
 /// selectors for many streaming services works. The user can scroll through a list of items and
 /// select one of them. The selected item will be displayed in a larger size than the other items.
 /// THe backend uses the Demozoo API to fetch the metadata along with screenshots from it's db.
 use flowi_core::{
-    fixed,
-    grow,
-    percent, Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui,
+    Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection,
+    Padding, Ui, fixed, grow,
     job_system::{BoxAnySend, JobHandle, JobResult, JobSystem},
+    percent,
 };
-use flowi_core::content_provider::{ContentProvider, Item};
-use flowi_core::content_selector::ContentSelector;
-use flowi_core::{IoHandle, LoadState, LoadPriority};
+use flowi_core::{IoHandle, LoadPriority, LoadState};
+use log::error;
 use log::*;
-use std::{fs, io};
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
 use nanoserde::DeJson;
 use std::fmt::Write;
+use std::fs::File;
 use std::hash::Hasher;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
-use log::error;
-use crate::data::*;
+use std::{fs, io};
 
 const API_URL: &str = "https://demozoo.org/api/v1";
 
@@ -65,7 +65,6 @@ fn read_production_entry_from_remote(data: BoxAnySend) -> JobResult<BoxAnySend> 
 
  */
 
-
 enum FetchItem {
     Party(u64, String),
     Release((u64, String)),
@@ -97,11 +96,16 @@ impl OnlineDemoDisplay {
         self.url_string.clear();
         write!(self.url_string, "{}/parties/{}", API_URL, party_id).unwrap();
 
-        let handle = ui.load_with_callback(&self.url_string, Box::new(|data| {
-            let json_data = std::str::from_utf8(data).expect("Failed to parse string");
-            let party: Party = DeJson::deserialize_json(json_data).expect("Failed to parse JSON");
-            party
-        }));
+        let handle = ui.load_with_callback(
+            &self.url_string,
+            LoadPriority::Normal,
+            Box::new(|data| {
+                let json_data = std::str::from_utf8(data).expect("Failed to parse string");
+                let party: Party =
+                    DeJson::deserialize_json(json_data).expect("Failed to parse JSON");
+                Box::new(party) as BoxAnySend
+            }),
+        );
 
         self.jobs.push(QueuedJob::Party(handle));
     }
@@ -109,18 +113,16 @@ impl OnlineDemoDisplay {
     pub fn update(&mut self, ui: &Ui) {
         for job in self.jobs.iter_mut() {
             match job {
-                QueuedJob::Party(handle) => {
-                    match ui.return_loaded(*handle, LoadPriority::Normal) {
-                        LoadState::Loaded(data) => {
-                            if let Ok(party) = data.downcast::<Party>() {
-                                self.parties.push(party);
-                            } else {
-                                error!("Failed to parse party data");
-                            }
+                QueuedJob::Party(handle) => match ui.return_loaded(*handle, LoadPriority::Normal) {
+                    LoadState::Loaded(data) => {
+                        if let Ok(party) = data.downcast::<Party>() {
+                            self.parties.push(party);
+                        } else {
+                            error!("Failed to parse party data");
                         }
-                        _ => { },
                     }
-                }
+                    _ => {}
+                },
 
                 _ => {}
             }
@@ -205,7 +207,6 @@ impl ContentProvider for OnlineDemoDisplay {
     }
 }
 
-
 pub struct OnlineDemoSelector {
     content_selector: ContentSelector,
     content_provider: OnlineDemoDisplay,
@@ -226,19 +227,24 @@ impl OnlineDemoSelector {
     }
 
     pub fn update(&mut self, ui: &Ui) {
-        ui.with_layout(&Declaration::new()
-            .id(ui.id("foo"))
-            .layout()
+        ui.with_layout(
+            &Declaration::new()
+                .id(ui.id("foo"))
+                .layout()
                 .width(grow!())
                 .height(fixed!(400.0))
                 .direction(LayoutDirection::TopToBottom)
-                .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+                .child_alignment(Alignment::new(
+                    LayoutAlignmentX::Left,
+                    LayoutAlignmentY::Center,
+                ))
                 .child_gap(10)
-            .end()
-            .background_color(ClayColor::rgba(255.0, 0.0, 0.0, 255.0)), |ui|
-        {
-            // TODO: Fill out entry info here
-        });
+                .end()
+                .background_color(ClayColor::rgba(255.0, 0.0, 0.0, 255.0)),
+            |ui| {
+                // TODO: Fill out entry info here
+            },
+        );
 
         /*
         ui.with_layout(&Declaration::new()
@@ -254,8 +260,8 @@ impl OnlineDemoSelector {
         {
 
          */
-       self.content_provider.update(ui);
-       update(ui, &mut self.content_selector, &self.content_provider);
+        self.content_provider.update(ui);
+        update(ui, &mut self.content_selector, &self.content_provider);
         //});
     }
 }

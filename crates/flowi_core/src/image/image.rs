@@ -51,7 +51,7 @@ pub struct ImageInfo {
     pub stride: usize,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Resize {
     /// No image resizing
     None,
@@ -75,11 +75,11 @@ pub enum ColorDepth {
 #[allow(dead_code)]
 pub struct LoadOptions {
     /// Resize the image
-    resize: Resize,
+    pub resize: Resize,
     /// Color depth of the image
-    color_depth: ColorDepth,
+    pub color_depth: ColorDepth,
     /// Target size of the image (0, 0) means no resizing
-    target_size: (i32, i32),
+    pub target_size: (i32, i32),
 }
 
 impl Default for LoadOptions {

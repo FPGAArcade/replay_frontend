@@ -1,2 +1,4 @@
 pub mod image;
-mod image_decoder;
+pub(crate) mod image_decoder;
+
+pub use image::{BorderType, Format, ImageInfo, LoadOptions, Resize};

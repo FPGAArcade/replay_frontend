@@ -1,13 +1,15 @@
+use crate::content_provider::{ContentProvider, Item};
+use crate::{
+    fixed, grow, percent, ActionResponse, Alignment, ClayColor, Declaration, Dimensions,
+    InputAction, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui,
+};
 /// This module is responsible for displaying a list of items that can be selected. It acts very
 /// similar to how movie based selectors for many streaming services works. The user can scroll
 /// through a list of items and select one of them. The selected item will be displayed in a larger
 /// size than the other items. Each item has an ID that
 /// TODO: This shouldn't really be part of core-flowi, but we will keep it here for now.
-
 //use image_old::RenderImage;
 use arena_allocator::TypedArena;
-use crate::{fixed, grow, percent, ActionResponse, Alignment, ClayColor, Declaration, Dimensions, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, InputAction};
-use crate::content_provider::{ContentProvider, Item};
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -197,7 +199,7 @@ fn draw_selection_entry(time: f32, ui: &Ui, item: &Item, is_selected: bool, opac
             .end(), |ui|
         {
            if let Some(item_state) = ui.item_state(id) {
-               size = ((250.0 + (item_state.active * 40.0),  187.5 + (item_state.active * 40.0)));
+               size = (250.0 + (item_state.active * 40.0),  187.5 + (item_state.active * 40.0));
            }
 
             ui.image_with_opts(id, item.selected_image, opacity, size);

@@ -64,7 +64,6 @@ pub struct Color {
     pub a: f32,
 }
 
-
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Color16 {

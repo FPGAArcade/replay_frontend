@@ -1,13 +1,13 @@
+pub mod content_provider;
+pub mod content_selector;
 pub mod font;
 pub mod input;
 mod internal_error;
+mod io;
 pub mod primitives;
 pub mod render;
 pub mod signal;
 pub mod widgets;
-pub mod content_selector;
-pub mod content_provider;
-mod io;
 
 pub mod image;
 
@@ -16,43 +16,44 @@ pub mod render_api;
 use crate::input::Input;
 use glam::Vec4;
 
-use job_system::JobSystem;
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
 use clay_layout::{
-    render_commands::RenderCommand as ClayRenderCommand,
-    render_commands::RenderCommandConfig, Clay, Clay_Dimensions, Clay_StringSlice,
-    Clay_TextElementConfig,
+    render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig,
+    Clay, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig,
 };
 use fileorama::Fileorama;
+use font::{CachedString, FontHandle};
 use internal_error::InternalResult;
 pub use io::io::IoHandler;
+use job_system::JobSystem;
 use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::time::Duration;
-use font::{CachedString, FontHandle};
 //pub use image::ImageInfo;
 
 pub use clay_layout::{
     color::Color as ClayColor,
-    fixed, grow, id::Id,
+    fixed, grow,
+    id::Id,
     layout::LayoutAlignmentX,
     layout::LayoutAlignmentY,
     layout::{Alignment, LayoutDirection, Padding, Sizing},
     math::Dimensions,
     percent,
-    text::TextConfig, Declaration,
+    text::TextConfig,
+    Declaration,
 };
 
 pub use render_api::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
-    RenderType, Renderer, StringSlice, SoftwareRenderData,
+    RenderType, Renderer, SoftwareRenderData, StringSlice,
 };
 
-pub use job_system;
-pub use crate::image::image::{LoadOptions, ImageInfo};
+pub use crate::image::image::{ImageInfo, LoadOptions};
 pub use crate::io::io::*;
+pub use job_system;
 
 pub use crate::render_api::*;
 
@@ -260,15 +261,18 @@ impl<'a> Ui<'a> {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
             unsafe {
-                state.layout.with(&Declaration::new()
-                    .id(state.layout.id("image_test"))
-                    .layout()
+                state.layout.with(
+                    &Declaration::new()
+                        .id(state.layout.id("image_test"))
+                        .layout()
                         .width(fixed!(source_dimensions.width as _))
                         .height(fixed!(source_dimensions.height as _))
-                    .end()
-                    .image()
-                    .data_ptr(image.data.as_ptr() as _)
-                    .source_dimensions(source_dimensions).end(), |_ui| {},
+                        .end()
+                        .image()
+                        .data_ptr(image.data.as_ptr() as _)
+                        .source_dimensions(source_dimensions)
+                        .end(),
+                    |_ui| {},
                 );
             }
         }
@@ -281,25 +285,31 @@ impl<'a> Ui<'a> {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
             unsafe {
-                state.layout.with(&Declaration::new()
-                    .id(id)
-                    .layout()
+                state.layout.with(
+                    &Declaration::new()
+                        .id(id)
+                        .layout()
                         .width(fixed!(size.0))
                         .height(fixed!(size.1))
-                    .end()
-                    .image()
+                        .end()
+                        .image()
                         .data_ptr(image.data.as_ptr() as _)
-                        .source_dimensions(source_dimensions).end(), |_ui| {},
+                        .source_dimensions(source_dimensions)
+                        .end(),
+                    |_ui| {},
                 );
             }
         } else {
-            state.layout.with(&Declaration::new()
-                .id(id)
-                .layout()
+            state.layout.with(
+                &Declaration::new()
+                    .id(id)
+                    .layout()
                     .width(fixed!(size.0))
                     .height(fixed!(size.1))
-                .end()
-                .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)), |_ui| {});
+                    .end()
+                    .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)),
+                |_ui| {},
+            );
         }
     }
 
@@ -307,20 +317,28 @@ impl<'a> Ui<'a> {
         let state = unsafe { &mut *self.state.get() };
         state.layout.with(decl, |_clay| {
             let font_id = state.active_font;
-            let _ = state.text_generator.queue_generate_text(text, font_size, font_id, &state.bg_worker);
+            let _ = state.text_generator.queue_generate_text(
+                text,
+                font_size,
+                font_id,
+                &state.bg_worker,
+            );
 
-            state.layout.text(text, TextConfig::new()
-                .font_id(font_id as u16)
-                .font_size(font_size as _)
-                .wrap_mode(clay_layout::text::TextElementConfigWrapMode::None)
-                .color(col)
-                .end());
+            state.layout.text(
+                text,
+                TextConfig::new()
+                    .font_id(font_id as u16)
+                    .font_size(font_size as _)
+                    .wrap_mode(clay_layout::text::TextElementConfigWrapMode::None)
+                    .color(col)
+                    .end(),
+            );
         });
     }
 
-    pub fn load_with_callback<T>(&self, url: &str, callback: Callback<T>) -> IoHandle {
+    pub fn load_with_callback(&self, url: &str, priority: LoadPriority, callback: Callback) -> IoHandle {
         let state = unsafe { &mut *self.state.get() };
-        state.io_handler.load_with_callback(url, callback)
+        state.io_handler.load_with_callback(url, callback, priority, &state.job_system)
     }
 
     pub fn set_focus_id(&self, id: Id) {
@@ -343,7 +361,9 @@ impl<'a> Ui<'a> {
 
     pub fn update_scroll_containers(&self, scroll_delta: (f32, f32)) {
         let state = unsafe { &mut *self.state.get() };
-        state.layout.update_scroll_containers(false, scroll_delta.into(), state.delta_time);
+        state
+            .layout
+            .update_scroll_containers(false, scroll_delta.into(), state.delta_time);
     }
 
     fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
@@ -422,11 +442,7 @@ impl<'a> Ui<'a> {
                 ..Default::default()
             });
 
-            let is_active = if command.id == focus_id.id {
-                1.0
-            } else {
-                0.0
-            };
+            let is_active = if command.id == focus_id.id { 1.0 } else { 0.0 };
 
             item.active += anime_rate * (is_active - item.active);
             item.aabb = Vec4::new(aabb[0], aabb[1], aabb[2], aabb[3]);
@@ -438,16 +454,18 @@ impl<'a> Ui<'a> {
                         config.corner_radii.top_left,
                         config.corner_radii.top_right,
                         config.corner_radii.bottom_left,
-                        config.corner_radii.bottom_right
+                        config.corner_radii.bottom_right,
                     ];
 
                     if corners.iter().all(|&x| x == 0.0) {
                         (RenderType::DrawRect, Self::color(config.color))
                     } else {
-                        (RenderType::DrawRectRounded(DrawRectRoundedData { corners }),
-                         Self::color(config.color))
+                        (
+                            RenderType::DrawRectRounded(DrawRectRoundedData { corners }),
+                            Self::color(config.color),
+                        )
                     }
-                },
+                }
 
                 RenderCommandConfig::Text(ref config) => {
                     let text = StringSlice::new(config.text);
@@ -496,8 +514,13 @@ impl<'a> Ui<'a> {
                         outer_radius[3] - border.width.right as f32,
                     ];
 
-                    (RenderType::DrawBorder(DrawBorderData { outer_radius, inner_radius }),
-                     Self::color(border.color) )
+                    (
+                        RenderType::DrawBorder(DrawBorderData {
+                            outer_radius,
+                            inner_radius,
+                        }),
+                        Self::color(border.color),
+                    )
                 }
 
                 RenderCommandConfig::ScissorStart() => {
@@ -524,7 +547,9 @@ impl<'a> Ui<'a> {
         }
 
         // remove all items that doesn't match the current frame
-        state.item_states.retain(|_, item| item.frame == state.current_frame);
+        state
+            .item_states
+            .retain(|_, item| item.frame == state.current_frame);
 
         //let primitives = Self::translate_clay_render_commands(state, commands);
         state.renderer.render(&primitives);
@@ -571,10 +596,7 @@ impl<'a> Ui<'a> {
 
     pub fn set_background_image(&mut self, handle: IoHandle, mode: BackgroundMode) {
         let state = unsafe { &mut *self.state.get() };
-        state.background_image = Some(BackgroundImage {
-            handle,
-            mode,
-        });
+        state.background_image = Some(BackgroundImage { handle, mode });
     }
 
     pub fn queue_generate_text(

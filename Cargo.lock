@@ -606,6 +606,7 @@ dependencies = [
  "notify",
  "raw-window-handle",
  "resvg",
+ "simd",
  "smallvec",
  "thiserror",
  "tracing",

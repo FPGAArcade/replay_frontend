@@ -8,7 +8,7 @@ pub use flowi_core::Color;
 pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
-use flowi_core::render_api::{SoftwareRenderData, RenderCommand, RenderType};
+use flowi_core::render_api::{RenderCommand, RenderType, SoftwareRenderData};
 
 pub struct TileInfo {
     pub offsets: f32x4,

@@ -357,7 +357,10 @@ impl f32x4 {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             Self {
-                v: vreinterpretq_f32_u32(vandq_u32(vreinterpretq_u32_f32(self.v), vreinterpretq_u32_f32(rhs.v))),
+                v: vreinterpretq_f32_u32(vandq_u32(
+                    vreinterpretq_u32_f32(self.v),
+                    vreinterpretq_u32_f32(rhs.v),
+                )),
             }
         }
 
@@ -414,11 +417,17 @@ impl i16x8 {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             let temp = [a, b, c, d, e, f, g, h];
-            Self { v: vld1q_s16(temp.as_ptr()) }
-         }
+            Self {
+                v: vld1q_s16(temp.as_ptr()),
+            }
+        }
 
         #[cfg(target_arch = "x86_64")]
-        unsafe { Self { v: _mm_set_epi16(h, g, f, e, d, c, b, a) } }
+        unsafe {
+            Self {
+                v: _mm_set_epi16(h, g, f, e, d, c, b, a),
+            }
+        }
     }
 
     #[inline(always)]
@@ -430,7 +439,9 @@ impl i16x8 {
 
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            Self { v: _mm_set1_epi16(a) }
+            Self {
+                v: _mm_set1_epi16(a),
+            }
         }
     }
 
@@ -446,7 +457,7 @@ impl i16x8 {
         #[cfg(target_arch = "x86_64")]
         unsafe {
             Self {
-                v: _mm_loadu_si128(data.as_ptr().add(offset) as *const __m128i)
+                v: _mm_loadu_si128(data.as_ptr().add(offset) as *const __m128i),
             }
         }
     }
@@ -506,12 +517,16 @@ impl i16x8 {
     pub fn load_unaligned_ptr<T: Sized>(data: *const T) -> Self {
         #[cfg(target_arch = "aarch64")]
         unsafe {
-            Self { v: vld1q_s16(data as *const i16) }
+            Self {
+                v: vld1q_s16(data as *const i16),
+            }
         }
 
         #[cfg(target_arch = "x86_64")]
         unsafe {
-            Self { v: _mm_loadu_si128(data as *const __m128i) }
+            Self {
+                v: _mm_loadu_si128(data as *const __m128i),
+            }
         }
     }
 
@@ -1912,10 +1927,16 @@ mod simd_tests {
 
     #[test]
     fn test_i16x8_and() {
-        let a = i16x8::new(0b1010, 0b0101, 0b1010, 0b0101, 0b1010, 0b0101, 0b1010, 0b0101);
-        let b = i16x8::new(0b1100, 0b1100, 0b0011, 0b0011, 0b1111, 0b1111, 0b0000, 0b0000);
+        let a = i16x8::new(
+            0b1010, 0b0101, 0b1010, 0b0101, 0b1010, 0b0101, 0b1010, 0b0101,
+        );
+        let b = i16x8::new(
+            0b1100, 0b1100, 0b0011, 0b0011, 0b1111, 0b1111, 0b0000, 0b0000,
+        );
         let result = a.and(b).to_array();
-        assert_eq!(result, [0b1000, 0b0100, 0b0010, 0b0001, 0b1010, 0b0101, 0b0000, 0b0000]);
-
+        assert_eq!(
+            result,
+            [0b1000, 0b0100, 0b0010, 0b0001, 0b1010, 0b0101, 0b0000, 0b0000]
+        );
     }
 }

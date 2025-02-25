@@ -1,16 +1,16 @@
+use crate::data::{Party, PartySeries, Platform, ProductionType, Release};
+use chrono::{Datelike, NaiveDate};
 use std::collections::HashSet;
-use chrono::{NaiveDate, Datelike};
-use crate::data::{Release, Platform, ProductionType, Party, PartySeries};
 
 /// Filter criteria for demo content
 #[derive(Debug, Default, Clone)]
 pub struct DemoFilter {
-    pub platforms: Option<HashSet<String>>,          // Platform names
-    pub production_types: Option<HashSet<String>>,   // Production type names
-    pub party_names: Option<HashSet<String>>,        // Party names
+    pub platforms: Option<HashSet<String>>, // Platform names
+    pub production_types: Option<HashSet<String>>, // Production type names
+    pub party_names: Option<HashSet<String>>, // Party names
     pub years: Option<std::ops::RangeInclusive<i32>>,
-    pub groups: Option<HashSet<String>>,             // Author affiliation names
-    pub authors: Option<HashSet<String>>,            // Author names
+    pub groups: Option<HashSet<String>>, // Author affiliation names
+    pub authors: Option<HashSet<String>>, // Author names
     pub tags: Option<HashSet<String>>,
     pub random_selection: Option<usize>,
 }
@@ -23,19 +23,25 @@ impl DemoFilter {
 
     /// Add a platform name to filter by
     pub fn with_platform(mut self, platform: String) -> Self {
-        self.platforms.get_or_insert_with(HashSet::new).insert(platform);
+        self.platforms
+            .get_or_insert_with(HashSet::new)
+            .insert(platform);
         self
     }
 
     /// Add a production type to filter by
     pub fn with_production_type(mut self, prod_type: String) -> Self {
-        self.production_types.get_or_insert_with(HashSet::new).insert(prod_type);
+        self.production_types
+            .get_or_insert_with(HashSet::new)
+            .insert(prod_type);
         self
     }
 
     /// Add a party name to filter by
     pub fn with_party(mut self, party: String) -> Self {
-        self.party_names.get_or_insert_with(HashSet::new).insert(party);
+        self.party_names
+            .get_or_insert_with(HashSet::new)
+            .insert(party);
         self
     }
 
@@ -73,7 +79,11 @@ impl DemoFilter {
     pub fn matches_release(&self, release: &Release, party: Option<&Party>) -> bool {
         // Check platforms
         if let Some(platforms) = &self.platforms {
-            if !release.platforms.iter().any(|p| platforms.contains(&p.name)) {
+            if !release
+                .platforms
+                .iter()
+                .any(|p| platforms.contains(&p.name))
+            {
                 return false;
             }
         }
@@ -88,9 +98,11 @@ impl DemoFilter {
         // Check party name if a party context is provided
         if let Some(party_names) = &self.party_names {
             match party {
-                Some(party) => if !party_names.contains(&party.name) {
-                    return false;
-                },
+                Some(party) => {
+                    if !party_names.contains(&party.name) {
+                        return false;
+                    }
+                }
                 None => return false,
             }
         }
@@ -108,14 +120,22 @@ impl DemoFilter {
 
         // Check groups (author affiliations)
         if let Some(groups) = &self.groups {
-            if !release.author_affiliation_nicks.iter().any(|n| groups.contains(&n.name)) {
+            if !release
+                .author_affiliation_nicks
+                .iter()
+                .any(|n| groups.contains(&n.name))
+            {
                 return false;
             }
         }
 
         // Check authors
         if let Some(authors) = &self.authors {
-            if !release.author_nicks.iter().any(|n| authors.contains(&n.name)) {
+            if !release
+                .author_nicks
+                .iter()
+                .any(|n| authors.contains(&n.name))
+            {
                 return false;
             }
         }
@@ -167,29 +187,25 @@ mod tests {
             demozoo_url: "https://demozoo.org/123".to_string(),
             id: 123,
             title: "Test Demo".to_string(),
-            author_nicks: vec![
-                AuthorNick { name: "Purple Motion".to_string() }
-            ],
-            author_affiliation_nicks: vec![
-                AuthorNick { name: "Future Crew".to_string() }
-            ],
+            author_nicks: vec![AuthorNick {
+                name: "Purple Motion".to_string(),
+            }],
+            author_affiliation_nicks: vec![AuthorNick {
+                name: "Future Crew".to_string(),
+            }],
             release_date: "1993-12-27".to_string(),
             supertype: "production".to_string(),
-            platforms: vec![
-                Platform {
-                    url: "https://example.com".to_string(),
-                    id: 1,
-                    name: "Amiga".to_string(),
-                }
-            ],
-            types: vec![
-                ProductionType {
-                    url: "https://example.com".to_string(),
-                    id: 1,
-                    name: "Demo".to_string(),
-                    supertype: "production".to_string(),
-                }
-            ],
+            platforms: vec![Platform {
+                url: "https://example.com".to_string(),
+                id: 1,
+                name: "Amiga".to_string(),
+            }],
+            types: vec![ProductionType {
+                url: "https://example.com".to_string(),
+                id: 1,
+                name: "Demo".to_string(),
+                supertype: "production".to_string(),
+            }],
             tags: vec!["demo".to_string(), "amiga".to_string()],
         }
     }
@@ -226,12 +242,10 @@ mod tests {
     fn test_platform_filter() {
         let release = create_test_release();
 
-        let filter = DemoFilter::new()
-            .with_platform("Amiga".to_string());
+        let filter = DemoFilter::new().with_platform("Amiga".to_string());
         assert!(filter.matches_release(&release, None));
 
-        let filter = DemoFilter::new()
-            .with_platform("Atari ST".to_string());
+        let filter = DemoFilter::new().with_platform("Atari ST".to_string());
         assert!(!filter.matches_release(&release, None));
     }
 
@@ -239,12 +253,10 @@ mod tests {
     fn test_production_type_filter() {
         let release = create_test_release();
 
-        let filter = DemoFilter::new()
-            .with_production_type("Demo".to_string());
+        let filter = DemoFilter::new().with_production_type("Demo".to_string());
         assert!(filter.matches_release(&release, None));
 
-        let filter = DemoFilter::new()
-            .with_production_type("Music".to_string());
+        let filter = DemoFilter::new().with_production_type("Music".to_string());
         assert!(!filter.matches_release(&release, None));
     }
 
@@ -253,12 +265,10 @@ mod tests {
         let release = create_test_release();
         let party = create_test_party();
 
-        let filter = DemoFilter::new()
-            .with_party("The Party".to_string());
+        let filter = DemoFilter::new().with_party("The Party".to_string());
         assert!(filter.matches_release(&release, Some(&party)));
 
-        let filter = DemoFilter::new()
-            .with_party("Assembly".to_string());
+        let filter = DemoFilter::new().with_party("Assembly".to_string());
         assert!(!filter.matches_release(&release, Some(&party)));
     }
 
@@ -266,12 +276,10 @@ mod tests {
     fn test_year_filter() {
         let release = create_test_release();
 
-        let filter = DemoFilter::new()
-            .with_year_range(1993, 1994);
+        let filter = DemoFilter::new().with_year_range(1993, 1994);
         assert!(filter.matches_release(&release, None));
 
-        let filter = DemoFilter::new()
-            .with_year_range(1995, 1996);
+        let filter = DemoFilter::new().with_year_range(1995, 1996);
         assert!(!filter.matches_release(&release, None));
     }
 

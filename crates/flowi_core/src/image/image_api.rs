@@ -62,6 +62,8 @@ fn build_srgb_to_linear_table() -> [i16; 1 << 8] {
     table
 }
 
+
+
 fn box_to_vec_u8<T>(b: Box<T>) -> Vec<u8> {
     let num_bytes = std::mem::size_of::<T>();
     let ptr = Box::into_raw(b) as *mut u8;

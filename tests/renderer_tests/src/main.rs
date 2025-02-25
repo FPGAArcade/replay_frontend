@@ -1,7 +1,7 @@
-use image::{Color16, RenderImage, BorderType};
 use flowi_renderer::Renderer;
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
+use image::{BorderType, Color16, RenderImage};
 
 use minifb::{Key, Window, WindowOptions};
 use simd::*;
@@ -91,19 +91,42 @@ fn draw_pixel_grid(output: &mut [u32], zoom: usize) {
 fn generate_sample_test_image(srgb_to_linear: &[u16; 256]) -> RenderImage {
     // colors
     let colors = [
-        (121,209,81),   (253,231,36),   (52, 94, 141),  (68, 190, 112), (189, 222, 48),
-        (68, 112, 112), (41, 120, 142), (34, 167, 132), (72, 45, 116),  (64, 67, 135),
-        (41, 120, 142), (68,190,112),   (64,67,135),    (189,222,38),   (68,1,84),
-        (72, 35, 116),  (64, 67, 135),  (52,94,141),    (41,120,142),   (32,144,140),
-        (41,120,142),   (68,190,112),   (68,1,84),      (52,94,141),    (72,35,116)
+        (121, 209, 81),
+        (253, 231, 36),
+        (52, 94, 141),
+        (68, 190, 112),
+        (189, 222, 48),
+        (68, 112, 112),
+        (41, 120, 142),
+        (34, 167, 132),
+        (72, 45, 116),
+        (64, 67, 135),
+        (41, 120, 142),
+        (68, 190, 112),
+        (64, 67, 135),
+        (189, 222, 38),
+        (68, 1, 84),
+        (72, 35, 116),
+        (64, 67, 135),
+        (52, 94, 141),
+        (41, 120, 142),
+        (32, 144, 140),
+        (41, 120, 142),
+        (68, 190, 112),
+        (68, 1, 84),
+        (52, 94, 141),
+        (72, 35, 116),
     ];
 
-    let conv_data = colors.iter().map(|(r, g, b)| {
-        let r = srgb_to_linear[*r as usize] as _;
-        let g = srgb_to_linear[*g as usize] as _;
-        let b = srgb_to_linear[*b as usize] as _;
-        Color16::new(r, g, b, 0x7fff)
-    }).collect();
+    let conv_data = colors
+        .iter()
+        .map(|(r, g, b)| {
+            let r = srgb_to_linear[*r as usize] as _;
+            let g = srgb_to_linear[*g as usize] as _;
+            let b = srgb_to_linear[*b as usize] as _;
+            Color16::new(r, g, b, 0x7fff)
+        })
+        .collect();
 
     let render_image = RenderImage {
         data: conv_data,
@@ -117,7 +140,6 @@ fn generate_sample_test_image(srgb_to_linear: &[u16; 256]) -> RenderImage {
 
     image::add_border(&render_image, 1, BorderType::Repeat)
 }
-
 
 fn main() {
     let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
@@ -201,16 +223,23 @@ fn main() {
          */
 
         if let Some(text) = core.get_text(text_to_render, 16, font) {
-            render_shapes(&mut tile_output_u32, &mut tile_output, text.data.0 as _, text.width as _, &scale_image, &raster, shape, &[
-                    0.0,
-                    0.0,
-                    128.0,
-                    128.0,
-                ], i16x8::new(
+            render_shapes(
+                &mut tile_output_u32,
+                &mut tile_output,
+                text.data.0 as _,
+                text.width as _,
+                &scale_image,
+                &raster,
+                shape,
+                &[0.0, 0.0, 128.0, 128.0],
+                i16x8::new(
                     0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
-                ), i16x8::new(
+                ),
+                i16x8::new(
                     0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
-                ), &linear_to_srgb_table);
+                ),
+                &linear_to_srgb_table,
+            );
         }
 
         //copy_tile_linear_to_srgb(&linear_to_srgb_table, &mut tile_output_u32, &tile_output);
@@ -336,7 +365,8 @@ fn render_shapes(
                 tile_info.offsets,
                 RENDER_WIDTH,
                 coords,
-                color_top);
+                color_top,
+            );
         }
     }
 

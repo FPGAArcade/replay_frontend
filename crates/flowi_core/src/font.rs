@@ -1,7 +1,9 @@
 use crate::internal_error::{InternalError, InternalResult};
-use background_worker::{AnySend, BoxAnySend, Receiver, WorkSystem, WorkerResult};
-use cosmic_text::{Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache, Weight};
 use crate::render_api::RawVoidPtr;
+use background_worker::{AnySend, BoxAnySend, Receiver, WorkSystem, WorkerResult};
+use cosmic_text::{
+    Attrs, AttrsOwned, Buffer, Color, FontSystem, Metrics, Shaping, SwashCache, Weight,
+};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -156,12 +158,7 @@ fn load_font(
             .family(cosmic_text::Family::Name(family_name)),
     );
 
-    loaded_fonts.insert(
-        id,
-        FontInfo {
-            attrs,
-        },
-    );
+    loaded_fonts.insert(id, FontInfo { attrs });
     Ok(())
 }
 
@@ -172,7 +169,6 @@ fn measure_string_size(
     line_height: f32,
     font_system: &mut FontSystem,
 ) -> Option<(f32, f32)> {
-
     // Define metrics for the text
     let metrics = Metrics::new(font_size as _, line_height);
 
@@ -291,11 +287,13 @@ fn job_generate_text(data: BoxAnySend, state: Arc<Mutex<AnySend>>) -> WorkerResu
 
     if let Some(font) = state.loaded_fonts.get(&data.font_handle) {
         let font_clone = font.clone();
-        generate_text(&data.text, 
-            &font_clone, 
-            data.size, 
+        generate_text(
+            &data.text,
+            &font_clone,
+            data.size,
             data.size as f32 * 1.1,
-            &mut state)
+            &mut state,
+        )
     } else {
         panic!("Font not found");
     }
@@ -341,11 +339,7 @@ impl TextGenerator {
         }
     }
 
-    pub fn load_font(
-        &mut self,
-        path: &str,
-        bg_worker: &WorkSystem,
-    ) -> InternalResult<FontHandle> {
+    pub fn load_font(&mut self, path: &str, bg_worker: &WorkSystem) -> InternalResult<FontHandle> {
         let font_id = self.font_id_counter;
         // First we load the font sync so we know it loaded fine, if it's ok we
         // will also schedle it to be loaded async to be used for rendering later.
@@ -379,7 +373,13 @@ impl TextGenerator {
     ) -> Option<(f32, f32)> {
         if let Some(font_info) = self.sync_loaded_fonts.get(&font_id) {
             let line_height = font_size as f32 * 1.1; // TODO: Proper size calculation here
-            measure_string_size(text, font_info, font_size, line_height, &mut self.sync_font_system)
+            measure_string_size(
+                text,
+                font_info,
+                font_size,
+                line_height,
+                &mut self.sync_font_system,
+            )
         } else {
             None
         }

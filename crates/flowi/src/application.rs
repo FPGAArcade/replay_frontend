@@ -1,7 +1,7 @@
+use crate::sdl_window::Sdl2Window;
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
-use crate::sdl_window::Sdl2Window;
-use flowi_core::{ApplicationSettings, Ui, input::Input, SoftwareRenderData, Renderer};
+use flowi_core::{input::Input, ApplicationSettings, Renderer, SoftwareRenderData, Ui};
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 
 //use flowi_core::Instance;
@@ -52,9 +52,11 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
         state.window.update(state.ui.input());
         state.ui.update();
 
-        state
-            .ui
-            .begin(state.ui.input().delta_time, state.settings.width, state.settings.height);
+        state.ui.begin(
+            state.ui.input().delta_time,
+            state.settings.width,
+            state.settings.height,
+        );
         user_trampoline_ud::<T>(state);
         state.ui.end();
 

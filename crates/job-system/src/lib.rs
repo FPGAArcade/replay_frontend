@@ -3,9 +3,9 @@
 //! This library provides a thread-based job system for executing tasks in parallel.
 //! Jobs can share state through Arc<Mutex<T>> and return results through channels.
 
+use crossbeam_channel::{bounded, Receiver, Sender};
 use std::any::Any;
 use std::thread;
-use crossbeam_channel::{bounded, Sender, Receiver};
 use thiserror::Error;
 
 /// Errors that can occur during job execution
@@ -58,36 +58,39 @@ impl JobHandle {
 
     /// Wait for the job to complete and get its result with automatic type conversion
     pub fn get_result<T: 'static>(self) -> JobResult<T> {
-        let result = self.receiver.recv()
+        let result = self
+            .receiver
+            .recv()
             .map_err(|e| JobError::ChannelReceiveError(e.to_string()))?;
 
         match result {
-            Ok(data) => {
-                data.downcast()
-                    .map(|boxed| *boxed)
-                    .map_err(|_| JobError::DowncastError { expected: std::any::type_name::<T>() })
-            }
+            Ok(data) => data
+                .downcast()
+                .map(|boxed| *boxed)
+                .map_err(|_| JobError::DowncastError {
+                    expected: std::any::type_name::<T>(),
+                }),
             Err(e) => Err(e),
         }
     }
 
     /// Try to get the job's result without blocking, with automatic type conversion
     pub fn try_get_result<T: 'static>(&self) -> Option<JobResult<T>> {
-        self.receiver.try_recv().ok().map(|result| {
-            match result {
-                Ok(data) => {
-                    data.downcast()
-                        .map(|boxed| *boxed)
-                        .map_err(|_| JobError::DowncastError { expected: std::any::type_name::<T>() })
-                }
-                Err(e) => Err(e),
-            }
+        self.receiver.try_recv().ok().map(|result| match result {
+            Ok(data) => data
+                .downcast()
+                .map(|boxed| *boxed)
+                .map_err(|_| JobError::DowncastError {
+                    expected: std::any::type_name::<T>(),
+                }),
+            Err(e) => Err(e),
         })
     }
 
     /// Get the raw result without type conversion
     pub fn get_result_raw(self) -> JobResult<BoxAnySend> {
-        self.receiver.recv()
+        self.receiver
+            .recv()
             .map_err(|e| JobError::ChannelReceiveError(e.to_string()))?
     }
 }
@@ -108,7 +111,8 @@ impl JobSystem {
     /// Returns `JobError` if thread creation fails
     pub fn new(num_threads: usize) -> JobResult<Self> {
         let (sender, receiver) = bounded(32);
-        let receiver_clone: Receiver<(Option<Job>, BoxAnySend, Sender<JobResult<BoxAnySend>>)> = receiver.clone();
+        let receiver_clone: Receiver<(Option<Job>, BoxAnySend, Sender<JobResult<BoxAnySend>>)> =
+            receiver.clone();
 
         let mut handles = Vec::with_capacity(num_threads);
 
@@ -128,10 +132,7 @@ impl JobSystem {
             handles.push(handle);
         }
 
-        Ok(JobSystem {
-            sender,
-            handles,
-        })
+        Ok(JobSystem { sender, handles })
     }
 
     /// Schedules a job for execution and returns a handle to track its progress
@@ -149,7 +150,8 @@ impl JobSystem {
         let (result_sender, result_receiver) = bounded(1);
         let job = Box::new(f) as Job;
 
-        self.sender.send((Some(job), data, result_sender))
+        self.sender
+            .send((Some(job), data, result_sender))
             .map_err(|e| JobError::ChannelSendError(e.to_string()))?;
 
         Ok(JobHandle {
@@ -174,10 +176,10 @@ impl Drop for JobSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+    use std::fs::File;
     use std::sync::atomic::{AtomicI32, Ordering};
     use std::sync::{Arc, Mutex};
-    use std::fs::File;
+    use std::time::Duration;
 
     #[test]
     fn test_basic_job() -> JobResult<()> {
@@ -188,12 +190,13 @@ mod tests {
 
         let handle = job_system.schedule_job(
             move |data: BoxAnySend| {
-                let number = *data.downcast::<i32>()
+                let number = *data
+                    .downcast::<i32>()
                     .map_err(|_| JobError::DowncastError { expected: "i32" })?;
                 result_clone.store(number * 2, Ordering::SeqCst);
                 Ok(Box::new(()))
             },
-            Box::new(21)
+            Box::new(21),
         )?;
 
         let _: () = handle.get_result()?;
@@ -215,7 +218,7 @@ mod tests {
                     counter.fetch_add(1, Ordering::SeqCst);
                     Ok(Box::new(()))
                 },
-                Box::new(())
+                Box::new(()),
             )?;
             handles.push(handle);
         }
@@ -238,7 +241,7 @@ mod tests {
                 thread::sleep(Duration::from_millis(100));
                 Ok(Box::new(42))
             },
-            Box::new(())
+            Box::new(()),
         )?;
 
         // Job should not be finished immediately
@@ -268,7 +271,7 @@ mod tests {
 
         let handle = job_system.schedule_job(
             file_opening_job,
-            Box::new("non_existent_file.txt".to_string())
+            Box::new("non_existent_file.txt".to_string()),
         )?;
 
         // Verify we get back the file error
@@ -276,7 +279,7 @@ mod tests {
             Err(JobError::FileError(msg)) => {
                 assert!(msg.contains("No such file"));
                 Ok(())
-            },
+            }
             other => panic!("Expected FileError, got {:?}", other),
         }
     }

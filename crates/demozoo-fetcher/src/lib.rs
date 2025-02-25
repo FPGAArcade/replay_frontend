@@ -1,8 +1,8 @@
 use nanoserde::DeJson;
+use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use sha2::{Sha256, Digest};
 use ureq;
 
 /// The JSON “author_nicks” array is an array of objects. We only care about the name.
@@ -120,14 +120,11 @@ pub fn get_image(url: &str) -> io::Result<String> {
         .call()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
-    let mut reader = resp
-        .into_body()
-        .into_with_config()
-        .reader();
+    let mut reader = resp.into_body().into_with_config().reader();
 
     // Read binary data from response using `response.into_reader()`
     let mut bytes = Vec::new();
-    reader.read_to_end(&mut bytes)?;  // Changed to use `reader()`
+    reader.read_to_end(&mut bytes)?; // Changed to use `reader()`
 
     // Write the image to the cache directory
     let mut file = File::create(&file_path)?;
@@ -141,14 +138,15 @@ pub fn get_image(url: &str) -> io::Result<String> {
 /// Once found, it returns the absolute path of the file.
 fn find_file_upwards(filename: &str) -> Option<PathBuf> {
     let mut current_dir = std::env::current_dir().ok()?;
-    
+
     loop {
         let potential_path = current_dir.join(filename);
         if potential_path.exists() {
             return Some(potential_path);
         }
 
-        if !current_dir.pop() { // Moves up one directory level
+        if !current_dir.pop() {
+            // Moves up one directory level
             break;
         }
     }
@@ -166,7 +164,7 @@ fn load_file(filename: &str) -> io::Result<String> {
     }
 }
 
-// TODO: This should be async on separate therad 
+// TODO: This should be async on separate therad
 pub fn get_demo_entry_by_file(url: &str) -> ProductionEntry {
     load_file(url)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
