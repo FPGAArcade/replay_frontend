@@ -133,51 +133,40 @@ impl OnlineDemoDisplay {
 
 impl ContentProvider for OnlineDemoDisplay {
     fn get_item(&self, row: u64, col: u64) -> Item {
-        /*
-        if self.state == State::ShowParty {
-            if let Some(party) = self.active_party.as_ref() {
-                let id = party.competitions[row as usize].results[col as usize].production.id as u64;
-                return Item {
-                    unselected_image: id,
-                    selected_image: id,
-                    id,
-                }
-            }
+        if self.parties.is_empty() {
+            return Item {
+                unselected_image: IoHandle(0),
+                selected_image: IoHandle(0),
+                id: u64::MAX / 2,
+            };
         }
 
-         */
-
-        Item {
+        let party = &self.parties[0];
+        let id = party.competitions[row as usize].results[col as usize].production.id as u64;
+        return Item {
             unselected_image: IoHandle(0),
             selected_image: IoHandle(0),
-            id: u64::MAX / 2,
+            id,
         }
     }
 
     fn get_column_count(&self, row: u64) -> u64 {
-        /*
-        if self.state == State::ShowParty {
-            if let Some(party) = self.active_party.as_ref() {
-                return party.competitions[row as usize].results.len() as u64;
-            }
+        if self.parties.is_empty() {
+            return 0;
         }
 
-         */
-
-        0
+        // TODO: Filtering and stuff goes here
+        let party = &self.parties[0];
+        party.competitions[row as usize].results.len() as u64
     }
 
     fn get_row_name(&self, row: u64) -> &str {
-        /*
-        if self.state == State::ShowParty {
-            if let Some(party) = self.active_party.as_ref() {
-                return &party.competitions[row as usize].name;
-            }
+        if self.parties.is_empty() {
+            return "";
         }
 
-         */
-
-        ""
+        let party = &self.parties[0];
+        &party.competitions[row as usize].name
     }
 }
 
