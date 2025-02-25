@@ -135,9 +135,9 @@ pub struct Competition {
     pub id: i32,
     pub demozoo_url: String,
     pub name: String,
-    pub shown_date: String,
+    pub shown_date: Option<String>,
     pub platform: Option<Platform>,
-    pub production_type: ProductionType,
+    pub production_type: Option<ProductionType>,
     pub results: Vec<Result>,
 }
 
