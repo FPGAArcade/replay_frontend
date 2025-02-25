@@ -592,16 +592,15 @@ impl<'a> Ui<'a> {
         ActionResponse::None
     }
 
-    pub fn load_font(&mut self, path: &str) -> InternalResult<FontHandle> {
+    pub fn load_font(&self, path: &str) -> InternalResult<FontHandle> {
         let state = unsafe { &mut *self.state.get() };
         state.text_generator.load_font(path, &state.bg_worker)
     }
 
-    pub fn load_image(&mut self, url: &str, load_options: Option<LoadOptions>) -> IoHandle {
+    pub fn load_image(&self, url: &str, load_options: Option<LoadOptions>) -> IoHandle {
         let state = unsafe { &mut *self.state.get() };
-        // TODO: Fix me
-        IoHandle(0)
-        //Ok(crate::image_api::load(state, path))
+        let opts = load_options.unwrap_or_default();
+        state.io_handler.load_image(url, opts, &state.job_system)
     }
 
     pub fn set_background_image(&mut self, handle: IoHandle, mode: BackgroundMode) {

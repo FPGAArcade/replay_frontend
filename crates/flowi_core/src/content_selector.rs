@@ -68,8 +68,8 @@ impl ContentSelector {
     }
 
     #[rustfmt::skip]
-    fn draw_row(&self, ui: &Ui, provider: &dyn ContentProvider, row: u64, opacity: f32) {
-        let name = provider.get_row_name(row);
+    fn draw_row(&self, ui: &Ui, provider: &mut dyn ContentProvider, row: u64, opacity: f32) {
+        let name = provider.get_row_name(ui, row);
 
         if name.is_empty() {
             return;
@@ -98,14 +98,14 @@ impl ContentSelector {
        {
 
             // Get the number of columns we have for this row
-            let column_count = provider.get_column_count(row);
+            let column_count = provider.get_column_count(ui, row);
 
             // TODO: The layout system will deal with things that are hidden, but we likely should
             //       be a bit smarter with what we add to the layout to reduce requests to the backend
             //       as much as possible.
             // Added all the items to the layout for this row.
             for col in 0..column_count {
-                let item = provider.get_item(row, col);
+                let item = provider.get_item(ui, row, col);
                 let is_selected = col == 0;
                 draw_selection_entry(self.temp_time, ui, &item, is_selected, opacity);
             }
@@ -113,7 +113,7 @@ impl ContentSelector {
     }
 
     #[rustfmt::skip]
-    pub fn update(&mut self, ui: &Ui, provider: &dyn ContentProvider) {
+    pub fn update(&mut self, ui: &Ui, provider: &mut dyn ContentProvider) {
         let id = ui.id("content_selector");
         ui.update_scroll(id, (0.0, self.scroll_value));
 
@@ -149,7 +149,7 @@ impl ContentSelector {
          */
 
         if self.state == State::Init {
-            let item = provider.get_item(0, 0);
+            let item = provider.get_item(ui, 0, 0);
             ui.set_focus_id(ui.id_index(ENTRY_ID, item.id as _));
             self.state = State::Idle;
         }
@@ -173,7 +173,7 @@ impl ContentSelector {
         // TODO: Handle the case if we already are in a transition state
         if self.state == State::Idle && down {
             self.transition_row = self.selected_item.row + 1;
-            let item = provider.get_item(self.transition_row, 0);
+            let item = provider.get_item(ui, self.transition_row, 0);
             ui.set_focus_id(ui.id_index(ENTRY_ID, item.id as _));
             self.state = State::RowTransition;
         }

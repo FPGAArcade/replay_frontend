@@ -41,7 +41,7 @@ fn main() {
     let height = 1080;
 
     let _ = env_logger::builder()
-        .filter_level(LevelFilter::max())
+        .filter_level(LevelFilter::Debug)
         .init();
 
     let settings = flowi::ApplicationSettings { width, height };

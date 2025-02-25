@@ -1,4 +1,7 @@
 use crate::io::io::IoHandle;
+use crate::Ui;
+
+#[derive(Debug, Copy, Clone)]
 pub struct Item {
     /// This image is being shown when the item is non-selected. We used a scaled down image
     /// that fits the screen size we need exactly to save performance.
@@ -19,8 +22,8 @@ pub struct Item {
 pub trait ContentProvider {
     /// Get the item at the given column and row. If the item is not available at the given
     /// position it should return None.
-    fn get_item(&self, row: u64, col: u64) -> Item;
-    fn get_column_count(&self, row: u64) -> u64;
+    fn get_item(&mut self, ui: &Ui, row: u64, col: u64) -> Item;
+    fn get_column_count(&mut self, ui: &Ui, row: u64) -> u64;
     /// Get the name of the row
-    fn get_row_name(&self, row: u64) -> &str;
+    fn get_row_name(&mut self, ui: &Ui, row: u64) -> &str;
 }

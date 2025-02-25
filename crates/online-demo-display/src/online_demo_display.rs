@@ -24,6 +24,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{fs, io};
 use std::any::Any;
+use std::collections::HashMap;
 
 const API_URL: &str = "https://demozoo.org/api/v1";
 
@@ -74,13 +75,14 @@ enum FetchItem {
 
 enum QueuedJob {
     Party(IoHandle),
-    Release(IoHandle),
-    Screenshot(IoHandle),
+    Production(i32, IoHandle),
 }
 
 pub struct OnlineDemoDisplay {
     url_string: String,
     parties: Vec<Box<Party>>,
+    productions_loaded: HashMap<i32, Box<ProductionEntry>>,
+    production_items: HashMap<i32, Item>,
     jobs: Vec<QueuedJob>,
 }
 
@@ -90,6 +92,8 @@ impl OnlineDemoDisplay {
             jobs: Vec::new(),
             parties: Vec::new(),
             url_string: String::with_capacity(128),
+            productions_loaded: HashMap::new(),
+            production_items: HashMap::new(),
         }
     }
 
@@ -112,6 +116,19 @@ impl OnlineDemoDisplay {
         self.jobs.push(QueuedJob::Party(handle));
     }
 
+    fn queue_screenshots(entry: &ProductionEntry, ui: &Ui) -> (IoHandle, IoHandle){
+        if entry.screenshots.is_empty() {
+            (IoHandle(0), IoHandle(0))
+        } else if entry.screenshots.len() == 1 {
+            let handle = ui.load_image(&entry.screenshots[0].thumbnail_url, None);
+            (handle, handle)
+        } else {
+            let h0 = ui.load_image(&entry.screenshots[0].thumbnail_url, None);
+            let h1 = ui.load_image(&entry.screenshots[1].thumbnail_url, None);
+            (h0, h1)
+        }
+    }
+
     pub fn update(&mut self, ui: &Ui) {
         for job in self.jobs.iter_mut() {
             match job {
@@ -125,6 +142,24 @@ impl OnlineDemoDisplay {
                     _ => {}
                 },
 
+                QueuedJob::Production(id, handle) => match ui.return_loaded(*handle, LoadPriority::Normal) {
+                    LoadState::Loaded(data) => {
+                        match data.downcast::<ProductionEntry>() {
+                            Ok(production) => {
+                                let screenshots = Self::queue_screenshots(&production, ui);
+                                self.productions_loaded.insert(*id, production);
+                                self.production_items.insert(*id, Item {
+                                    unselected_image: screenshots.0,
+                                    selected_image: screenshots.1,
+                                    id: *id as u64,
+                                });
+                            }
+                            Err(_) => error!("Failed to downcast to ProductionEntry"),
+                        }
+                    }
+                    _ => {}
+                },
+
                 _ => {}
             }
         }
@@ -132,7 +167,7 @@ impl OnlineDemoDisplay {
 }
 
 impl ContentProvider for OnlineDemoDisplay {
-    fn get_item(&self, row: u64, col: u64) -> Item {
+    fn get_item(&mut self, ui: &Ui, row: u64, col: u64) -> Item {
         if self.parties.is_empty() {
             return Item {
                 unselected_image: IoHandle(0),
@@ -142,15 +177,43 @@ impl ContentProvider for OnlineDemoDisplay {
         }
 
         let party = &self.parties[0];
-        let id = party.competitions[row as usize].results[col as usize].production.id as u64;
-        return Item {
+        let release = &party.competitions[row as usize].results[col as usize].production;
+        let id = release.id;
+
+        // First we check if we have loaded the production entry
+        if let Some(entry) = self.production_items.get(&id) {
+            return *entry;
+        }
+
+        // find if we have the job in the queue already
+        let found = self.jobs.iter().find(|job| match job {
+            QueuedJob::Production(job_id, _) => *job_id == id,
+            _ => false,
+        });
+
+        if found.is_none() {
+            let handle = ui.load_with_callback(
+                &release.url,
+                LoadPriority::Normal,
+                Box::new(|data| {
+                    let json_data = std::str::from_utf8(data).expect("Failed to parse string");
+                    let production: ProductionEntry =
+                        DeJson::deserialize_json(json_data).expect("Failed to parse JSON");
+                    Box::new(production)
+                }),
+            );
+
+            self.jobs.push(QueuedJob::Production(id, handle));
+        }
+
+        Item {
             unselected_image: IoHandle(0),
             selected_image: IoHandle(0),
-            id,
+            id: id as _,
         }
     }
 
-    fn get_column_count(&self, row: u64) -> u64 {
+    fn get_column_count(&mut self, _ui: &Ui, row: u64) -> u64 {
         if self.parties.is_empty() {
             return 0;
         }
@@ -160,7 +223,7 @@ impl ContentProvider for OnlineDemoDisplay {
         party.competitions[row as usize].results.len() as u64
     }
 
-    fn get_row_name(&self, row: u64) -> &str {
+    fn get_row_name(&mut self, _ui: &Ui, row: u64) -> &str {
         if self.parties.is_empty() {
             return "";
         }
@@ -175,7 +238,7 @@ pub struct OnlineDemoSelector {
     pub content_provider: OnlineDemoDisplay,
 }
 
-fn update(ui: &Ui, selector: &mut ContentSelector, content: &OnlineDemoDisplay) {
+fn update(ui: &Ui, selector: &mut ContentSelector, content: &mut OnlineDemoDisplay) {
     selector.update(ui, content);
 }
 
@@ -224,7 +287,7 @@ impl OnlineDemoSelector {
 
          */
         self.content_provider.update(ui);
-        update(ui, &mut self.content_selector, &self.content_provider);
+        update(ui, &mut self.content_selector, &mut self.content_provider);
         //});
     }
 }
