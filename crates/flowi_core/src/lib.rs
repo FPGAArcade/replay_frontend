@@ -336,9 +336,16 @@ impl<'a> Ui<'a> {
         });
     }
 
-    pub fn load_with_callback(&self, url: &str, priority: LoadPriority, callback: Callback) -> IoHandle {
+    pub fn load_with_callback(
+        &self,
+        url: &str,
+        priority: LoadPriority,
+        callback: Callback,
+    ) -> IoHandle {
         let state = unsafe { &mut *self.state.get() };
-        state.io_handler.load_with_callback(url, callback, priority, &state.job_system)
+        state
+            .io_handler
+            .load_with_callback(url, callback, priority, &state.job_system)
     }
 
     pub fn set_focus_id(&self, id: Id) {

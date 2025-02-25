@@ -26,7 +26,10 @@ struct JobInfo {
 
 impl JobInfo {
     fn new(handle: JobHandle, url: &str) -> Self {
-        Self { handle, url: url.to_owned() }
+        Self {
+            handle,
+            url: url.to_owned(),
+        }
     }
 }
 
@@ -72,20 +75,59 @@ impl IoHandler {
         }
     }
 
-    pub fn load(&mut self, url: &str) -> IoHandle {
+    pub fn load_with_callback(
+        &mut self,
+        url: &str,
+        callback: Callback,
+        priority: LoadPriority,
+        job_system: &JobSystem,
+    ) -> IoHandle {
+        let id = self.id_counter;
+        self.id_counter += 1;
+
+        // If data is in cache we can just start the job directly
         if self.cache_store.contains_key(url) {
-            self.load_from_cache(url)
+            let t = Self::schedule_job_with_callback(job_system, url, DataSource::Cache, callback);
+            self.inflight_jobs.insert(id, JobInfo::new(t, url));
         } else {
-            self.load_from_remote(url)
+            self.queue.insert(id, callback);
         }
+
+        IoHandle(id)
     }
 
-    fn load_from_cache(&self, url: &str) -> IoHandle {
-        IoHandle(0) // Placeholder return value
+    pub fn load_image(
+        &mut self,
+        url: &str,
+        image_options: LoadOptions,
+        job_system: &JobSystem,
+    ) -> IoHandle {
+        // Create a callback that decodes the image with the given options
+        let callback = Box::new(move |data: &[u8]| {
+            crate::image::image_decoder::decode_zune(data, image_options)
+        });
+
+        // Use the generic load_with_callback function
+        self.load_with_callback(url, callback, LoadPriority::Normal, job_system)
     }
 
-    fn load_from_remote(&self, url: &str) -> IoHandle {
-        IoHandle(0) // Placeholder return value
+    fn schedule_job_with_callback(
+        jobs: &JobSystem,
+        url: &str,
+        ds: DataSource,
+        callback: Callback,
+    ) -> JobHandle {
+        jobs.schedule_job(
+            move |data: BoxAnySend| {
+                read_data(
+                    data,
+                    ds,
+                    DataFormat::Binary(Box::new(move |data| callback(data))),
+                )
+            },
+            Box::new(url.to_string()),
+        )
+        .unwrap()
     }
 
     /// Get the load state of the handle and return the data if it is loaded. The user
@@ -110,94 +152,14 @@ impl IoHandler {
 
     pub fn get_loaded_as<T: 'static>(&mut self, handle: IoHandle) -> Option<&T> {
         if self.finished_jobs.contains_key(&handle.0) {
-            self.get_loaded(handle)
+            self.finished_jobs.get(&handle.0)?.downcast_ref::<T>()
         } else {
-            self.load_and_store(handle);
-            self.get_loaded(handle)
-        }
-    }
-
-    fn get_loaded<T: 'static>(&self, handle: IoHandle) -> Option<&T> {
-        self.finished_jobs.get(&handle.0)?.downcast_ref::<T>()
-    }
-
-    fn load_and_store(&mut self, handle: IoHandle) {
-        if let LoadState::Loaded(data) = self.return_loaded(handle, LoadPriority::Normal) {
-            self.finished_jobs.insert(handle.0, data);
-        }
-    }
-
-    pub fn load_with_callback(
-        &mut self,
-        url: &str,
-        callback: Callback,
-        priority: LoadPriority,
-        job_system: &JobSystem,
-    ) -> IoHandle {
-        let id = self.id_counter;
-        self.id_counter += 1;
-
-        let data_source = if self.cache_store.contains_key(url) {
-            DataSource::Cache
-        } else {
-            DataSource::Remote
-        };
-
-        // If data is in cache we can just start the job directly
-        if data_source == DataSource::Cache {
-            let t = job_system
-                .schedule_job(
-                    move |data: BoxAnySend| {
-                        read_data(
-                            data,
-                            data_source,
-                            DataFormat::Binary(Box::new(move |data| callback(data)))
-                        )
-                    },
-                    Box::new(url.to_string()),
-                )
-                .unwrap();
-
-            self.inflight_jobs.insert(id, JobInfo::new(t, url));
-        }
-
-        IoHandle(id)
-    }
-
-    pub fn load_image(
-        &mut self,
-        url: &str,
-        image_options: LoadOptions,
-        job_system: &JobSystem,
-    ) -> IoHandle {
-        // Create a callback that decodes the image with the given options
-        let callback = Box::new(move |data: &[u8]| {
-            crate::image::image_decoder::decode_zune(data, image_options)
-        });
-
-        // Use the generic load_with_callback function
-        self.load_with_callback(url, callback, LoadPriority::Normal, job_system)
-    }
-    /*
-    pub fn get_loaded_as<T: 'static>(&mut self, handle: IoHandle) -> Option<&T> {
-        // first check if is in the loaded list
-        if let Some(job_info) = self.finished_jobs.get(&handle.0) {
-            job_info.downcast_ref::<T>()
-        } else {
-            let data = self.return_loaded(handle, Priority::Normal);
-
-            match data {
-                LoadState::Loaded(data) => {
-                    let output = data.downcast_ref::<T>();
-                    self.finished_jobs.insert(handle.0, data);
-                    output
-                }
-                _ => None,
+            if let LoadState::Loaded(data) = self.return_loaded(handle, LoadPriority::Normal) {
+                self.finished_jobs.insert(handle.0, data);
             }
+            self.finished_jobs.get(&handle.0)?.downcast_ref::<T>()
         }
     }
-
-     */
 }
 
 /// Directory to store cached images
@@ -290,12 +252,7 @@ enum DataFormat {
     Binary(BinaryCallback),
 }
 
-fn read_data(
-    data: BoxAnySend,
-    source: DataSource,
-    format: DataFormat,
-) -> JobResult<BoxAnySend>
-{
+fn read_data(data: BoxAnySend, source: DataSource, format: DataFormat) -> JobResult<BoxAnySend> {
     let url = data.downcast::<String>().unwrap();
 
     let data = match source {
