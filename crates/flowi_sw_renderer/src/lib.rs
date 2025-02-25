@@ -1,12 +1,14 @@
 use simd::*;
 
 pub mod raster;
-pub use image::{RenderImage, Color16};
+pub use flowi_core::image::image::ImageInfo;
+pub use flowi_core::primitives::Color16;
+pub use flowi_core::Color;
 
 pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
-use flowi_api::{Color, RenderCommand, RenderType, SoftwareRenderData};
+use flowi_core::render_api::{SoftwareRenderData, RenderCommand, RenderType};
 
 pub struct TileInfo {
     pub offsets: f32x4,
@@ -310,7 +312,7 @@ fn get_tile_size(pos: usize, max_size: usize, tile_size: usize) -> usize {
     }
 }
 
-impl flowi_api::Renderer for Renderer {
+impl flowi_core::Renderer for Renderer {
     fn new(screen_size: (usize, usize), _window: Option<&RawWindowHandle>) -> Self {
         let tile_size = (128usize, 128usize);
 

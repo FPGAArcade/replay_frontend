@@ -584,20 +584,9 @@ checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 name = "flowi"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.8.0",
- "flowi-api",
  "flowi_core",
  "flowi_sw_renderer",
- "glam",
- "raw-window-handle",
  "sdl2",
-]
-
-[[package]]
-name = "flowi-api"
-version = "0.1.0"
-dependencies = [
- "raw-window-handle",
 ]
 
 [[package]]
@@ -610,18 +599,17 @@ dependencies = [
  "clay-layout",
  "cosmic-text",
  "fileorama",
- "flowi-api",
+ "fxhash",
  "glam",
- "image 0.1.0",
  "job-system",
  "log",
  "notify",
  "raw-window-handle",
  "resvg",
  "smallvec",
- "texture_packer",
  "thiserror",
  "tracing",
+ "ureq",
  "zune-core",
  "zune-image",
 ]
@@ -630,8 +618,7 @@ dependencies = [
 name = "flowi_sw_renderer"
 version = "0.1.0"
 dependencies = [
- "flowi-api",
- "image 0.1.0",
+ "flowi_core",
  "raw-window-handle",
  "simd",
 ]
@@ -711,13 +698,6 @@ dependencies = [
  "json5",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "frontend-api"
-version = "0.1.0"
-dependencies = [
- "image 0.1.0",
 ]
 
 [[package]]
@@ -885,9 +865,9 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.29.2"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc46dd3ec48fdd8e693a98d2b8bafae273a2d54c1de02a2a7e3d57d501f39677"
+checksum = "17fcdf9683c406c2fc4d124afd29c0d595e22210d633cbdb8695ba9935ab1dc6"
 
 [[package]]
 name = "hashbrown"
@@ -954,24 +934,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "image"
-version = "0.1.0"
-dependencies = [
- "simd",
-]
-
-[[package]]
-name = "image"
-version = "0.25.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd6f44aed642f18953a158afeb30206f4d50da59fbc66ecb53c66488de73563b"
-dependencies = [
- "bytemuck",
- "byteorder-lite",
- "num-traits",
 ]
 
 [[package]]
@@ -1713,10 +1675,8 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 name = "renderer_tests"
 version = "0.1.0"
 dependencies = [
- "flowi-api",
  "flowi_core",
  "flowi_sw_renderer",
- "image 0.1.0",
  "minifb",
  "simd",
 ]
@@ -2185,22 +2145,10 @@ name = "test_bed"
 version = "0.1.0"
 dependencies = [
  "arena-allocator",
- "chrono",
  "env_logger",
  "flowi",
- "flowi-api",
- "image 0.1.0",
  "log",
  "online-demo-display",
-]
-
-[[package]]
-name = "texture_packer"
-version = "0.29.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fd18766b2465d3a40ca28d9f62446ae872624ba0fdc060b24f11ee6b7e70d59"
-dependencies = [
- "image 0.25.5",
 ]
 
 [[package]]

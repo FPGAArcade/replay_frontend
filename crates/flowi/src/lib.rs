@@ -12,7 +12,5 @@ pub use flowi_core::{
     fixed, font::FontHandle, grow, Alignment, ClayColor, Id, LayoutAlignmentX,
     LayoutAlignmentY, LayoutDirection, Padding, Sizing,
     BackgroundMode, ImageInfo, Dimensions,
-    InputAction, ActionResponse,
+    InputAction, ActionResponse, Renderer,
 };
-
-pub use flowi_api::Renderer;

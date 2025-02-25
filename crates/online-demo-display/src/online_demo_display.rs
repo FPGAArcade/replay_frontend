@@ -11,6 +11,7 @@ use flowi_core::{
 };
 use flowi_core::content_provider::{ContentProvider, Item};
 use flowi_core::content_selector::ContentSelector;
+use flowi_core::{IoHandle, LoadState, LoadPriority};
 use log::*;
 use std::{fs, io};
 use std::fs::File;
@@ -22,7 +23,6 @@ use std::hash::Hasher;
 use std::time::Duration;
 use log::error;
 use crate::data::*;
-use request_manager::{Position, PriorityWeights, RequestId, RequestManager, RequestManagerConfig};
 
 const API_URL: &str = "https://demozoo.org/api/v1";
 
@@ -30,6 +30,7 @@ fn parse_party(json_data: &str) -> Party {
     DeJson::deserialize_json(json_data).expect("Failed to parse JSON")
 }
 
+/*
 fn read_party_from_cache_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
     read_data(
         data,
@@ -62,6 +63,8 @@ fn read_production_entry_from_remote(data: BoxAnySend) -> JobResult<BoxAnySend> 
     )
 }
 
+ */
+
 
 enum FetchItem {
     Party(u64, String),
@@ -77,7 +80,7 @@ enum QueuedJob {
 
 pub struct OnlineDemoDisplay {
     url_string: String,
-    parties: Vec<Party>,
+    parties: Vec<Box<Party>>,
     jobs: Vec<QueuedJob>,
 }
 
@@ -94,11 +97,11 @@ impl OnlineDemoDisplay {
         self.url_string.clear();
         write!(self.url_string, "{}/parties/{}", API_URL, party_id).unwrap();
 
-        let handle = ui.io.load_with_callback(&self.url_string, |data| {
+        let handle = ui.load_with_callback(&self.url_string, Box::new(|data| {
             let json_data = std::str::from_utf8(data).expect("Failed to parse string");
             let party: Party = DeJson::deserialize_json(json_data).expect("Failed to parse JSON");
             party
-        });
+        }));
 
         self.jobs.push(QueuedJob::Party(handle));
     }
@@ -107,8 +110,15 @@ impl OnlineDemoDisplay {
         for job in self.jobs.iter_mut() {
             match job {
                 QueuedJob::Party(handle) => {
-                    if let Some(result) = ui.io.try_get_result::<Party>() {
-                        self.parties.push(result.unwrap());
+                    match ui.return_loaded(*handle, LoadPriority::Normal) {
+                        LoadState::Loaded(data) => {
+                            if let Ok(party) = data.downcast::<Party>() {
+                                self.parties.push(party);
+                            } else {
+                                error!("Failed to parse party data");
+                            }
+                        }
+                        _ => { },
                     }
                 }
 
@@ -147,6 +157,7 @@ impl OnlineDemoDisplay {
 
 impl ContentProvider for OnlineDemoDisplay {
     fn get_item(&self, row: u64, col: u64) -> Item {
+        /*
         if self.state == State::ShowParty {
             if let Some(party) = self.active_party.as_ref() {
                 let id = party.competitions[row as usize].results[col as usize].production.id as u64;
@@ -158,29 +169,37 @@ impl ContentProvider for OnlineDemoDisplay {
             }
         }
 
+         */
+
         Item {
-            unselected_image: 0,
-            selected_image: 0,
+            unselected_image: IoHandle(0),
+            selected_image: IoHandle(0),
             id: u64::MAX / 2,
         }
     }
 
     fn get_column_count(&self, row: u64) -> u64 {
+        /*
         if self.state == State::ShowParty {
             if let Some(party) = self.active_party.as_ref() {
                 return party.competitions[row as usize].results.len() as u64;
             }
         }
 
+         */
+
         0
     }
 
     fn get_row_name(&self, row: u64) -> &str {
+        /*
         if self.state == State::ShowParty {
             if let Some(party) = self.active_party.as_ref() {
                 return &party.competitions[row as usize].name;
             }
         }
+
+         */
 
         ""
     }

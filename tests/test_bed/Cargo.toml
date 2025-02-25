@@ -6,11 +6,8 @@ edition = "2021"
 [dependencies]
 arena-allocator = { path = "../../crates/arena-allocator" }
 env_logger = "0.10"
-flowi-api = { path = "../../crates/flowi-api" }
 flowi = { path = "../../crates/flowi" }
-image = { path = "../../crates/image" }
 log = "0.4"
-chrono = "0.4"
 online-demo-display = { path = "../../crates/online-demo-display" }
 
 [features]

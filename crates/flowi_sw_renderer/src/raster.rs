@@ -1,6 +1,6 @@
 use crate::TileInfo;
 use simd::*;
-use image::{Color16};
+use flowi_core::primitives::{Color16};
 
 const TEXTURE_MODE_NONE: usize = 0;
 const TEXTURE_MODE_ALIGNED: usize = 1;

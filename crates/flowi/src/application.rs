@@ -1,18 +1,8 @@
-//use flowi_core::imgui::{DrawCmd, DrawData, DrawVert, FontAtlas, ImDrawIdx};
-//use crate::bgfx_renderer::BgfxRenderer;
-//use crate::glfw_window::GlfwWindow;
-use crate::sdl_window::Sdl2Window;
-use flowi_core::input::Input;
-//use crate::sw_renderer::SwRenderer;
-
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
-use flowi_core::ApplicationSettings;
-use flowi_core::Ui;
-use flowi_api::SoftwareRenderData;
+use crate::sdl_window::Sdl2Window;
+use flowi_core::{ApplicationSettings, Ui, input::Input, SoftwareRenderData, Renderer};
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
-
-use flowi_api::Renderer;
 
 //use flowi_core::Instance;
 //use flowi_core::Result;

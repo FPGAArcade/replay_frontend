@@ -11,7 +11,7 @@ use flowi::{
 };
 //use log::*;
 //use demozoo_fetcher::ProductionEntry;
-use online_demo_display::online_demo_selector::OnlineDemoSelector;
+use online_demo_display::OnlineDemoDisplay;
 
 pub struct Fonts {
     pub default: FontHandle,
@@ -25,7 +25,7 @@ pub(crate) struct App {
     width: usize,
     height: usize,
     fonts: Fonts,
-    online_demo_selector: OnlineDemoSelector,
+    online_demo_selector: OnlineDemoDisplay,
 }
 
 #[rustfmt::skip]
@@ -71,7 +71,7 @@ fn main() {
         width,
         height,
         fonts,
-        online_demo_selector: OnlineDemoSelector::new(),
+        online_demo_selector: OnlineDemoDisplay::new(),
     });
 
     if !flowi_app.run(app, main_loop) {

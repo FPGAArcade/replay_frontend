@@ -13,21 +13,21 @@ pub struct CacheStore {
 }
 
 impl CacheStore {
-    pub fn new(cache_dir: &Path) -> Result<Self> {
+    pub fn new(cache_dir: &str) -> std::io::Result<Self> {
         fs::create_dir_all(cache_dir)?;
 
         let mut entries = HashSet::with_capacity(128);
         Self::scan_directory(cache_dir, &mut entries)?;
 
         Ok(Self {
-            cache_dir: cache_dir.to_path_buf(),
+            cache_dir: Path::new(cache_dir).to_path_buf(),
             temp_path: PathBuf::with_capacity(512),
             temp_string: String::with_capacity(32),
             entries,
         })
     }
 
-    fn scan_directory(dir: &Path, entries: &mut HashSet<PathBuf>) -> Result<()> {
+    fn scan_directory(dir: &str, entries: &mut HashSet<PathBuf>) -> std::io::Result<()> {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -59,7 +59,7 @@ impl CacheStore {
         }
     }
 
-   fn get_cache_path<'a, P>(url: &'a str, dir: P, output: &'a mut PathBuf) -> &'a PathBuf
+   pub fn get_cache_path<P>(url: &str, dir: P, output: &mut PathBuf)
     where
         P: AsRef<Path>,
     {
@@ -73,7 +73,6 @@ impl CacheStore {
         output.clear();
         output.push(dir.as_ref());
         output.push(unsafe { std::str::from_utf8_unchecked(&hex_string_buffer) });
-        output
     }
 
     /*
@@ -128,7 +127,7 @@ impl CacheStore {
     }
 
     #[allow(dead_code)]
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) -> std::io::Result<()> {
         for entry in &self.entries {
             let _ = fs::remove_file(entry);
         }
@@ -146,7 +145,7 @@ mod tests {
     use std::fs::File;
     use tempfile::TempDir;
 
-    fn create_test_file(dir: &Path, name: &str) -> Result<PathBuf> {
+    fn create_test_file(dir: &Path, name: &str) -> std::io::Result<PathBuf> {
         let path = dir.join(name);
         File::create(&path)?;
         Ok(path)

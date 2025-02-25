@@ -31,6 +31,9 @@ pub enum JobError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 /// Result type for job operations

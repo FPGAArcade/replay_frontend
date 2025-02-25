@@ -14,7 +14,6 @@ pub mod image;
 pub mod render_api;
 
 use crate::input::Input;
-use io::io::IoHandle;
 use glam::Vec4;
 
 use job_system::JobSystem;
@@ -31,7 +30,7 @@ pub use io::io::IoHandler;
 use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
-
+use std::time::Duration;
 use font::{CachedString, FontHandle};
 //pub use image::ImageInfo;
 
@@ -48,10 +47,14 @@ pub use clay_layout::{
 
 pub use render_api::{
     Color, DrawBorderData, DrawImage, DrawRectRoundedData, DrawTextBufferData, RenderCommand,
-    RenderType, Renderer, StringSlice,
+    RenderType, Renderer, StringSlice, SoftwareRenderData,
 };
 
 pub use job_system;
+pub use crate::image::image::{LoadOptions, ImageInfo};
+pub use crate::io::io::*;
+
+pub use crate::render_api::*;
 
 type FlowiKey = u64;
 
@@ -130,10 +133,8 @@ struct ItemStatus {
 impl<'a> Ui<'a> {
     pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
         let vfs = Fileorama::new(2);
-        let io_handler = IoHandler::new(&vfs);
+        let io_handler = IoHandler::new(Duration::from_millis(500));
         let bg_worker = WorkSystem::new(2);
-
-        crate::image_api::install_image_loader(&vfs);
 
         let reserve_size = 1024 * 1024 * 1024;
         let state = State {
@@ -226,7 +227,7 @@ impl<'a> Ui<'a> {
             .layout
             .layout_dimensions(Dimensions::new(width as f32, height as f32));
         state.layout.begin();
-        state.io_handler.update();
+        //state.io_handler.update();
         state.primitives.rewind();
         state.button_id = 0;
         state.screen_size = (width, height);
@@ -252,10 +253,10 @@ impl<'a> Ui<'a> {
         signal
     }
 
-    pub fn image(&self, handle: ImageHandle) {
+    pub fn image(&self, handle: IoHandle) {
         let state = unsafe { &mut *self.state.get() };
 
-        if let Some(image) = state.io_handler.get_loaded_as::<RenderImage>(handle) {
+        if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
             unsafe {
@@ -273,10 +274,10 @@ impl<'a> Ui<'a> {
         }
     }
 
-    pub fn image_with_opts(&self, id: Id, handle: ImageHandle, opacity: f32, size: (f32, f32)) {
+    pub fn image_with_opts(&self, id: Id, handle: IoHandle, opacity: f32, size: (f32, f32)) {
         let state = unsafe { &mut *self.state.get() };
 
-        if let Some(image) = state.io_handler.get_loaded_as::<RenderImage>(handle) {
+        if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
             unsafe {
@@ -317,15 +318,28 @@ impl<'a> Ui<'a> {
         });
     }
 
+    pub fn load_with_callback<T>(&self, url: &str, callback: Callback<T>) -> IoHandle {
+        let state = unsafe { &mut *self.state.get() };
+        state.io_handler.load_with_callback(url, callback)
+    }
+
     pub fn set_focus_id(&self, id: Id) {
         let state = unsafe { &mut *self.state.get() };
         state.focus_id = Some(id);
     }
 
+    pub fn return_loaded(&self, handle: IoHandle, priority: LoadPriority) -> LoadState {
+        let state = unsafe { &mut *self.state.get() };
+        state.io_handler.return_loaded(handle, priority)
+    }
+
+    /*
     pub fn get_image(&self, handle: ImageHandle) -> Option<&RenderImage> {
         let state = unsafe { &mut *self.state.get() };
         state.io_handler.get_loaded_as::<RenderImage>(handle)
     }
+
+     */
 
     pub fn update_scroll_containers(&self, scroll_delta: (f32, f32)) {
         let state = unsafe { &mut *self.state.get() };
@@ -337,8 +351,8 @@ impl<'a> Ui<'a> {
         [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
     }
 
-    fn color(color: ClayColor) -> flowi_api::Color {
-        flowi_api::Color {
+    fn color(color: ClayColor) -> Color {
+        Color {
             r: color.r,
             g: color.g,
             b: color.b,
@@ -377,7 +391,7 @@ impl<'a> Ui<'a> {
         let mut primitives = Vec::with_capacity(1024);
 
         if let Some(bg_image) = state.background_image.as_ref() {
-            if let Some(image) = state.io_handler.get_loaded_as::<RenderImage>(bg_image.handle) {
+            if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(bg_image.handle) {
                 let width = state.screen_size.0 as f32;
 
                 let x0 = width - image.width as f32;
@@ -548,14 +562,11 @@ impl<'a> Ui<'a> {
         state.text_generator.load_font(path, &state.bg_worker)
     }
 
-    pub fn load_image(&mut self, path: &str) -> InternalResult<IoHandle> {
+    pub fn load_image(&mut self, url: &str, load_options: Option<LoadOptions>) -> IoHandle {
         let state = unsafe { &mut *self.state.get() };
-        Ok(crate::image_api::load(state, path))
-    }
-
-    pub fn load_background_image(&mut self, path: &str, target_size: (u32, u32)) -> InternalResult<IoHandle> {
-        let state = unsafe { &mut *self.state.get() };
-        Ok(crate::image_api::load_background(state, path, target_size))
+        // TODO: Fix me
+        IoHandle(0)
+        //Ok(crate::image_api::load(state, path))
     }
 
     pub fn set_background_image(&mut self, handle: IoHandle, mode: BackgroundMode) {

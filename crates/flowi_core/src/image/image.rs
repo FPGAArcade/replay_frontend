@@ -1,24 +1,22 @@
-// use log::warn;
-use crate::primitives::{Color, IVec2, Vec2};
-use image_old::Color16;
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[allow(dead_code)]
-pub enum ImageFormat {
+pub enum Format {
     /// 8-bit per channel Red, Green and Blue
-    Rgb = 0,
+    Rgb,
     /// 8-bit per channel Red, Green, Blue and Alpha
-    Rgba = 1,
+    Rgba,
     /// 8-bit per channel Blue, Green and Red
-    Bgr = 2,
+    Bgr,
     /// 8-bit per channel Blue, Green and Red and Alpha
-    Bgra = 3,
+    Bgra,
     /// 8-bit per channel Alpha only
-    Alpha = 4,
+    Alpha,
+    /// 16-bit per channel Red, Green and Blue
+    Rgb16,
     /// 16-bit per channel Red, Green and Blue and Alpha
-    Rgba16 = 5,
+    Rgba16,
     /// 16-bit per channel Alpha only
-    Alpha16 = 6,
+    Alpha16,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -31,23 +29,12 @@ pub enum BorderType {
     Repeat(usize),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(dead_code)]
-pub enum ImageLoadStatus {
-    /// The image is still loading
-    Loading = 0,
-    /// The image has finished loading
-    Loaded = 1,
-    /// The image failed to load
-    Failed = 2,
-}
-
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct ImageInfo {
-    pub data: Vec<Color16>,
-    /// Format of the image. See the ImageFormat enum
-    pub format: u32,
+    pub data: Vec<u8>,
+    /// Format of the image.
+    pub format: Format,
     /// width of the image
     pub width: i32,
     /// height of the Image
@@ -57,30 +44,50 @@ pub struct ImageInfo {
     /// How long each frame should be displayed for in milliseconds
     pub frame_delay: i32,
     /// Border type of the image
-    pub border_type: BorderType
+    pub border_type: BorderType,
+    /// Start of the data excluding the border
+    pub start_offset_ex_borders: usize,
+    /// Full width of the image including the border
+    pub stride: usize,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug)]
+pub enum Resize {
+    /// No image resizing
+    None,
+    /// Resize image to 2x,3x,etc
+    Integer,
+    /// Resize image to 2x,3x,etc with a vignette effect
+    IntegerVignette,
+    /// Resize using sharp bilinear filter
+    SharpBilinear,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum ColorDepth {
+    /// 8-bit per channel storage of data
+    Depth8,
+    /// 16-bit per channel storage of data (Rgba8 -> Rgba16, Alpha8 -> Alpha16, etc)
+    Depth16,
+}
+
+#[derive(Copy, Clone, Debug)]
 #[allow(dead_code)]
-pub enum ImageMode {
-    /// The image will be scaled to fit the target size while maintaining the aspect ratio
-    /// of the image. Will only scale the image in steps of 2x, 3x, 4x, etc. 
-    ScaleToTargetInteger,
+pub struct LoadOptions {
+    /// Resize the image
+    resize: Resize,
+    /// Color depth of the image
+    color_depth: ColorDepth,
+    /// Target size of the image (0, 0) means no resizing
+    target_size: (i32, i32),
 }
 
-impl Default for ImageMode {
+impl Default for LoadOptions {
     fn default() -> Self {
-        ImageMode::ScaleToTargetInteger
+        LoadOptions {
+            resize: Resize::None,
+            color_depth: ColorDepth::Depth16,
+            target_size: (0, 0),
+        }
     }
-}
-
-#[derive(Copy, Clone, Debug, Default)]
-#[allow(dead_code)]
-pub struct ImageOptions {
-    /// Mode of the scaling
-    pub mode: ImageMode,
-    /// The scale of the image. This is useful for loading SVGs at different sizes.
-    pub scale: Vec2,
-    pub size: IVec2,
-    pub color: Color,
 }
