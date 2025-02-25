@@ -4,7 +4,6 @@ members = [
     "crates/arena-allocator",
     "crates/background_worker",
     "crates/demozoo-fetcher",
-    "crates/fileorama",
     "crates/flowi_core",
     "crates/flowi_sw_renderer",
     "crates/job-system",

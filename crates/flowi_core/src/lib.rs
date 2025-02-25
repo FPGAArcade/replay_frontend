@@ -22,7 +22,6 @@ use clay_layout::{
     render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig,
     Clay, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig,
 };
-use fileorama::Fileorama;
 use font::{CachedString, FontHandle};
 use internal_error::InternalResult;
 pub use io::io::IoHandler;
@@ -82,7 +81,6 @@ struct BackgroundImage {
 #[allow(dead_code)]
 pub(crate) struct State<'a> {
     pub(crate) text_generator: font::TextGenerator,
-    pub(crate) vfs: Fileorama,
     pub(crate) io_handler: IoHandler,
     pub(crate) input: Input,
     pub(crate) primitives: Arena,
@@ -133,13 +131,11 @@ struct ItemStatus {
 
 impl<'a> Ui<'a> {
     pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
-        let vfs = Fileorama::new(2);
         let io_handler = IoHandler::new(Duration::from_millis(500));
         let bg_worker = WorkSystem::new(2);
 
         let reserve_size = 1024 * 1024 * 1024;
         let state = State {
-            vfs,
             io_handler,
             text_generator: font::TextGenerator::new(&bg_worker),
             hot_item: 0,
