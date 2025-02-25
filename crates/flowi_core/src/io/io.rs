@@ -249,7 +249,7 @@ fn read_data_from_cache(url: &str) -> io::Result<Vec<u8>> {
     let size = file.read_to_end(&mut contents)?;
 
     debug!(
-        "Start read from cache: {} -> {:?} (size {})",
+         "Done  read from cache: {} -> {:?} (size {})",
         url, cache_path, size
     );
 
