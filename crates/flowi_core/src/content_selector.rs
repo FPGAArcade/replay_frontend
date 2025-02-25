@@ -136,8 +136,7 @@ impl ContentSelector {
         let dt = ui.delta_time();
         self.temp_time += dt;
 
-        let down = false; //ui.input().is_action_active(ActionResponse::Down);
-        /*
+        //let down = false; //ui.input().is_action_active(ActionResponse::Down);
         // Simulate a transition to a new row ever 5 seconds
         let down = if self.temp_time > 5.0 {
             self.temp_time = 0.0;
@@ -145,8 +144,6 @@ impl ContentSelector {
         } else {
             false
         };
-
-         */
 
         if self.state == State::Init {
             let item = provider.get_item(ui, 0, 0);
