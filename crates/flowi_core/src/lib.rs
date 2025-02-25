@@ -257,6 +257,7 @@ impl<'a> Ui<'a> {
     pub fn image(&self, handle: IoHandle) {
         let state = unsafe { &mut *self.state.get() };
 
+        /*
         if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
@@ -276,6 +277,8 @@ impl<'a> Ui<'a> {
                 );
             }
         }
+
+         */
     }
 
     pub fn image_with_opts(&self, id: Id, handle: IoHandle, opacity: f32, size: (f32, f32)) {
@@ -750,6 +753,7 @@ impl<'a> Ui<'a> {
     pub fn update(&mut self) {
         let state = unsafe { &mut *self.state.get() };
         state.text_generator.update();
+        state.io_handler.update(&state.job_system);
     }
 
     pub fn get_text(&self, text: &str, size: u32, handle: FontHandle) -> Option<&CachedString> {

@@ -2,9 +2,9 @@ use arena_allocator;
 use flowi::Application;
 use flowi::Ui;
 use flowi::{grow, Declaration, FontHandle, LayoutDirection};
-//use log::*;
+use log::*;
 //use demozoo_fetcher::ProductionEntry;
-use online_demo_display::OnlineDemoDisplay;
+use online_demo_display::OnlineDemoSelector;
 
 pub struct Fonts {
     pub default: FontHandle,
@@ -18,7 +18,7 @@ pub(crate) struct App {
     width: usize,
     height: usize,
     fonts: Fonts,
-    online_demo_selector: OnlineDemoDisplay,
+    online_demo_selector: OnlineDemoSelector,
 }
 
 #[rustfmt::skip]
@@ -40,11 +40,9 @@ fn main() {
     let width = 1920;
     let height = 1080;
 
-    /*
     let _ = env_logger::builder()
         .filter_level(LevelFilter::max())
         .init();
-    */
 
     let settings = flowi::ApplicationSettings { width, height };
 
@@ -62,12 +60,14 @@ fn main() {
         light: ui.load_font("data/fonts/roboto/Roboto-Light.ttf").unwrap(),
     };
 
-    let app = Box::new(App {
+    let mut app = Box::new(App {
         width,
         height,
         fonts,
-        online_demo_selector: OnlineDemoDisplay::new(),
+        online_demo_selector: OnlineDemoSelector::new(),
     });
+
+    app.online_demo_selector.content_provider.fetch_party(ui, 92);
 
     if !flowi_app.run(app, main_loop) {
         println!("Failed to create main application");

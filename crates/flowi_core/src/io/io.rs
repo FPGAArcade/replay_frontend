@@ -4,7 +4,7 @@ use crate::LoadOptions;
 use job_system::JobSystem;
 use job_system::{BoxAnySend, JobHandle, JobResult};
 use log::{debug, error};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
@@ -38,7 +38,7 @@ pub struct IoHandler {
     settings: IoSettings,
     id_counter: u64,
     time: Instant,
-    queue: HashMap<u64, Callback>,
+    queue: VecDeque<(u64, Callback, String)>,
     inflight_jobs: HashMap<u64, JobInfo>,
     finished_jobs: HashMap<u64, BoxAnySend>,
 }
@@ -69,7 +69,7 @@ impl IoHandler {
             time: Instant::now() - Duration::from_secs(60),
             inflight_jobs: HashMap::with_capacity(256),
             finished_jobs: HashMap::with_capacity(256),
-            queue: HashMap::with_capacity(256),
+            queue: VecDeque::with_capacity(256),
             settings,
             id_counter: 1,
         }
@@ -90,7 +90,7 @@ impl IoHandler {
             let t = Self::schedule_job_with_callback(job_system, url, DataSource::Cache, callback);
             self.inflight_jobs.insert(id, JobInfo::new(t, url));
         } else {
-            self.queue.insert(id, callback);
+            self.queue.push_back((id, callback, url.to_owned()));
         }
 
         IoHandle(id)
@@ -109,6 +109,26 @@ impl IoHandler {
 
         // Use the generic load_with_callback function
         self.load_with_callback(url, callback, LoadPriority::Normal, job_system)
+    }
+
+    pub fn update(&mut self, job_system: &JobSystem) {
+        // TODO: Prioritize jobs
+        if self.queue.is_empty() {
+            return;
+        }
+
+        if self.time.elapsed() > self.settings.remote_delay {
+            self.time = Instant::now();
+            if let Some(job) = self.queue.pop_front() {
+                let t = Self::schedule_job_with_callback(
+                    &job_system,
+                    &job.2,
+                    DataSource::Remote,
+                    job.1,
+                );
+                self.inflight_jobs.insert(job.0, JobInfo::new(t, &job.2));
+            }
+        }
     }
 
     fn schedule_job_with_callback(
@@ -136,7 +156,7 @@ impl IoHandler {
         if let Some(job_info) = self.inflight_jobs.get(&handle.0) {
             match job_info.handle.receiver.try_recv() {
                 Ok(data) => {
-                    self.inflight_jobs.remove(&handle.0);
+                    //self.inflight_jobs.remove(&handle.0);
                     match data {
                         Ok(data) => LoadState::Loaded(data),
                         Err(e) => LoadState::Failed(format!("{}", e)),
@@ -268,5 +288,5 @@ fn read_data(data: BoxAnySend, source: DataSource, format: DataFormat) -> JobRes
         DataFormat::Binary(callback) => callback(&data),
     };
 
-    Ok(Box::new(result) as BoxAnySend)
+    Ok(result)
 }

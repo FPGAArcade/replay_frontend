@@ -23,6 +23,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{fs, io};
+use std::any::Any;
 
 const API_URL: &str = "https://demozoo.org/api/v1";
 
@@ -92,7 +93,7 @@ impl OnlineDemoDisplay {
         }
     }
 
-    fn fetch_party(&mut self, ui: &Ui, party_id: u64) {
+    pub fn fetch_party(&mut self, ui: &Ui, party_id: u64) {
         self.url_string.clear();
         write!(self.url_string, "{}/parties/{}", API_URL, party_id).unwrap();
 
@@ -103,7 +104,8 @@ impl OnlineDemoDisplay {
                 let json_data = std::str::from_utf8(data).expect("Failed to parse string");
                 let party: Party =
                     DeJson::deserialize_json(json_data).expect("Failed to parse JSON");
-                Box::new(party) as BoxAnySend
+
+                Box::new(party)
             }),
         );
 
@@ -115,10 +117,9 @@ impl OnlineDemoDisplay {
             match job {
                 QueuedJob::Party(handle) => match ui.return_loaded(*handle, LoadPriority::Normal) {
                     LoadState::Loaded(data) => {
-                        if let Ok(party) = data.downcast::<Party>() {
-                            self.parties.push(party);
-                        } else {
-                            error!("Failed to parse party data");
+                        match data.downcast::<Party>() {
+                            Ok(party) => self.parties.push(party),
+                            Err(_) => error!("Failed to downcast to Party"),
                         }
                     }
                     _ => {}
@@ -127,33 +128,6 @@ impl OnlineDemoDisplay {
                 _ => {}
             }
         }
-        /*
-        match self.state {
-            State::Idle => {}
-
-            State::FetchParty =>
-                fetch_party(),
-                self.url_string.clear();
-                write!(self.url_string, "https://demozoo.org/api/v1/parties/{}", self.party_show_id).unwrap();
-                self.load_party_handle = Some(ui.job_system().schedule_job(
-                    fetch_party_job,
-                    Box::new(self.url_string.clone())).unwrap());
-
-                self.state = State::WaitFetchingParty;
-            }
-
-            State::WaitFetchingParty => {
-                if let Some(handle) = self.load_party_handle.as_ref() {
-                    // TODO: Proper error handling
-                    self.active_party = Some(handle.try_get_result::<Party>().unwrap().unwrap());
-                    self.state = State::ShowParty;
-                }
-            }
-
-            _ => {},
-        }
-
-         */
     }
 }
 
@@ -208,8 +182,8 @@ impl ContentProvider for OnlineDemoDisplay {
 }
 
 pub struct OnlineDemoSelector {
-    content_selector: ContentSelector,
-    content_provider: OnlineDemoDisplay,
+    pub content_selector: ContentSelector,
+    pub content_provider: OnlineDemoDisplay,
 }
 
 fn update(ui: &Ui, selector: &mut ContentSelector, content: &OnlineDemoDisplay) {
