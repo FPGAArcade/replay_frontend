@@ -603,19 +603,19 @@ fn process_text_pixels<const COUNT: usize>(
         }
     }
 }
-struct RenderParams {
-    x0: i32,
-    y0: i32,
-    x1: i32,
-    y1: i32,
-    clip_y: usize,
-    clip_x: usize,
-    _ylen: i32,
-    _xlen: i32,
+pub(crate) struct RenderParams {
+    pub(crate) x0: i32,
+    pub(crate) y0: i32,
+    pub(crate) x1: i32,
+    pub(crate) y1: i32,
+    pub(crate) clip_y: usize,
+    pub(crate) clip_x: usize,
+    pub(crate) _ylen: i32,
+    pub(crate) _xlen: i32,
 }
 
 #[inline(always)]
-fn calculate_render_params(
+pub(crate) fn calculate_render_params(
     coords: &[f32],
     tile_info: &TileInfo,
     scissor_rect: f32x4,
@@ -745,8 +745,7 @@ impl Raster {
         texture_width: usize,
         texture_data: *const u64,
     ) {
-        let rp = if let Some(params) = calculate_render_params(coords, tile_info, self.scissor_rect)
-        {
+        let rp = if let Some(params) = calculate_render_params(coords, tile_info, self.scissor_rect) {
             params
         } else {
             return;

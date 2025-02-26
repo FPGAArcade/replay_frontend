@@ -1,6 +1,8 @@
 use simd::*;
 
 pub mod raster;
+mod sharp_bilinear;
+
 pub use flowi_core::image::image::ImageInfo;
 pub use flowi_core::primitives::Color16;
 pub use flowi_core::Color;
@@ -183,7 +185,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
         // TODO: We should here support clearing the buffer with another color, bg image or have a
         // check during the binning if we need to clear at all.
         for t in tile_buffer.iter_mut() {
-            *t = Color16::default();
+            *t = Color16::new_splat(200);
         }
 
         for index in tile.data.iter() {
