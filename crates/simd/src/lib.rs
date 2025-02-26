@@ -1068,6 +1068,26 @@ impl Mul for i32x4 {
     }
 }
 
+impl Add for i32x4 {
+    type Output = Self;
+
+    #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            v: unsafe { vaddq_s32(self.v, rhs.v) },
+        }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    #[inline(always)]
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            v: unsafe { _mm_adds_epi32(self.v, rhs.v) },
+        }
+    }
+}
+
 impl AddAssign for i32x4 {
     #[cfg(target_arch = "aarch64")]
     #[inline(always)]

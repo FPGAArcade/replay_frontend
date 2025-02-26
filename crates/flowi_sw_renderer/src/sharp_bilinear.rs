@@ -4,6 +4,9 @@ use flowi_core::primitives::Color16;
 use simd::*;
 use crate::raster::calculate_render_params;
 
+const FRACT_BITS: i32 = 15;
+const FRACT_MASK: i32 = (1 << FRACT_BITS) - 1;
+
 pub(crate) fn render_sharp_bilinear(
     output: &mut [Color16],
     scissor_rect: f32x4,
@@ -30,12 +33,32 @@ pub(crate) fn render_sharp_bilinear(
     let xlen = x1 - x0;
 
     // calculate the u,v step for the texture
-    let u_step = i32x4::new_splat((texture_size.0 << 15) / xlen);
-    let v_step = i32x4::new_splat((texture_size.1 << 15) / ylen);
+    let v_step = i32x4::new_splat((texture_size.1 << FRACT_BITS) / ylen);
+    let u_step = i32x4::new_splat((texture_size.0 << FRACT_BITS) / xlen);
+
+    let tex_width = i32x4::new_splat(texture_size.0);
+    let fract_mask = i32x4::new_splat(FRACT_MASK);
+
+    // setup for interpolating 4 steps
+    let u_start = i32x4::new(0, 1, 2, 3) * u_step;
+    let u_step = u_step * i32x4::new_splat(4);
+    let mut v = i32x4::new_splat(0);
 
     for _y in 0..ylen {
-        for _x in 0..(xlen >> 1) {
+        let v_fract = v & fract_mask;
+        let v_int = v.shift_right::<FRACT_BITS>();
+        let v_offset = v_int * tex_width;
 
+        let mut u = u_start;
+
+        for _x in 0..(xlen >> 1) {
+            let u_int = u.shift_right::<FRACT_BITS>();
+            let uv = u_int + v_offset;
+
+
+            u += u_step;
         }
+
+        v += v_step;
     }
 }
