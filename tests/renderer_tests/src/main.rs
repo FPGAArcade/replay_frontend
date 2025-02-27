@@ -1,7 +1,7 @@
 use std::time::Instant;
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
-use flowi_core::image::{BorderType, ImageInfo};
+use flowi_core::image::ImageInfo;
 use flowi_core::primitives::Color16;
 use flowi_core::Renderer;
 
@@ -140,8 +140,6 @@ fn generate_sample_test_image(srgb_to_linear: &[u16; 256]) -> ImageInfo {
         stride: 5,
         frame_count: 1,
         frame_delay: 0,
-        border_type: BorderType::None,
-        start_offset_ex_borders: 0,
     }
 }
 
@@ -168,8 +166,6 @@ fn load_image(path: &str, srgb_to_linear: &[u16; 256]) -> ImageInfo {
         stride: i.width() as _,
         frame_count: 1,
         frame_delay: 0,
-        border_type: BorderType::None,
-        start_offset_ex_borders: 0,
     }
 }
 
@@ -185,7 +181,7 @@ fn main() {
     };
 
     //let scale_image = generate_sample_test_image(&srgb_to_linear_table);
-    let scale_image = load_image("cat.png", &srgb_to_linear_table);
+    let scale_image = load_image("target/cache/a46adb333155e42d.png", &srgb_to_linear_table);
 
     let mut core = flowi_core::Ui::new(Box::new(SoftwareRenderer::new((WIDTH, HEIGHT), None)));
     let font = core
@@ -412,6 +408,9 @@ fn render_shapes(
             let y1 = (RENDER_HEIGHT as f32 + scale_image.height as f32 * scale_factor) / 2.0;
 
             let coords = [x0, y0, x1, y1];
+            let texture_sizes = [
+                scale_image.width, scale_image.height,
+                scale_image.width, scale_image.height];
 
             flowi_sw_renderer::sharp_bilinear::render_sharp_bilinear(
                 temp_output,
@@ -420,8 +419,7 @@ fn render_shapes(
                 &coords,
                 scale_image.data.as_ptr() as _,
                 scale_factor,
-                (scale_image.width, scale_image.height),
-            );
+                &texture_sizes);
             /*
             image::draw_scaled_image::<1>(
                 temp_output,

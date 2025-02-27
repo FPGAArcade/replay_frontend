@@ -47,6 +47,7 @@ impl OnlineDemoDisplay {
         }
     }
 
+    /// Fetches a party from the Demozoo API
     pub fn fetch_party(&mut self, ui: &Ui, party_id: u64) {
         self.url_string.clear();
         write!(self.url_string, "{}/parties/{}", API_URL, party_id).unwrap();
@@ -66,6 +67,9 @@ impl OnlineDemoDisplay {
         self.jobs.push(QueuedJob::Party(handle));
     }
 
+    /// Queues the screenshots for loading. If there are no screenshots, it will return a pair of
+    /// (0, 0) IoHandles.
+    /// TODO: We should have a default image here instead of null handles
     fn queue_screenshots(entry: &ProductionEntry, ui: &Ui) -> (IoHandle, IoHandle){
         if entry.screenshots.is_empty() {
             (IoHandle(0), IoHandle(0))

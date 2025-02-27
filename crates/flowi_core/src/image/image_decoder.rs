@@ -5,7 +5,7 @@ use zune_core::{
 
 use thiserror::Error as ThisError;
 
-use crate::image::{BorderType, ImageInfo, LoadOptions, Resize};
+use crate::image::{ImageInfo, LoadOptions, Resize};
 use crate::primitives::Color16;
 use simd::*;
 
@@ -18,6 +18,20 @@ pub enum ImageErrors {
     ZuneError(#[from] ZuneError),
     #[error("Generic")]
     Generic(String),
+}
+
+#[inline]
+fn convert_to_color16(data: &[u8], offset: usize, has_alpha: bool) -> Color16 {
+    let r = SRGB_TO_LINEAR_TABLE[data[offset] as usize];
+    let g = SRGB_TO_LINEAR_TABLE[data[offset + 1] as usize];
+    let b = SRGB_TO_LINEAR_TABLE[data[offset + 2] as usize];
+    let a = if has_alpha {
+        (data[offset + 3] << 7) as i16
+    } else {
+        255 << 7
+    };
+
+    Color16::new(r, g, b, a)
 }
 
 pub(crate) fn decode_zune_internal(
@@ -50,6 +64,7 @@ pub(crate) fn decode_zune_internal(
     }
 
     let mut color16_output = Vec::with_capacity(output_size);
+    /*
 
     if color_space == ZuneColorSpace::RGB {
         for v in image_data.chunks(3) {
@@ -78,11 +93,51 @@ pub(crate) fn decode_zune_internal(
 
             color16_output.push(Color16::new(r, g, b, a));
         }
-    } else {
+    }
+    */
+
+    if color_space != ZuneColorSpace::RGB || color_space != ZuneColorSpace::RGBA {
         return Err(ImageErrors::Generic(format!(
             "Unsupported color space: {:?}",
             color_space
         )));
+    }
+
+    // Calculate the required range for the entire processing
+    let bytes_per_pixel = if color_space == ZuneColorSpace::RGB { 3 } else { 4 };
+    let has_alpha = color_space == ZuneColorSpace::RGBA;
+    let width = dimensions.0;
+    let height = dimensions.1;
+
+    // Calculate the maximum index we'll access
+    // This will be the last pixel of the bottom row
+    let max_index = if height > 0 && width > 0 {
+        ((height - 1) * width + (width - 1)) * bytes_per_pixel + bytes_per_pixel - 1
+    } else {
+        0
+    };
+
+    // Get a slice covering the entire range we'll work with
+    let image_data_slice = &image_data[0..=max_index];
+
+    // Process main image data row by row
+    for y in 0..height {
+        // Process each pixel in the row
+        for x in 0..width {
+            let offset = (y * width + x) * bytes_per_pixel;
+            color16_output.push(convert_to_color16(image_data_slice, offset, has_alpha));
+        }
+
+        // Duplicate the last pixel of each row
+        let last_pixel_offset = (y * width + (width - 1)) * bytes_per_pixel;
+        color16_output.push(convert_to_color16(image_data_slice, last_pixel_offset, has_alpha));
+    }
+
+    // Duplicate the entire bottom row, including the duplicated edge pixel
+    for x in 0..width + 1 {
+        let last_x = if x == width { width - 1 } else { x };
+        let bottom_pixel_offset = ((height - 1) * width + last_x) * bytes_per_pixel;
+        color16_output.push(convert_to_color16(image_data_slice, bottom_pixel_offset, has_alpha));
     }
 
     if load_options.resize == Resize::Integer {
@@ -103,9 +158,7 @@ pub(crate) fn decode_zune_internal(
             data: vec_to_u8(color16_output),
             width: dimensions.0 as i32,
             height: dimensions.1 as i32,
-            start_offset_ex_borders: 0,
-            stride: dimensions.0 as usize,
-            border_type: BorderType::None,
+            stride: dimensions.0 + 1,
             frame_count: 1,
             frame_delay: 0,
             format: crate::image::Format::Rgba16,
@@ -216,9 +269,7 @@ pub fn upscale_image_integer(
         data: vec_to_u8(output_data),
         width: out_width as i32,
         height: out_height as i32,
-        start_offset_ex_borders: 0,
         stride: out_width,
-        border_type: BorderType::None,
         frame_count: 1,
         frame_delay: 0,
         format: crate::image::Format::Rgba16,

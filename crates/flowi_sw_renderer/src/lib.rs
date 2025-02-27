@@ -247,12 +247,24 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawImage(buffer) => {
-                    let texture_sizes = [buffer.width as _, buffer.height as _];
-                    let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
+                    let texture_sizes = [
+                        buffer.width as _, buffer.height as _,
+                        buffer.width as _, buffer.height as _];
+                    //let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
+
+                    sharp_bilinear::render_sharp_bilinear(
+                        tile_buffer,
+                        renderer.raster.scissor_rect,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        buffer.handle as _,
+                        1.0,
+                        &texture_sizes);
 
                     //dbg!("DrawImage {:?}", render_cmd.bounding_box);
                     //dbg!("DrawImage {:?}", buffer.handle);
 
+                    /*
                     renderer.raster.render_aligned_texture(
                         tile_buffer,
                         &tile_info,
@@ -261,6 +273,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &uv,
                         &texture_sizes,
                     );
+
+                     */
                 }
 
                 RenderType::DrawBackground(buffer) => {
