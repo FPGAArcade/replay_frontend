@@ -363,6 +363,41 @@ impl f32x4 {
         }
     }
 
+    #[inline(always)]
+    pub fn shuffle<const MASK: u16>(self) -> Self {
+        // Convert u16 into a byte array where each byte represents a u32 selection
+        let mut expanded_table = [0u8; 16];
+        for i in 0..4 {
+            let selection = ((MASK >> (4 * (3 - i))) & 0xF) as u8; // Extract nibble from mask
+
+            // Each u32 is 4 bytes, so we need to map each selection to 4 consecutive bytes
+            expanded_table[i * 4] = selection * 4;     // First byte of the u32
+            expanded_table[i * 4 + 1] = selection * 4 + 1; // Second byte of the u32
+            expanded_table[i * 4 + 2] = selection * 4 + 2; // Third byte of the u32
+            expanded_table[i * 4 + 3] = selection * 4 + 3; // Fourth byte of the u32
+        }
+
+        self.table_shuffle(expanded_table)
+    }
+
+    #[inline(always)]
+    fn table_shuffle(self, table: [u8; 16]) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            let mask = vld1q_u8(table.as_ptr());
+            let result = vqtbl1q_s8(vreinterpretq_s8_s16(self.v), mask);
+            Self {
+                v: vreinterpretq_s16_s8(result),
+            }
+        }
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            let mask = _mm_loadu_si128(table.as_ptr() as *const __m128i);
+            let result = _mm_shuffle_epi8(_mm_castps_si128(self.v), mask);
+            Self { v: _mm_castsi128_ps(result) }
+        }
+    }
+
     #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     pub fn shuffle_0101(self) -> Self {
@@ -650,7 +685,7 @@ impl i16x8 {
         #[cfg(target_arch = "x86_64")]
         unsafe {
             Self {
-                v: _mm_unpacklo_epi16(v0.v, v1.v),
+                v: _mm_unpacklo_epi64(v0.v, v1.v),
             }
         }
     }
@@ -667,7 +702,7 @@ impl i16x8 {
         #[cfg(target_arch = "x86_64")]
         unsafe {
             Self {
-                v: _mm_unpackhi_epi16(v0.v, v1.v),
+                v: _mm_unpackhi_epi64(v0.v, v1.v),
             }
         }
     }
@@ -1035,6 +1070,41 @@ impl i32x4 {
     pub fn as_i16x8(self) -> i16x8 {
         i16x8 {
             v: unsafe { vreinterpretq_s16_s32(self.v) },
+        }
+    }
+
+    #[inline(always)]
+    pub fn shuffle<const MASK: u16>(self) -> Self {
+        // Convert u16 into a byte array where each byte represents a u32 selection
+        let mut expanded_table = [0u8; 16];
+        for i in 0..4 {
+            let selection = ((MASK >> (4 * (3 - i))) & 0xF) as u8; // Extract nibble from mask
+
+            // Each u32 is 4 bytes, so we need to map each selection to 4 consecutive bytes
+            expanded_table[i * 4] = selection * 4;     // First byte of the u32
+            expanded_table[i * 4 + 1] = selection * 4 + 1; // Second byte of the u32
+            expanded_table[i * 4 + 2] = selection * 4 + 2; // Third byte of the u32
+            expanded_table[i * 4 + 3] = selection * 4 + 3; // Fourth byte of the u32
+        }
+
+        self.table_shuffle(expanded_table)
+    }
+
+    #[inline(always)]
+    fn table_shuffle(self, table: [u8; 16]) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            let mask = vld1q_u8(table.as_ptr());
+            let result = vqtbl1q_s8(vreinterpretq_s8_s16(self.v), mask);
+            Self {
+                v: vreinterpretq_s16_s8(result),
+            }
+        }
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            let mask = _mm_loadu_si128(table.as_ptr() as *const __m128i);
+            let result = _mm_shuffle_epi8(self.v, mask);
+            Self { v: result }
         }
     }
 
