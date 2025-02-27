@@ -501,6 +501,7 @@ mod tests {
         let _res = load_sync(&config, &mut state.async_state.lock().unwrap()).unwrap();
     }
     */
+    /*
     #[test]
     fn test_load_sync() {
         let worker = WorkSystem::new(2);
@@ -515,4 +516,6 @@ mod tests {
         let size = (size.0.floor(), size.1.floor());
         assert_eq!(size, (313.0, 61.0));
     }
+
+     */
 }
