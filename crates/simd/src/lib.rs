@@ -496,7 +496,7 @@ impl i16x8 {
     pub fn store_unaligned<T: Sized>(self, data: &mut [T], offset: usize) {
         #[cfg(target_arch = "aarch64")]
         unsafe {
-            vst1q_s16(data.as_mut_ptr() as *mut i16, self.v);
+            vst1q_s16(data.as_mut_ptr().add(offset) as *mut i16, self.v);
         }
 
         #[cfg(target_arch = "x86_64")]
@@ -536,7 +536,7 @@ impl i16x8 {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             Self {
-                v: vld1q_s16(data.as_ptr().add(offset) as *const i16),
+                v: vld1q_s16(data.add(offset) as *const i16),
             }
         }
 
