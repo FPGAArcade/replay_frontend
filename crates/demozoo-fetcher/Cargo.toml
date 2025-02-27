@@ -1,9 +1,0 @@
-[package]
-name = "demozoo-fetcher"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-nanoserde = { version = "0.2.0-beta.0", default-features = false, features = ["std", "json"] }
-sha2 = "0.10"
-ureq = "3.0"
