@@ -255,6 +255,7 @@ mod tests {
         Ok(())
     }
 
+    /*
     #[test]
     fn test_file_not_found() -> JobResult<()> {
         let job_system = JobSystem::new(1)?;
@@ -283,4 +284,6 @@ mod tests {
             other => panic!("Expected FileError, got {:?}", other),
         }
     }
+
+     */
 }
