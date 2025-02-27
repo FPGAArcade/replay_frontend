@@ -282,6 +282,23 @@ impl f32x4 {
         }
     }
 
+    #[inline(always)]
+    pub fn min(self, other: Self) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vminq_f32(self.v, other.v),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_min_ps(self.v, other.v),
+            }
+        }
+    }
+
     #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     // Taken from https://gist.github.com/mtsamis/441c16f3d6fc86566eaa2a302ed247c9
@@ -514,18 +531,19 @@ impl i16x8 {
         }
     }
 
-    pub fn load_unaligned_ptr<T: Sized>(data: *const T) -> Self {
+    #[inline(always)]
+    pub fn load_unaligned_ptr<T: Sized>(data: *const T, offset: usize) -> Self {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             Self {
-                v: vld1q_s16(data as *const i16),
+                v: vld1q_s16(data.as_ptr().add(offset) as *const i16),
             }
         }
 
         #[cfg(target_arch = "x86_64")]
         unsafe {
             Self {
-                v: _mm_loadu_si128(data as *const __m128i),
+                v: _mm_loadu_si128(data.add(offset) as *const __m128i),
             }
         }
     }
@@ -945,6 +963,23 @@ impl i32x4 {
         }
     }
 
+    #[inline(always)]
+    pub fn shift_left<const LANE: i32>(self) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vshlq_n_s32(self.v, LANE),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_slli_epi32::<LANE>(self.v),
+            }
+        }
+    }
+
     #[cfg(target_arch = "x86_64")]
     #[inline(always)]
     pub fn min(self, rhs: Self) -> Self {
@@ -1009,6 +1044,24 @@ impl i32x4 {
     #[inline(always)]
     pub fn as_i16x8(self) -> i16x8 {
         i16x8 { v: self.v }
+    }
+
+
+    #[inline(always)]
+    pub fn pack_i16x8(self) -> i16x8 {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            i16x8 {
+                v: vcombine_s16(vqmovn_s32(self.v), vqmovn_s32(self.v)),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            i16x8 {
+                v: _mm_packs_epi32(self.v, self.v),
+            }
+        }
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -1083,7 +1136,7 @@ impl Add for i32x4 {
     #[inline(always)]
     fn add(self, rhs: Self) -> Self {
         Self {
-            v: unsafe { _mm_adds_epi32(self.v, rhs.v) },
+            v: unsafe { _mm_add_epi32(self.v, rhs.v) },
         }
     }
 }

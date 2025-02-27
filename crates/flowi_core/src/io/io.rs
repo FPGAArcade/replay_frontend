@@ -1,5 +1,4 @@
 use crate::io::cache::CacheStore;
-use crate::io::io::LoadState::Loaded;
 use crate::LoadOptions;
 use job_system::JobSystem;
 use job_system::{BoxAnySend, JobHandle, JobResult};
@@ -19,6 +18,7 @@ pub struct IoSettings {
     pub remote_delay: Duration,
 }
 
+#[allow(dead_code)]
 struct JobInfo {
     handle: JobHandle,
     url: String,
@@ -79,7 +79,7 @@ impl IoHandler {
         &mut self,
         url: &str,
         callback: Callback,
-        priority: LoadPriority,
+        _priority: LoadPriority,
         job_system: &JobSystem,
     ) -> IoHandle {
         let id = self.id_counter;
@@ -142,7 +142,7 @@ impl IoHandler {
                 read_data(
                     data,
                     ds,
-                    DataFormat::Binary(Box::new(move |data| callback(data))),
+                    Box::new(move |data| callback(data)),
                 )
             },
             Box::new(url.to_string()),
@@ -263,16 +263,11 @@ enum DataSource {
     Remote,
 }
 
-type StringCallback = Box<dyn Fn(&str) -> BoxAnySend>;
 type BinaryCallback = Box<dyn Fn(&[u8]) -> BoxAnySend>;
 
 // And an enum for how to handle the raw data
-enum DataFormat {
-    String(StringCallback),
-    Binary(BinaryCallback),
-}
 
-fn read_data(data: BoxAnySend, source: DataSource, format: DataFormat) -> JobResult<BoxAnySend> {
+fn read_data(data: BoxAnySend, source: DataSource, callback: BinaryCallback) -> JobResult<BoxAnySend> {
     let url = data.downcast::<String>().unwrap();
 
     let data = match source {
@@ -280,6 +275,9 @@ fn read_data(data: BoxAnySend, source: DataSource, format: DataFormat) -> JobRes
         DataSource::Remote => read_data_from_remote(&url)?,
     };
 
+    Ok(callback(&data))
+
+        /*
     let result = match format {
         DataFormat::String(callback) => {
             let string = std::str::from_utf8(&data).expect("Failed to convert to string");
@@ -288,5 +286,7 @@ fn read_data(data: BoxAnySend, source: DataSource, format: DataFormat) -> JobRes
         DataFormat::Binary(callback) => callback(&data),
     };
 
-    Ok(result)
+         */
+
+    //Ok(result)
 }

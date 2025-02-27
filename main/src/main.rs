@@ -1,7 +1,7 @@
 //use flowi::font::Font;
-use crate::left_side_menu::LeftSideMenu;
+//use crate::left_side_menu::LeftSideMenu;
 use flowi::Application;
-use flowi::{grow, LayoutDirection};
+//use flowi::{grow, LayoutDirection};
 use flowi::{FontHandle, Ui};
 
 mod config_loader;
@@ -23,14 +23,14 @@ pub struct Fonts {
 
 #[allow(dead_code)]
 pub(crate) struct App {
-    left_side_menu: LeftSideMenu,
+    //left_side_menu: LeftSideMenu,
     fonts: Fonts,
     width: usize,
     height: usize,
 }
 
 #[rustfmt::skip]
-fn main_loop(ui: &Ui, app: &mut App) {
+fn main_loop(_ui: &Ui, _app: &mut App) {
     /*
     ui.with_layout(Some("main_view"), [
         Layout::new()
@@ -61,7 +61,7 @@ fn main() {
     };
 
     let app = Box::new(App {
-        left_side_menu: LeftSideMenu::new(&flowi_app.ui),
+        //left_side_menu: LeftSideMenu::new(&flowi_app.ui),
         fonts,
         width,
         height,

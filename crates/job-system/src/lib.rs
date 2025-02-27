@@ -42,16 +42,6 @@ pub type JobResult<T> = Result<T, JobError>;
 /// Type for passing arbitrary data between jobs
 pub type BoxAnySend = Box<dyn Any + Send>;
 
-trait NamedAny: Any {
-    fn type_name(&self) -> &'static str;
-}
-
-impl<T: Any> NamedAny for T {
-    fn type_name(&self) -> &'static str {
-        std::any::type_name::<T>()
-    }
-}
-
 /// Internal type for job functions
 type Job = Box<dyn FnOnce(BoxAnySend) -> JobResult<BoxAnySend> + Send + 'static>;
 

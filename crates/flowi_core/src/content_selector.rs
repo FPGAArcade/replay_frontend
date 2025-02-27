@@ -1,7 +1,6 @@
 use crate::content_provider::{ContentProvider, Item};
 use crate::{
-    fixed, grow, percent, ActionResponse, Alignment, ClayColor, Declaration, Dimensions,
-    InputAction, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui,
+    fixed, grow, Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui,
 };
 /// This module is responsible for displaying a list of items that can be selected. It acts very
 /// similar to how movie based selectors for many streaming services works. The user can scroll
@@ -9,10 +8,9 @@ use crate::{
 /// size than the other items. Each item has an ID that
 /// TODO: This shouldn't really be part of core-flowi, but we will keep it here for now.
 //use image_old::RenderImage;
-use arena_allocator::TypedArena;
-use std::collections::HashMap;
 
 #[derive(Debug, Default, Copy, Clone)]
+#[allow(dead_code)]
 struct RowColumn {
     row: u64,
     col: u64,
@@ -20,6 +18,7 @@ struct RowColumn {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(dead_code)]
 enum State {
     Init,
     Idle,
@@ -27,10 +26,12 @@ enum State {
     RowTransition,
 }
 
+#[allow(dead_code)]
 struct ItemState {
     hot: f32,
 }
 
+#[allow(dead_code)]
 const UNSELECTED_IMAGE_SIZE: (f32, f32) = (250.0, 187.5);
 const ENTRY_ID: &str = "selection_entry";
 
@@ -49,12 +50,11 @@ pub struct ContentSelector {
     row_transition_fade_out: f32,
     /// Current state of the content selector
     state: State,
-    /// TODO: Optimize
-    item_states: HashMap<u64, ItemState>,
+    //item_states: HashMap<u64, ItemState>,
 }
 
 impl ContentSelector {
-    pub fn new(provider: &mut dyn ContentProvider) -> ContentSelector {
+    pub fn new(_provider: &mut dyn ContentProvider) -> ContentSelector {
         ContentSelector {
             selected_item: RowColumn::default(),
             transition_row: 0,
@@ -63,7 +63,7 @@ impl ContentSelector {
             row_transition_fade_out: 1.0,
             curve_transition: 0.0,
             state: State::Init,
-            item_states: HashMap::new(),
+            //item_states: HashMap::new(),
         }
     }
 
@@ -179,7 +179,7 @@ impl ContentSelector {
 
 #[allow(dead_code)]
 #[rustfmt::skip]
-fn draw_selection_entry(time: f32, ui: &Ui, item: &Item, is_selected: bool, opacity: f32) {
+fn draw_selection_entry(_time: f32, ui: &Ui, item: &Item, is_selected: bool, opacity: f32) {
     // TODO: Get the data from settings structs as this is affected by the screen size
     let mut size = (250.0, 187.5);
     let id = ui.id_index(ENTRY_ID, item.id as _);

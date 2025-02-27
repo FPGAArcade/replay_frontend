@@ -8,8 +8,8 @@ use std::hash::Hasher;
 pub struct CacheStore {
     cache_dir: PathBuf,
     entries: HashSet<PathBuf>,
-    temp_string: String,
-    temp_path: PathBuf,
+    //temp_string: String,
+    //temp_path: PathBuf,
 }
 
 impl CacheStore {
@@ -21,8 +21,8 @@ impl CacheStore {
 
         Ok(Self {
             cache_dir: Path::new(cache_dir).to_path_buf(),
-            temp_path: PathBuf::with_capacity(512),
-            temp_string: String::with_capacity(32),
+            //temp_path: PathBuf::with_capacity(512),
+            //temp_string: String::with_capacity(32),
             entries,
         })
     }
@@ -99,17 +99,23 @@ impl CacheStore {
 
      */
 
+    /*
     pub fn get_path(&mut self, url: &str) -> Option<PathBuf> {
         let mut path = PathBuf::with_capacity(128);
         Self::get_cache_path(url, &self.cache_dir, &mut path);
         self.entries.get(&path).map(|entry| entry.to_owned())
     }
 
+     */
+
+    /*
     pub fn insert(&mut self, path: PathBuf) {
         if path.exists() {
             self.entries.insert(path);
         }
     }
+
+     */
 
     #[allow(dead_code)]
     fn remove(&mut self, url: &str) -> bool {

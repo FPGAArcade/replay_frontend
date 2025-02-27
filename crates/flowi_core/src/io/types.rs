@@ -1,4 +1,5 @@
 // types.rs
+/*
 use std::path::PathBuf;
 
 pub type RequestId = u64;
@@ -22,3 +23,5 @@ pub enum FetchJob {
     Cached { path: PathBuf, id: RequestId },
     NeedsRequest { url: String, id: RequestId },
 }
+
+ */

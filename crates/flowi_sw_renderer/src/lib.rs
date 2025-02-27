@@ -1,7 +1,7 @@
 use simd::*;
 
 pub mod raster;
-mod sharp_bilinear;
+pub mod sharp_bilinear;
 
 pub use flowi_core::image::image::ImageInfo;
 pub use flowi_core::primitives::Color16;
@@ -121,7 +121,7 @@ pub fn copy_tile_linear_to_srgb(
     for _y in 0..tile_height {
         let mut current_index = output_index;
         for _x in 0..(tile_width >> 1) {
-            let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr as _);
+            let rgba_rgba = i16x8::load_unaligned_ptr(tile_ptr as _, 0);
             let rgba_rgba = rgba_rgba.shift_right::<LINEAR_TO_SRGB_SHIFT>();
             let rgba_rgba = rgba_rgba.and(and_mask);
 

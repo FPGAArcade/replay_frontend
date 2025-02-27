@@ -212,7 +212,7 @@ pub fn upscale_image_integer(
         }
     }
 
-    let mut output = ImageInfo {
+    ImageInfo {
         data: vec_to_u8(output_data),
         width: out_width as i32,
         height: out_height as i32,
@@ -222,9 +222,7 @@ pub fn upscale_image_integer(
         frame_count: 1,
         frame_delay: 0,
         format: crate::image::Format::Rgba16,
-    };
-
-    output
+    }
 }
 
 fn vec_to_u8<T>(v: Vec<T>) -> Vec<u8> {

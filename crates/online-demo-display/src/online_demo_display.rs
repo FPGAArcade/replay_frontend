@@ -8,70 +8,20 @@ use flowi_core::content_selector::ContentSelector;
 /// THe backend uses the Demozoo API to fetch the metadata along with screenshots from it's db.
 use flowi_core::{
     Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection,
-    Padding, Ui, fixed, grow,
-    job_system::{BoxAnySend, JobHandle, JobResult, JobSystem},
-    percent,
+    //Padding,
+    Ui, fixed, grow,
+    //job_system::{BoxAnySend, JobHandle, JobResult, JobSystem},
+    //percent,
 };
 use flowi_core::{IoHandle, LoadPriority, LoadState};
 use log::error;
-use log::*;
+//use log::*;
 use nanoserde::DeJson;
 use std::fmt::Write;
-use std::fs::File;
-use std::hash::Hasher;
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
-use std::{fs, io};
-use std::any::Any;
+//use std::time::Duration;
 use std::collections::HashMap;
 
 const API_URL: &str = "https://demozoo.org/api/v1";
-
-fn parse_party(json_data: &str) -> Party {
-    DeJson::deserialize_json(json_data).expect("Failed to parse JSON")
-}
-
-/*
-fn read_party_from_cache_job(data: BoxAnySend) -> JobResult<BoxAnySend> {
-    read_data(
-        data,
-        DataSource::Cache,
-        DataFormat::String(Box::new(parse_party))
-    )
-}
-
-fn read_party_from_remote(data: BoxAnySend) -> JobResult<BoxAnySend> {
-    read_data(
-        data,
-        DataSource::Remote,
-        DataFormat::String(Box::new(parse_party))
-    )
-}
-
-fn read_production_entry_from_cache(data: BoxAnySend) -> JobResult<BoxAnySend> {
-    read_data(
-        data,
-        DataSource::Cache,
-        DataFormat::String(Box::new(parse_production_entry))
-    )
-}
-
-fn read_production_entry_from_remote(data: BoxAnySend) -> JobResult<BoxAnySend> {
-    read_data(
-        data,
-        DataSource::Remote,
-        DataFormat::String(Box::new(parse_production_entry))
-    )
-}
-
- */
-
-enum FetchItem {
-    Party(u64, String),
-    Release((u64, String)),
-    Screenshot((u64, String)),
-}
 
 enum QueuedJob {
     Party(IoHandle),
@@ -159,8 +109,6 @@ impl OnlineDemoDisplay {
                     }
                     _ => {}
                 },
-
-                _ => {}
             }
         }
     }
@@ -267,7 +215,7 @@ impl OnlineDemoSelector {
                 .child_gap(10)
                 .end()
                 .background_color(ClayColor::rgba(255.0, 0.0, 0.0, 255.0)),
-            |ui| {
+            |_ui| {
                 // TODO: Fill out entry info here
             },
         );

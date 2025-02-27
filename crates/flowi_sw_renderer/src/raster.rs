@@ -101,9 +101,8 @@ fn sample_aligned_texture(
     v_fraction: i16x8,
     offset: usize,
 ) -> i16x8 {
-    let rgba_rgba_0 = i16x8::load_unaligned_ptr(unsafe { texture.add(offset) });
-    let rgba_rgba_1 =
-        i16x8::load_unaligned_ptr(unsafe { texture.add((texture_width * 4) + offset) });
+    let rgba_rgba_0 = i16x8::load_unaligned_ptr(texture, offset);
+    let rgba_rgba_1 = i16x8::load_unaligned_ptr(texture, (texture_width * 4) + offset);
     let t0_t1 = i16x8::lerp(rgba_rgba_0, rgba_rgba_1, v_fraction);
     let t = t0_t1.rotate_4();
     i16x8::lerp(t0_t1, t, u_fraction)
@@ -238,13 +237,13 @@ fn process_pixels<
     // Blend between color and the background
     if BLEND_MODE == BLEND_MODE_BG_COLOR || ROUND_MODE == ROUND_MODE_ENABLED {
         if COUNT >= PIXEL_COUNT_3 {
-            let bg_color_0 = i16x8::load_unaligned_ptr(output as _);
-            let bg_color_1 = i16x8::load_unaligned_ptr(unsafe { output.add(2) as _ });
+            let bg_color_0 = i16x8::load_unaligned_ptr(output as _, 0);
+            let bg_color_1 = i16x8::load_unaligned_ptr(output, 2);
             // Blend between the two colors
             color_0 = blend_color(color_0, bg_color_0);
             color_1 = blend_color(color_1, bg_color_1);
         } else {
-            let bg_color_0 = i16x8::load_unaligned_ptr(output as _);
+            let bg_color_0 = i16x8::load_unaligned_ptr(output as _, 0);
             color_0 = blend_color(color_0, bg_color_0);
         }
     }
@@ -582,12 +581,12 @@ fn process_text_pixels<const COUNT: usize>(
     ];
 
     // Load the 8 pixels of text intensity.
-    let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr);
+    let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr, 0);
 
     for i in 0..num_registers {
         let offset = i * 2;
         let dst_ptr = unsafe { tile_line_ptr.add(offset) as _ };
-        let bg = i16x8::load_unaligned_ptr(dst_ptr);
+        let bg = i16x8::load_unaligned_ptr(tile_line_ptr, offset);
         // Use a match to select the correct shuffle mask at compile time.
         let computed = match i {
             0 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[0] }>()),
@@ -770,7 +769,7 @@ impl Raster {
 
         for _y in 0..ylen {
             for _x in 0..(xlen >> 1) {
-                let pixel_01 = i16x8::load_unaligned_ptr(text_line_ptr as _);
+                let pixel_01 = i16x8::load_unaligned_ptr(text_line_ptr as _, 0);
                 pixel_01.store_unaligned_ptr(tile_line_ptr as _);
 
                 tile_line_ptr = unsafe { tile_line_ptr.add(2) };
@@ -778,7 +777,7 @@ impl Raster {
             }
 
             if (xlen & 1) == 1 {
-                let pixel_0 = i16x8::load_unaligned_ptr(text_line_ptr as _);
+                let pixel_0 = i16x8::load_unaligned_ptr(text_line_ptr as _, 0);
                 pixel_0.store_unaligned_ptr_lower(tile_line_ptr as _);
             }
 

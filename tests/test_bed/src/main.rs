@@ -1,4 +1,4 @@
-use arena_allocator;
+//use arena_allocator;
 use flowi::Application;
 use flowi::Ui;
 use flowi::{grow, Declaration, FontHandle, LayoutDirection};

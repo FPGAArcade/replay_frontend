@@ -51,6 +51,45 @@ pub struct ImageInfo {
     pub stride: usize,
 }
 
+impl ImageInfo {
+    pub fn new(
+        data: Vec<u8>,
+        format: Format,
+        width: i32,
+        height: i32,
+        frame_count: i32,
+        frame_delay: i32,
+        border_type: BorderType,
+        start_offset_ex_borders: usize,
+        stride: usize,
+    ) -> Self {
+        ImageInfo {
+            data,
+            format,
+            width,
+            height,
+            frame_count,
+            frame_delay,
+            border_type,
+            start_offset_ex_borders,
+            stride,
+        }
+    }
+
+    pub fn vec_to_u8<T>(v: Vec<T>) -> Vec<u8> {
+        let element_size = std::mem::size_of::<T>();
+        let len = v.len();
+        let capacity = v.capacity();
+        let ptr = v.as_ptr() as *mut u8;
+
+        // Prevent the original vector from being dropped
+        std::mem::forget(v);
+
+        // Create a new Vec<u8> from the raw parts
+        unsafe { Vec::from_raw_parts(ptr, len * element_size, capacity * element_size) }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Resize {
     /// No image resizing

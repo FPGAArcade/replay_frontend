@@ -1,3 +1,4 @@
+/*
 use flowi::ClayColor as Color;
 use flowi::Ui;
 use flowi::{fixed, grow, Alignment, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding};
@@ -127,3 +128,4 @@ impl LeftSideMenu {
      */
     }
 }
+*/

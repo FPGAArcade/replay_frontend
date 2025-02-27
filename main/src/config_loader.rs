@@ -1,4 +1,5 @@
-use fileorama::{Driver, DriverType, Error, Fileorama, LoadStatus, Progress};
+/*
+///use fileorama::{Driver, DriverType, Error, Fileorama, LoadStatus, Progress};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -186,7 +187,6 @@ impl Driver for ConfigLoader {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -44,6 +44,7 @@ pub struct Screenshot {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct ProductionEntry {
     pub title: String,
     pub release_date: String,
@@ -55,6 +56,7 @@ pub struct ProductionEntry {
     pub tags: Vec<String>,
 }
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct Invitation {
     pub url: String,
     pub demozoo_url: String,
@@ -70,6 +72,7 @@ pub struct Invitation {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct Party {
     pub url: String,
     pub demozoo_url: String,
@@ -91,6 +94,7 @@ pub struct Party {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct PartySeries {
     pub url: String,
     pub demozoo_url: String,
@@ -100,6 +104,7 @@ pub struct PartySeries {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct Release {
     pub url: String,
     pub demozoo_url: String,
@@ -115,6 +120,7 @@ pub struct Release {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct Releaser {
     pub url: String,
     pub id: i32,
@@ -123,6 +129,7 @@ pub struct Releaser {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct ProductionType {
     pub url: String,
     pub id: i32,
@@ -131,6 +138,7 @@ pub struct ProductionType {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct Competition {
     pub id: i32,
     pub demozoo_url: String,
@@ -142,6 +150,7 @@ pub struct Competition {
 }
 
 #[derive(DeJson, Debug)]
+#[allow(dead_code)]
 pub struct Result {
     pub position: i32,
     pub ranking: String,

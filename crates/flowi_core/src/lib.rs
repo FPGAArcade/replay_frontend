@@ -22,7 +22,7 @@ use clay_layout::{
     render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig,
     Clay, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig,
 };
-use font::{CachedString, FontHandle};
+use font::{CachedString};
 use internal_error::InternalResult;
 pub use io::io::IoHandler;
 use job_system::JobSystem;
@@ -122,12 +122,15 @@ pub enum InputAction {
     Cancel,
 }
 
+/*
 struct ItemStatus {
     hot: f32,
     frame_id: u64,
     was_hovered: bool,
     was_clicked: bool,
 }
+
+ */
 
 impl<'a> Ui<'a> {
     pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
@@ -250,8 +253,8 @@ impl<'a> Ui<'a> {
         signal
     }
 
-    pub fn image(&self, handle: IoHandle) {
-        let state = unsafe { &mut *self.state.get() };
+    pub fn image(&self, _handle: IoHandle) {
+        //let state = unsafe { &mut *self.state.get() };
 
         /*
         if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
@@ -584,7 +587,7 @@ impl<'a> Ui<'a> {
         &mut state.input
     }
 
-    pub fn get_input_action(&self, action: InputAction) -> ActionResponse {
+    pub fn get_input_action(&self, _action: InputAction) -> ActionResponse {
         ActionResponse::None
     }
 
