@@ -52,6 +52,7 @@ struct f16x8 {
 
 impl f32x4 {
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn load_unaligned(data: &[f32]) -> Self {
         Self {
             v: unsafe { vld1q_f32(data.as_ptr()) },
@@ -637,6 +638,40 @@ impl i16x8 {
         }
     }
 
+    #[inline(always)]
+    pub fn merge_low(v0: Self, v1: Self) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vcombine_s16(vget_low_s16(v0.v), vget_low_s16(v1.v)),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_unpacklo_epi16(v0.v, v1.v),
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn merge_high(v0: Self, v1: Self) -> Self {
+        #[cfg(target_arch = "aarch64")]
+        unsafe {
+            Self {
+                v: vcombine_s16(vget_high_s16(v0.v), vget_high_s16(v1.v)),
+            }
+        }
+
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            Self {
+                v: _mm_unpackhi_epi16(v0.v, v1.v),
+            }
+        }
+    }
+
     #[cfg(target_arch = "aarch64")]
     pub fn shuffle_333_0x7fff_777_0x7fff(self) -> Self {
         let splat_7fff = i16x8::new_splat(0x7fff);
@@ -853,6 +888,7 @@ impl i16x8 {
 
 impl i32x4 {
     #[cfg(target_arch = "aarch64")]
+    #[inline(always)]
     pub fn new(a: i32, b: i32, c: i32, d: i32) -> Self {
         let t = [a, b, c, d];
         Self {
@@ -897,44 +933,6 @@ impl i32x4 {
     pub fn new_splat(a: i32) -> Self {
         Self {
             v: unsafe { _mm_set1_epi32(a) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_xyxy(self) -> Self {
-        unsafe {
-            // Extract the lower two elements (x1, y1) from the vector
-            let low = vget_low_s32(self.v);
-            // Zip the lower part with itself to create (x1, y1, x1, y1)
-            let shuffled = vcombine_s32(low, low);
-            Self { v: shuffled }
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_xyxy(self) -> Self {
-        Self {
-            v: unsafe { _mm_shuffle_epi32(self.v, 0b01_00_01_00) },
-        }
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    #[inline(always)]
-    pub fn shuffle_zwzw(self) -> Self {
-        unsafe {
-            let high = vget_high_s32(self.v);
-            let shuffled = vcombine_s32(high, high);
-            Self { v: shuffled }
-        }
-    }
-
-    #[cfg(target_arch = "x86_64")]
-    #[inline(always)]
-    pub fn shuffle_zwzw(self) -> Self {
-        Self {
-            v: unsafe { _mm_shuffle_epi32(self.v, 0b11_10_11_10) },
         }
     }
 
@@ -1578,20 +1576,6 @@ mod i32x4_tests {
     fn test_new_splat() {
         let vec = i32x4::new_splat(42);
         assert_eq!(vec.to_array(), [42, 42, 42, 42]);
-    }
-
-    #[test]
-    fn test_shuffle_xyxy() {
-        let vec = i32x4::new(1, 2, 3, 4);
-        let shuffled = vec.shuffle_xyxy();
-        assert_eq!(shuffled.to_array(), [1, 2, 1, 2]);
-    }
-
-    #[test]
-    fn test_shuffle_zwzw() {
-        let vec = i32x4::new(1, 2, 3, 4);
-        let shuffled = vec.shuffle_zwzw();
-        assert_eq!(shuffled.to_array(), [3, 4, 3, 4]);
     }
 
     #[test]

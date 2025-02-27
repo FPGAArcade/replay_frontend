@@ -21,6 +21,33 @@ fn sample_aligned_texture(
     i16x8::lerp(t0_t1, t, u_fraction)
 }
 
+
+fn sample_aligned_texture_2(
+    texture: *const Color16,
+    texture_width: usize,
+    u_fraction: i16x8,
+    v_fraction: i16x8,
+    offset: usize,
+    offset2: usize,
+) -> i16x8 {
+    let rgba_rgba_0 = i16x8::load_unaligned_ptr(texture, offset);
+    let rgba_rgba_1 = i16x8::load_unaligned_ptr(texture, texture_width + offset);
+
+    let rgba_rgba_2 = i16x8::load_unaligned_ptr(texture, offset2);
+    let rgba_rgba_3 = i16x8::load_unaligned_ptr(texture, texture_width + offset2);
+
+    let t0_t1 = i16x8::lerp(rgba_rgba_0, rgba_rgba_1, v_fraction);
+    let t2_t3 = i16x8::lerp(rgba_rgba_2, rgba_rgba_3, v_fraction);
+
+    // at this point we have the values stored like this
+    // [t0 t1], [t2, t3] and we want [t0, t2], [t1, t3]
+    let t0_t2 = i16x8::merge_low(t0_t1, t2_t3);
+    let t1_t3 = i16x8::merge_high(t0_t1, t2_t3);
+
+    i16x8::lerp(t0_t2, t1_t3, u_fraction)
+}
+
+
 #[inline]
 fn apply_aa_simd(coord: i32x4, _scale: f32) -> i32x4 {
     coord
@@ -109,10 +136,8 @@ pub fn render_sharp_bilinear(
             let u_fract = ut & fract_mask;
             let u_fract = u_fract.pack_i16x8();
 
-            let u0_fract = u_fract.shuffle::<0x0000_0000>();
-            let u1_fract = u_fract.shuffle::<0x1111_1111>();
-            let u2_fract = u_fract.shuffle::<0x2222_2222>();
-            let u3_fract = u_fract.shuffle::<0x3333_3333>();
+            let u0_fract = u_fract.shuffle::<0x0000_1111>();
+            let u2_fract = u_fract.shuffle::<0x2222_3333>();
 
             let uv = u_int + v_offset;
             let uv0 = uv.extract::<0>();
@@ -120,15 +145,11 @@ pub fn render_sharp_bilinear(
             let uv2 = uv.extract::<2>();
             let uv3 = uv.extract::<3>();
 
-            let c0 = sample_aligned_texture(texture_data, texture_width, u0_fract, v_fract, uv0 as _);
-            let c1 = sample_aligned_texture(texture_data, texture_width, u1_fract, v_fract, uv1 as _);
-            let c2 = sample_aligned_texture(texture_data, texture_width, u2_fract, v_fract, uv2 as _);
-            let c3 = sample_aligned_texture(texture_data, texture_width, u3_fract, v_fract, uv3 as _);
+            let c0 = sample_aligned_texture_2(texture_data, texture_width, u0_fract, v_fract, uv0 as _, uv1 as _);
+            let c1 = sample_aligned_texture_2(texture_data, texture_width, u2_fract, v_fract, uv2 as _, uv3 as _);
 
-            c0.store_unaligned_lower(output, (_y * tile_info.width + x + 0) as _);
-            c1.store_unaligned_lower(output, (_y * tile_info.width + x + 1) as _);
-            c2.store_unaligned_lower(output, (_y * tile_info.width + x + 2) as _);
-            c3.store_unaligned_lower(output, (_y * tile_info.width + x + 3) as _);
+            c0.store_unaligned(output, (_y * tile_info.width + x + 0) as _);
+            c1.store_unaligned(output, (_y * tile_info.width + x + 2) as _);
 
             u += u_step;
         }
