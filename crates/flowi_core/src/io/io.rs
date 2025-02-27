@@ -1,13 +1,14 @@
-use crate::io::cache::CacheStore;
-use crate::LoadOptions;
-use job_system::JobSystem;
-use job_system::{BoxAnySend, JobHandle, JobResult};
+use priority_queue::PriorityQueue;
+use crate::{io::cache::CacheStore, LoadOptions};
+use job_system::{JobSystem, BoxAnySend, JobHandle, JobResult};
 use log::{debug, error};
-use std::collections::{HashMap, VecDeque};
-use std::fs::File;
-use std::io;
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    fs::File,
+    path::PathBuf,
+    time::{Duration, Instant},
+    io,
+};
 
 #[derive(Debug, Copy, Clone)]
 pub struct IoHandle(pub u64);
@@ -33,21 +34,58 @@ impl JobInfo {
     }
 }
 
+struct QueueItem {
+    callback: Callback,
+    url: String,
+    priority: LoadPriority,
+}
+
+impl QueueItem {
+    fn new(callback: Callback, url: String, priority: LoadPriority) -> Self {
+        Self {
+            callback,
+            url,
+            priority,
+        }
+    }
+}
+
+impl PartialEq for QueueItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority == other.priority
+    }
+}
+
+impl PartialOrd for QueueItem {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for QueueItem {}
+
+impl Ord for QueueItem {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.priority.cmp(&other.priority)
+    }
+}
+
 pub struct IoHandler {
     cache_store: CacheStore,
     settings: IoSettings,
     id_counter: u64,
     time: Instant,
-    queue: VecDeque<(u64, Callback, String)>,
+    queue: PriorityQueue<u64, QueueItem>,
     inflight_jobs: HashMap<u64, JobInfo>,
     finished_jobs: HashMap<u64, BoxAnySend>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LoadPriority {
-    Low,
-    Normal,
-    High,
-    Highest,
+    Low = 0,
+    Normal = 1,
+    High = 2,
+    Highest = 3,
 }
 
 pub enum LoadState {
@@ -69,7 +107,7 @@ impl IoHandler {
             time: Instant::now() - Duration::from_secs(60),
             inflight_jobs: HashMap::with_capacity(256),
             finished_jobs: HashMap::with_capacity(256),
-            queue: VecDeque::with_capacity(256),
+            queue: PriorityQueue::new(),
             settings,
             id_counter: 1,
         }
@@ -79,7 +117,7 @@ impl IoHandler {
         &mut self,
         url: &str,
         callback: Callback,
-        _priority: LoadPriority,
+        priority: LoadPriority,
         job_system: &JobSystem,
     ) -> IoHandle {
         let id = self.id_counter;
@@ -90,7 +128,7 @@ impl IoHandler {
             let t = Self::schedule_job_with_callback(job_system, url, DataSource::Cache, callback);
             self.inflight_jobs.insert(id, JobInfo::new(t, url));
         } else {
-            self.queue.push_back((id, callback, url.to_owned()));
+            self.queue.push(id, QueueItem::new(callback, url.to_owned(), priority));
         }
 
         IoHandle(id)
@@ -119,14 +157,14 @@ impl IoHandler {
 
         if self.time.elapsed() > self.settings.remote_delay {
             self.time = Instant::now();
-            if let Some(job) = self.queue.pop_front() {
+            if let Some((id, job)) = self.queue.pop() {
                 let t = Self::schedule_job_with_callback(
                     &job_system,
-                    &job.2,
+                    &job.url,
                     DataSource::Remote,
-                    job.1,
+                    job.callback,
                 );
-                self.inflight_jobs.insert(job.0, JobInfo::new(t, &job.2));
+                self.inflight_jobs.insert(id, JobInfo::new(t, &job.url));
             }
         }
     }
@@ -179,6 +217,15 @@ impl IoHandler {
             }
             self.finished_jobs.get(&handle.0)?.downcast_ref::<T>()
         }
+    }
+
+    /// Hint the priority of the handle. This is useful for example if we want to load
+    /// a low priority image in the background. The code may not extract the data directly
+    /// but if it needs something to be visible it can hint the priority to load the data.
+    pub fn hint_priority(&mut self, handle: IoHandle, priority: LoadPriority) {
+        self.queue.change_priority_by(&handle.0, |item| {
+            item.priority = priority;
+        });
     }
 }
 
