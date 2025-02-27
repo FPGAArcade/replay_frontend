@@ -64,91 +64,27 @@ pub struct Color {
     pub a: f32,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Color32 {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-    pub a: u8,
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct Color16 {
+    pub r: i16,
+    pub g: i16,
+    pub b: i16,
+    pub a: i16,
 }
 
-impl Color32 {
-    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self { r, g, b, a }
+impl Color16 {
+    pub fn new_splat(value: i16) -> Self {
+        Self::new(value, value, value, value)
     }
 
-    pub fn from_color(color: Color) -> Self {
-        Self {
-            r: (color.r * 255.0) as u8,
-            g: (color.g * 255.0) as u8,
-            b: (color.b * 255.0) as u8,
-            a: (color.a * 255.0) as u8,
-        }
-    }
-}
-
-impl Color {
-    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub fn new(r: i16, g: i16, b: i16, a: i16) -> Self {
         Self { r, g, b, a }
     }
 }
 
-#[derive(Debug, Default, Copy, Clone)]
-pub struct IRect {
-    pub min: [i32; 2],
-    pub max: [i32; 2],
-}
-
-impl IRect {
-    pub fn new(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Self {
-        Self {
-            min: [min_x, min_y],
-            max: [max_x, max_y],
-        }
-    }
-}
-
-pub struct Rect {
-    pub min: Vec2,
-    pub max: Vec2,
-}
-
-impl Rect {
-    pub fn new(min: Vec2, max: Vec2) -> Self {
-        Self { min, max }
-    }
-
-    pub fn from_xywh(x: f32, y: f32, w: f32, h: f32) -> Self {
-        Self {
-            min: Vec2::new(x, y),
-            max: Vec2::new(x + w, y + h),
-        }
-    }
-
-    pub fn from_x0y0x1y1(x0: f32, y0: f32, x1: f32, y1: f32) -> Self {
-        Self {
-            min: Vec2::new(x0, y0),
-            max: Vec2::new(x1, y1),
-        }
-    }
-}
-
-pub struct Primitive {
-    pub rect: Rect,
-    pub uvs: [Uv; 4],
-    pub colors: [Color32; 4],
-    pub _corners: [f32; 4],
-    pub _texture_handle: u64,
-}
-
-impl Primitive {
-    pub fn new(rect: Rect, color: Color32) -> Self {
-        Self {
-            rect,
-            uvs: [Uv::new(0.0, 0.0); 4],
-            colors: [color; 4],
-            _corners: [0.0; 4],
-            _texture_handle: 0,
-        }
+impl Default for Color16 {
+    fn default() -> Self {
+        Color16::new_splat(0)
     }
 }

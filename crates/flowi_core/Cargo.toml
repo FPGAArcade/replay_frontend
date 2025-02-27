@@ -4,21 +4,22 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-flowi-renderer = { path = "../flowi-renderer" }
+job-system = { path = "../job-system" }
 arena-allocator = { path = "../arena-allocator" }
 background-worker = { path = "../background_worker" }
 bitflags = "2.7.0"
-cosmic-text = "0.12"
 clay-layout = { path = "../clay_layout" }
-fileorama = { path = "../fileorama" }
-glam = "0.29.0"
+cosmic-text = { version = "0.12", default-features = false, features = ["std", "swash"] }
+glam = "0.30.0"
 log = "0.4"
 notify = "8.0"
 raw-window-handle = "0.6"
 resvg = { version = "0.44.0", features = [] }
 smallvec = "1.13"
-texture_packer = "0.29"
 thiserror = "2.0"
+fxhash = "0.2"
 tracing = { version = "0.1", features = ["log"] }
 zune-core = "0.4.12"
 zune-image = { version = "0.4", default-features = false, features = ["metadata", "jpeg", "png"] }
+ureq = "3.0"
+simd = { path = "../simd" }

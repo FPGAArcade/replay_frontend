@@ -1,62 +1,38 @@
+//use arena_allocator;
 use flowi::Application;
-use flowi::Renderer;
 use flowi::Ui;
-use flowi::{fixed, grow, Id, Layout, LayoutDirection, Padding, Alignment, LayoutAlignmentX, LayoutAlignmentY, Rectangle, ClayColor};
+use flowi::{grow, Declaration, FontHandle, LayoutDirection};
+use log::*;
+//use demozoo_fetcher::ProductionEntry;
+use online_demo_display::OnlineDemoSelector;
 
-/*
 pub struct Fonts {
-    pub default: Font,
-    pub system_header: Font,
-    pub system_text: Font,
-    pub rot_header: Font,
+    pub default: FontHandle,
+    pub thin: FontHandle,
+    pub bold: FontHandle,
+    pub light: FontHandle,
 }
-*/
 
 #[allow(dead_code)]
 pub(crate) struct App {
     width: usize,
     height: usize,
+    fonts: Fonts,
+    online_demo_selector: OnlineDemoSelector,
 }
 
 #[rustfmt::skip]
-fn main_loop(ui: &Ui, _app: &mut App) {
-    ui.with_layout(Some("main_container"), [
-        Layout::new()
+fn main_loop(ui: &Ui, app: &mut App) {
+    ui.with_layout(&Declaration::new()
+        .layout()
             .width(grow!())
             .height(grow!())
             .direction(LayoutDirection::TopToBottom)
-            .padding(Padding::all(8))
-            .child_gap(16)
-            .end()], |ui| 
-   {
-        ui.with_layout(Some("header"), [
-            Layout::new()
-                .width(grow!())
-                .height(fixed!(120.0))
-                .padding(Padding::all(8))
-                .child_gap(16)
-                .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
-                .end(),
-            Rectangle::new()
-                .color(ClayColor::rgba(100.0, 100.0, 100.0, 255.0))
-                .end()], |ui| 
-        {
-            ui.button("Foo ");
-            ui.button("Bar ");
-            //ui.button("Test");
-        });
-
-        /*
-        ui.with_layout(Some("buttons2"), [
-            Layout::new()
-                .width(grow!())
-                .height(fixed!(160.0))
-                .end()], |ui| 
-        {
-            ui.button("Test");
-            ui.button("Test");
-        });
-        */
+        .end(), |ui|
+    {
+        app.online_demo_selector.update(ui);
+        //display_demo_entry(ui, &_app, &_app.demo_entries[0]);
+        //draw_image_grid_unlimited_scroll(ui, _app);
     });
 }
 
@@ -64,24 +40,34 @@ fn main() {
     let width = 1920;
     let height = 1080;
 
+    let _ = env_logger::builder()
+        .filter_level(LevelFilter::Debug)
+        .init();
+
     let settings = flowi::ApplicationSettings { width, height };
 
     let mut flowi_app = Application::new(&settings); //.unwrap();
+    let ui = &mut flowi_app.ui;
 
-    let _ = flowi_app
-        .ui
-        .load_font("../../data/fonts/roboto/Roboto-Regular.ttf", 36);
+    //ui.set_background_image(image, BackgroundMode::AlignTopRight);
 
-    /*
     let fonts = Fonts {
-        default: Font::load("data/fonts/montserrat/Montserrat-Regular.ttf", 56).unwrap(),
-        system_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 72).unwrap(),
-        system_text: Font::load("data/fonts/roboto/Roboto-Regular.ttf", 48).unwrap(),
-        rot_header: Font::load("data/fonts/roboto/Roboto-Bold.ttf", 56).unwrap(),
+        bold: ui.load_font("data/fonts/roboto/Roboto-Bold.ttf").unwrap(),
+        default: ui
+            .load_font("data/fonts/roboto/Roboto-Regular.ttf")
+            .unwrap(),
+        thin: ui.load_font("data/fonts/roboto/Roboto-Thin.ttf").unwrap(),
+        light: ui.load_font("data/fonts/roboto/Roboto-Light.ttf").unwrap(),
     };
-    */
 
-    let app = Box::new(App { width, height });
+    let mut app = Box::new(App {
+        width,
+        height,
+        fonts,
+        online_demo_selector: OnlineDemoSelector::new(),
+    });
+
+    app.online_demo_selector.content_provider.fetch_party(ui, 93);
 
     if !flowi_app.run(app, main_loop) {
         println!("Failed to create main application");
@@ -89,156 +75,316 @@ fn main() {
 }
 
 /*
-//fn main() {
-    let clay = Clay::new(Dimensions::new(WIDTH as f32, HEIGHT as f32));
-    let mut renderer = Renderer::new(ColorSpace::Linear, (WIDTH, HEIGHT), (10, 12));
+struct DemoEntry {
+    metadata: ProductionEntry,
+    thumbnail_screenshots: Vec<ImageHandle>,
+    preview_image: OutputImage,
+}
 
-    // Limit to max ~60 fps update rate
-    //window.set_target_fps(60);
+use std::cmp::min;
 
-    loop {
-        //while window.is_open() && !window.is_key_down(Key::Escape) {
-        for i in buffer.iter_mut() {
-            *i = 0; // write something more funny here!
+struct OutputImage {
+    data: Vec<Color16>,
+    width: usize,
+    height: usize,
+}
+
+impl OutputImage {
+    fn new(width: usize, height: usize) -> Self {
+        let white = Color16::new_splat(32767);
+        Self {
+            data: vec![white; (width + 2) * (height + 4)],
+            width: width + 2,
+            height: height + 2,
         }
+    }
 
-        let content_background_config = Rectangle::new()
-            .color(Color::u_rgb(90, 90, 90))
-            .corner_radius(CornerRadius::All(8.))
-            .end();
+    fn set_pixel(&mut self, x: usize, y: usize, color: Color16) {
+        if x < self.width-1 && y < self.height-1 {
+            self.data[y * self.width + x] = color;
+        }
+    }
 
-        // Begin the layout
-        clay.begin();
+    fn blit_image(&mut self, img: &ImageInfo, x_offset: usize, y_offset: usize) {
 
-        // Adds a red rectangle with a corner radius of 5.
-        // The Layout makes the rectangle have a width and height of 50.
-        clay.with(
-            [
-                Id::new("OuterContainer"),
-                Layout::new()
-                    .width(grow!())
-                    .height(grow!())
-                    .direction(LayoutDirection::TopToBottom)
-                    .padding(Padding::all(16))
-                    .child_gap(16)
-                    .end(),
-                Rectangle::new()
-                    .color(Color::u_rgb(43, 41, 51))
-                    .corner_radius(CornerRadius::All(5.))
-                    .end(),
-            ],
-            |clay| {
-                clay.with(
-                    [
-                        Id::new("HeaderBar"),
-                        Layout::new()
-                            .width(grow!())
-                            .height(fixed!(60.))
-                            .padding(Padding::all(16))
-                            .child_gap(16)
-                            .child_alignment(Alignment::new(
-                                LayoutAlignmentX::Left,
-                                LayoutAlignmentY::Center,
-                            ))
-                            .end(),
-                        content_background_config,
-                    ],
-                    |_| {},
-                );
+        for y in 0..img.height as usize {
+            for x in 0..img.width as usize {
+                let target_x = x_offset + x;
+                let target_y = y_offset + y;
 
-                clay.with(
-                    [
-                        Id::new("LowerContent"),
-                        Layout::new()
-                            .width(grow!())
-                            .height(grow!())
-                            .child_gap(16)
-                            .end(),
-                    ],
-                    |clay| {
-                        clay.with(
-                            [
-                                Id::new("Sidebar"),
-                                Layout::new()
-                                    .width(fixed!(250.))
-                                    .height(grow!())
-                                    .direction(LayoutDirection::TopToBottom)
-                                    .padding(Padding::all(16))
-                                    .end(),
-                                content_background_config,
-                            ],
-                            |_| {},
-                        );
-
-                        clay.with(
-                            [
-                                Id::new("MainContent"),
-                                Layout::new()
-                                    .width(grow!())
-                                    .height(grow!())
-                                    .direction(LayoutDirection::TopToBottom)
-                                    .end(),
-                                content_background_config,
-                            ],
-                            |_| {},
-                        );
-                    },
-                );
-            },
-        );
-
-        // Return the list of render commands of your layout
-        let render_commands = clay.end();
-
-        renderer.begin_frame();
-
-        for command in render_commands {
-            let aabb = f32x4::new(
-                command.bounding_box.x,
-                command.bounding_box.y,
-                command.bounding_box.x + command.bounding_box.width,
-                command.bounding_box.y + command.bounding_box.height,
-            );
-
-            //println!("{:?}", aabb.to_array());
-
-            match &command.config {
-                RenderCommandConfig::Rectangle(rectangle) => {
-                    let color = renderer.get_color_from_floats_0_255(
-                        rectangle.color.r,
-                        rectangle.color.g,
-                        rectangle.color.b,
-                        rectangle.color.a,
-                    );
-
-                    let corner_radius = match rectangle.corner_radius {
-                        CornerRadius::All(radius) => f32x4::new(radius, radius, radius, radius),
-
-                        CornerRadius::Individual {
-                            top_left,
-                            top_right,
-                            bottom_left,
-                            bottom_right,
-                        } => f32x4::new(top_left, top_right, bottom_left, bottom_right),
-                    };
-
-                    let primitive = RenderPrimitive {
-                        aabb,
-                        color,
-                        corner_radius,
-                    };
-
-                    renderer.add_primitive(primitive);
+                if target_x < self.width-1 && target_y < self.height-1 {
+                    let color = img.data[y * img.width as usize + x];
+                    self.set_pixel(target_x + 1, target_y + 1, color);
                 }
+            }
+        }
+    }
+}
 
-                _ => {}
+fn merge_images(output_width: usize, output_height: usize, img1: &ImageInfo, img2: &ImageInfo, img3: &ImageInfo, img4: &ImageInfo) -> OutputImage {
+    let mut output = OutputImage::new(output_width, output_height);
+
+    let half_width = output_width / 2;
+    let half_height = output_height / 2;
+
+    // Compute placements (centered as best as possible)
+    let x1 = (half_width - min(img1.width as usize, half_width)) / 2;
+    let y1 = (half_height - min(img1.height as _, half_height)) / 2;
+
+    let x2 = half_width + (half_width - min(img2.width as _, half_width)) / 2;
+    let y2 = (half_height - min(img2.height as _, half_height)) / 2;
+
+    let x3 = (half_width - min(img3.width as _, half_width)) / 2;
+    let y3 = half_height + (half_height - min(img3.height as _, half_height)) / 2;
+
+    let x4 = half_width + (half_width - min(img4.width as _, half_width)) / 2;
+    let y4 = half_height + (half_height - min(img4.height as _, half_height)) / 2;
+
+    // Blit images
+    output.blit_image(img1, x1, y1);
+    output.blit_image(img2, x2, y2);
+    output.blit_image(img3, x3, y3);
+    output.blit_image(img4, x4, y4);
+
+    output
+}
+
+
+impl DemoEntry {
+    fn new(metadata: ProductionEntry) -> Self {
+        Self {
+            metadata,
+            thumbnail_screenshots: Vec::new(),
+            preview_image: OutputImage {
+                data: Vec::new(),
+                width: 0,
+                height: 0,
+            },
+        }
+    }
+}
+
+
+#[rustfmt::skip]
+fn display_demo_entry(ui: &Ui, app: &App, entry: &DemoEntry) {
+    ui.with_layout(&Declaration::new()
+        .id(ui.id("entry_info"))
+        .layout()
+            .width(grow!())
+            .height(percent!(0.5))
+            .direction(LayoutDirection::TopToBottom)
+            .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+            .child_gap(10)
+         .end(), |ui|
+            //.background_color(ClayColor::rgba(0.0, 110.0, 0.0, 255.0)), |ui|
+    {
+        ui.with_layout(&Declaration::new()
+            .id(ui.id("tile_info"))
+            .layout()
+                .width(grow!())
+                .height(fixed!(80.0))
+                .child_gap(40)
+                .direction(LayoutDirection::LeftToRight)
+            .end(), |ui|
+            //.background_color(ClayColor::rgba(150.0, 0.0, 0.0, 255.0)), |ui|
+        {
+            ui.set_font(app.fonts.thin);
+
+            let text_size = ui.text_size(&entry.metadata.title, 78);
+
+            ui.text_with_layout(&entry.metadata.title, 78,
+                ClayColor::rgba(255.0, 255.0, 255.0, 255.0),
+                &Declaration::new()
+                    .layout()
+                        .width(fixed!(text_size.width))
+                        .height(fixed!(text_size.height))
+                        .padding(Padding::horizontal(32))
+                        .end());
+
+            ui.text_with_layout("1992", 78,
+                ClayColor::rgba(128.0, 128.0, 128.0, 255.0),
+                &Declaration::new()
+                    .layout()
+                        .width(grow!())
+                        .end());
+        });
+
+        ui.with_layout(&Declaration::new()
+            .id(ui.id("platform_info"))
+            .layout()
+                .width(grow!())
+                .height(fixed!(40.0))
+                .padding(Padding::horizontal(32))
+                .child_gap(16)
+                .direction(LayoutDirection::LeftToRight)
+            .end(), |ui|
+        {
+            ui.set_font(app.fonts.default);
+
+            ui.button("DEMO");
+            ui.button("AMIGA OCS/ECS");
+
+            ui.text_with_layout("by", 36,
+                ClayColor::rgba(255.0, 255.0, 255.0, 255.0),
+                &Declaration::new()
+                    .layout()
+                        .width(fixed!(44.0))
+                        .end());
+
+            ui.set_font(app.fonts.bold);
+
+            ui.text_with_layout(&entry.metadata.author_nicks[0].name, 36,
+                ClayColor::rgba(201.0, 22.0, 38.0, 255.0),
+                &Declaration::new()
+                    .layout()
+                        .width(grow!())
+                        .end());
+
+        });
+
+        /*
+        ui.text(entry.authors.join(", "));
+        ui.text(entry.release_date);
+        ui.text(entry.platforms.join(", "));
+        ui.text(entry.tags.join(", "));
+        */
+    });
+}
+
+#[allow(dead_code)]
+#[rustfmt::skip]
+fn draw_selection_entry(ui: &Ui, _app: &mut App, index: usize, is_selected: bool) {
+    let size = if is_selected {
+        (300.0, 300.0)
+    } else {
+        (250.0, 250.0)
+    };
+
+    let entry = &mut _app.demo_entries[index];
+
+    // Generate preview image. This should be on a separate thread later
+    if entry.preview_image.data.is_empty() {
+        let mut has_all_images = true;
+        for img in &entry.thumbnail_screenshots {
+            if ui.get_image(*img).is_none() {
+                has_all_images = false;
+                break;
             }
         }
 
-        renderer.flush_frame(&mut buffer);
+        /*
+        if has_all_images {
+            let img1 = ui.get_image(entry.thumbnail_screenshots[0]).unwrap();
+            let img2 = ui.get_image(entry.thumbnail_screenshots[1]).unwrap();
+            let img3 = ui.get_image(entry.thumbnail_screenshots[2]).unwrap();
+            let img4 = ui.get_image(entry.thumbnail_screenshots[3]).unwrap();
+            entry.preview_image = merge_images(size.0 as _, size.1 as _, &img1, &img2, &img3, &img4);
 
-        // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        //window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
+            println!("Generated preview image for entry {}", index);
+        }
+         */
+    }
+
+    if !entry.preview_image.data.is_empty() {
+        let source_dimensions = Dimensions::new(
+            entry.preview_image.width as _,
+            entry.preview_image.height as _);
+
+        unsafe {
+            ui.with_layout(&Declaration::new()
+                .id(ui.id_index("demo_selection", index as _))
+                .layout()
+                    .width(fixed!(entry.preview_image.width  as _))
+                    .height(fixed!(entry.preview_image.height as _))
+                .end()
+                .corner_radius().all(16.0).end()
+                .image()
+                    .data_ptr(entry.preview_image.data.as_ptr() as _)
+                    .source_dimensions(source_dimensions)
+                .end()
+                .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0)), |_ui|
+            {
+
+            });
+        }
+    } else {
+        ui.with_layout(&Declaration::new()
+            .id(ui.id_index("demo_selection", index as _))
+            .layout()
+                .width(fixed!(size.0))
+                .height(fixed!(size.1))
+            .end()
+            .corner_radius().all(16.0).end()
+            .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0)), |_ui|
+           {
+
+           });
+
     }
 }
+
+#[allow(dead_code)]
+fn draw_image_grid_unlimited_scroll(ui: &Ui, _app: &mut App) {
+    ui.with_layout(&Declaration::new()
+        .id(ui.id("selection_grid"))
+        .layout()
+        .width(grow!())
+        .height(percent!(0.5))
+        .direction(LayoutDirection::LeftToRight)
+        .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
+        .child_gap(64)
+        .padding(Padding::horizontal(64))
+        .end(), |ui|
+                       {
+                           for i in 0..6 {
+                               draw_selection_entry(ui, _app, i, i == 0);
+                           }
+                       });
+}
+
+#[rustfmt::skip]
+fn main_loop(ui: &Ui, _app: &mut App) {
+    ui.with_layout(&Declaration::new()
+        .layout()
+            .width(grow!())
+            .height(grow!())
+            .direction(LayoutDirection::TopToBottom)
+        .end(), |ui|
+    {
+        display_demo_entry(ui, &_app, &_app.demo_entries[0]);
+        draw_image_grid_unlimited_scroll(ui, _app);
+    });
+}
 */
+
+/*
+// This is obviously temporary but will do for now
+let mut demo_entries = vec![
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/2.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5312.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5313.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5314.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5315.json")),
+    DemoEntry::new(demozoo_fetcher::get_demo_entry_by_file("data/5316.json")),
+];
+
+// TODO: This should be done one-demand
+
+/*
+for entry in demo_entries.iter_mut() {
+    for screenshot in entry.metadata.screenshots.iter().take(1) {
+        println!("loading {:?}", &screenshot.thumbnail_url);
+        let local_path = demozoo_fetcher::get_image(&screenshot.thumbnail_url).unwrap();
+        let image = ui.load_image(&local_path).unwrap();
+        entry.thumbnail_screenshots.push(image);
+    }
+}
+    :
+ */
+
+//let image = flowi_app.ui.load_image("/Users/emoon/code/projects/replay_frontend/data/amiga.png").unwrap();
+let image = ui
+.load_background_image("data/test_data/image_cache/b9519e5917ab222fa311e1b642d03f227ce51cfb11f42e87e1f74f2bd23f2e90.png", (width as _, height as _))
+.unwrap();
+
+ */

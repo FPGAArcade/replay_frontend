@@ -4,11 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-raw-window-handle = "0.6"
-glam = "0.29"
-bitflags = "2.0.0-rc.1"
 flowi_core = { path = "../flowi_core" }
-flowi-renderer = { path = "../flowi-renderer" }
 flowi_sw_renderer = { path = "../flowi_sw_renderer" }
 
 [dependencies.sdl2]

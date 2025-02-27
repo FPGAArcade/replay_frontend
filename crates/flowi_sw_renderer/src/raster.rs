@@ -1,4 +1,5 @@
 use crate::TileInfo;
+use flowi_core::primitives::Color16;
 use simd::*;
 
 const TEXTURE_MODE_NONE: usize = 0;
@@ -34,7 +35,7 @@ pub enum Corner {
 const CORNER_OFFSETS: [(f32, f32); 4] = [
     (1.0, 1.0), // TopLeft: No shift
     (0.0, 1.0), // TopRight: Shift down
-    (1.0, 0.0), // BottemLeft: Shift right
+    (1.0, 0.0), // BottomLeft: Shift right
     (0.0, 0.0), // BottomRight: Shift right and down
 ];
 
@@ -100,9 +101,8 @@ fn sample_aligned_texture(
     v_fraction: i16x8,
     offset: usize,
 ) -> i16x8 {
-    let rgba_rgba_0 = i16x8::load_unaligned_ptr(unsafe { texture.add(offset) });
-    let rgba_rgba_1 =
-        i16x8::load_unaligned_ptr(unsafe { texture.add((texture_width * 4) + offset) });
+    let rgba_rgba_0 = i16x8::load_unaligned_ptr(texture, offset);
+    let rgba_rgba_1 = i16x8::load_unaligned_ptr(texture, (texture_width * 4) + offset);
     let t0_t1 = i16x8::lerp(rgba_rgba_0, rgba_rgba_1, v_fraction);
     let t = t0_t1.rotate_4();
     i16x8::lerp(t0_t1, t, u_fraction)
@@ -180,7 +180,7 @@ fn process_pixels<
     const BLEND_MODE: usize,
     const ROUND_MODE: usize,
 >(
-    output: *mut i16,
+    output: *mut Color16,
     fixed_color: i16x8,
     texture: *const i16,
     texture_width: usize,
@@ -237,27 +237,27 @@ fn process_pixels<
     // Blend between color and the background
     if BLEND_MODE == BLEND_MODE_BG_COLOR || ROUND_MODE == ROUND_MODE_ENABLED {
         if COUNT >= PIXEL_COUNT_3 {
-            let bg_color_0 = i16x8::load_unaligned_ptr(output);
-            let bg_color_1 = i16x8::load_unaligned_ptr(unsafe { output.add(8) });
+            let bg_color_0 = i16x8::load_unaligned_ptr(output as _, 0);
+            let bg_color_1 = i16x8::load_unaligned_ptr(output, 2);
             // Blend between the two colors
             color_0 = blend_color(color_0, bg_color_0);
             color_1 = blend_color(color_1, bg_color_1);
         } else {
-            let bg_color_0 = i16x8::load_unaligned_ptr(output);
+            let bg_color_0 = i16x8::load_unaligned_ptr(output as _, 0);
             color_0 = blend_color(color_0, bg_color_0);
         }
     }
 
     match COUNT {
-        PIXEL_COUNT_1 => color_0.store_unaligned_ptr_lower(output),
-        PIXEL_COUNT_2 => color_0.store_unaligned_ptr(output),
+        PIXEL_COUNT_1 => color_0.store_unaligned_ptr_lower(output as _),
+        PIXEL_COUNT_2 => color_0.store_unaligned_ptr(output as _),
         PIXEL_COUNT_3 => {
-            color_0.store_unaligned_ptr(output);
-            color_1.store_unaligned_ptr_lower(unsafe { output.add(8) });
+            color_0.store_unaligned_ptr(output as _);
+            color_1.store_unaligned_ptr_lower(unsafe { output.add(2) as _ });
         }
         PIXEL_COUNT_4 => {
-            color_0.store_unaligned_ptr(output);
-            color_1.store_unaligned_ptr(unsafe { output.add(8) });
+            color_0.store_unaligned_ptr(output as _);
+            color_1.store_unaligned_ptr(unsafe { output.add(2) as _ });
         }
         _ => unimplemented!(),
     }
@@ -270,7 +270,7 @@ pub(crate) fn render_internal<
     const ROUND_MODE: usize,
     const BLEND_MODE: usize,
 >(
-    output: &mut [i16],
+    output: &mut [Color16],
     scissor_rect: f32x4,
     texture_data: *const i16,
     tile_info: &TileInfo,
@@ -402,7 +402,7 @@ pub(crate) fn render_internal<
     let xlen = x1 - x0;
 
     let tile_width = tile_info.width as usize;
-    let output = &mut output[((y0 as usize * tile_width + x0 as usize) * 4)..];
+    let output = &mut output[(y0 as usize * tile_width + x0 as usize)..];
     let mut output_ptr = output.as_mut_ptr();
 
     let current_color = top_colors;
@@ -461,7 +461,7 @@ pub(crate) fn render_internal<
                 circle_distance,
             );
 
-            output_ptr = unsafe { output_ptr.add(16) };
+            output_ptr = unsafe { output_ptr.add(4) };
 
             if TEXTURE_MODE == TEXTURE_MODE_ALIGNED {
                 texture_ptr = unsafe { texture_ptr.add(16) };
@@ -536,7 +536,7 @@ pub(crate) fn render_internal<
             _ => {}
         }
 
-        tile_line_ptr = unsafe { tile_line_ptr.add(tile_width * 4) };
+        tile_line_ptr = unsafe { tile_line_ptr.add(tile_width) };
         output_ptr = tile_line_ptr;
 
         if TEXTURE_MODE == TEXTURE_MODE_ALIGNED {
@@ -554,27 +554,79 @@ pub(crate) fn render_internal<
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-#[inline(never)]
-pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
-    output: &mut [i16],
-    scissor_rect: f32x4,
-    text_data: *const i16,
-    tile_info: &TileInfo,
-    texture_width: usize,
-    coords: &[f32],
+#[inline(always)]
+fn process_text_pixels<const COUNT: usize>(
+    tile_line_ptr: *mut Color16,
+    text_line_ptr: *const i16,
     color: i16x8,
 ) {
+    // Text data is stored with one intensity in 16-bit so one vector load means
+    // we get 8 pixels. As we process 2 pixels (RGBA) per vector we need to splat each
+    // intensity in pairs of two.
+    //
+    // bleending operation with white text
+    // result.r = mask.a * (tex_color.r - dest.r) + dest.r
+    // result.g = mask.a * (tex_color.g - dest.g) + dest.g
+    // result.b = mask.a * (tex_color.b - dest.b) + dest.b
+    // result.a = mask.a * (tex_color.a - dest.a) + dest.a
+    //
+    // Assume COUNT is a const generic parameter with 1 <= COUNT <= 8.
+    let num_registers = (COUNT + 1) / 2;
+
+    const SHUFFLES: [u32; 4] = [
+        0x0000_1111, // for register 0
+        0x2222_3333, // for register 1
+        0x4444_5555, // for register 2
+        0x6666_7777, // for register 3
+    ];
+
+    // Load the 8 pixels of text intensity.
+    let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr, 0);
+
+    for i in 0..num_registers {
+        let offset = i * 2;
+        let dst_ptr = unsafe { tile_line_ptr.add(offset) as _ };
+        let bg = i16x8::load_unaligned_ptr(tile_line_ptr, offset);
+        // Use a match to select the correct shuffle mask at compile time.
+        let computed = match i {
+            0 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[0] }>()),
+            1 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[1] }>()),
+            2 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[2] }>()),
+            3 => i16x8::lerp(bg, color, text_8_pixels.shuffle::<{ SHUFFLES[3] }>()),
+            _ => unreachable!("Unexpected register index"),
+        };
+        if COUNT % 2 == 1 && i == num_registers - 1 {
+            i16x8::store_unaligned_ptr_lower(computed, dst_ptr);
+        } else {
+            i16x8::store_unaligned_ptr(computed, dst_ptr);
+        }
+    }
+}
+pub(crate) struct RenderParams {
+    pub(crate) x0: i32,
+    pub(crate) y0: i32,
+    pub(crate) x1: i32,
+    pub(crate) y1: i32,
+    pub(crate) clip_y: usize,
+    pub(crate) clip_x: usize,
+    pub(crate) _ylen: i32,
+    pub(crate) _xlen: i32,
+}
+
+#[inline(always)]
+pub(crate) fn calculate_render_params(
+    coords: &[f32],
+    tile_info: &TileInfo,
+    scissor_rect: f32x4,
+) -> Option<RenderParams> {
     let x0y0x1y1_adjust =
         (f32x4::load_unaligned(coords) - tile_info.offsets) + f32x4::new_splat(0.5);
     let x0y0x1y1 = x0y0x1y1_adjust.floor();
     let x0y0x1y1_int = x0y0x1y1.as_i32x4();
 
-    let color = premultiply_alpha(color);
-
     // Make sure we intersect with the scissor rect otherwise skip rendering
     if !f32x4::test_intersect(scissor_rect, x0y0x1y1) {
-        return;
+        return None;
     }
 
     // Calculate the difference between the scissor rect and the current rect
@@ -586,9 +638,6 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     let clip_x = clip_diff.extract::<0>() as usize;
     let clip_y = clip_diff.extract::<1>() as usize;
 
-    // Adjust for clipping
-    let text_data = unsafe { text_data.add(clip_y * texture_width + clip_x) };
-
     let min_box = x0y0x1y1_int.min(scissor_rect.as_i32x4());
     let max_box = x0y0x1y1_int.max(scissor_rect.as_i32x4());
 
@@ -597,58 +646,80 @@ pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
     let x1 = min_box.extract::<2>();
     let y1 = min_box.extract::<3>();
 
+    let _ylen = y1 - y0;
+    let _xlen = x1 - x0;
+
+    Some(RenderParams {
+        x0,
+        y0,
+        x1,
+        y1,
+        clip_x,
+        clip_y,
+        _ylen,
+        _xlen,
+    })
+}
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+pub(crate) fn text_render_internal<const COLOR_MODE: usize>(
+    output: &mut [Color16],
+    scissor_rect: f32x4,
+    text_data: *const i16,
+    tile_info: &TileInfo,
+    texture_width: usize,
+    coords: &[f32],
+    color: i16x8,
+) {
+    let render_params =
+        if let Some(params) = calculate_render_params(coords, tile_info, scissor_rect) {
+            params
+        } else {
+            return;
+        };
+
+    let color = premultiply_alpha(color);
+
+    // Adjust for clipping
+    let mut text_data =
+        unsafe { text_data.add((render_params.clip_y * texture_width) + render_params.clip_x) };
+
+    let x0 = render_params.x0;
+    let y0 = render_params.y0;
+    let x1 = render_params.x1;
+    let y1 = render_params.y1;
+
     let ylen = y1 - y0;
     let xlen = x1 - x0;
 
     let tile_width = tile_info.width as usize;
-    let output = &mut output[((y0 as usize * tile_width + x0 as usize) * 4)..];
+    let output = &mut output[(y0 as usize * tile_width + x0 as usize)..];
     let mut output_ptr = output.as_mut_ptr();
 
-    let mut text_data = text_data;
     let mut tile_line_ptr = output_ptr;
     let mut text_line_ptr = text_data;
 
     for _y in 0..ylen {
         for _x in 0..(xlen >> 3) {
-            // Text data is stored with one intensity in 16-bit so one vector load means
-            // we get 8 pixels. As we process 2 pixels (RGBA) per vector we need to splat each
-            // intensity in pairs of two.
-            //
-            // bleending operation with white text
-            // result.r = mask.a * (tex_color.r - dest.r) + dest.r
-            // result.g = mask.a * (tex_color.g - dest.g) + dest.g
-            // result.b = mask.a * (tex_color.b - dest.b) + dest.b
-            // result.a = mask.a * (tex_color.a - dest.a) + dest.a
-            //
-            let text_8_pixels = i16x8::load_unaligned_ptr(text_line_ptr);
-
-            let te_01 = text_8_pixels.shuffle::<0x0000_1111>();
-            let bg_01 = i16x8::load_unaligned_ptr(tile_line_ptr);
-
-            let te_23 = text_8_pixels.shuffle::<0x2222_3333>();
-            let bg_23 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(8) });
-
-            let te_45 = text_8_pixels.shuffle::<0x4444_5555>();
-            let bg_45 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(16) });
-
-            let te_67 = text_8_pixels.shuffle::<0x6666_7777>();
-            let bg_67 = i16x8::load_unaligned_ptr(unsafe { tile_line_ptr.add(24) });
-
-            let c0 = i16x8::lerp(bg_01, color, te_01);
-            let c1 = i16x8::lerp(bg_23, color, te_23);
-            let c2 = i16x8::lerp(bg_45, color, te_45);
-            let c3 = i16x8::lerp(bg_67, color, te_67);
-
-            i16x8::store_unaligned_ptr(c0, tile_line_ptr);
-            i16x8::store_unaligned_ptr(c1, unsafe { tile_line_ptr.add(8) });
-            i16x8::store_unaligned_ptr(c2, unsafe { tile_line_ptr.add(16) });
-            i16x8::store_unaligned_ptr(c3, unsafe { tile_line_ptr.add(24) });
-
-            tile_line_ptr = unsafe { tile_line_ptr.add(32) };
+            process_text_pixels::<8>(tile_line_ptr, text_line_ptr, color);
+            tile_line_ptr = unsafe { tile_line_ptr.add(8) };
             text_line_ptr = unsafe { text_line_ptr.add(8) };
         }
 
-        output_ptr = unsafe { output_ptr.add(tile_width * 4) };
+        let xrest = xlen & 7;
+
+        match xrest {
+            7 => process_text_pixels::<7>(tile_line_ptr, text_line_ptr, color),
+            6 => process_text_pixels::<6>(tile_line_ptr, text_line_ptr, color),
+            5 => process_text_pixels::<5>(tile_line_ptr, text_line_ptr, color),
+            4 => process_text_pixels::<4>(tile_line_ptr, text_line_ptr, color),
+            3 => process_text_pixels::<3>(tile_line_ptr, text_line_ptr, color),
+            2 => process_text_pixels::<2>(tile_line_ptr, text_line_ptr, color),
+            1 => process_text_pixels::<1>(tile_line_ptr, text_line_ptr, color),
+            _ => (),
+        }
+
+        output_ptr = unsafe { output_ptr.add(tile_width) };
         text_data = unsafe { text_data.add(texture_width) };
 
         tile_line_ptr = output_ptr;
@@ -664,11 +735,65 @@ impl Raster {
         }
     }
 
+    // TODO: Unify the setup for these functions as they are very similar
+    pub fn draw_background(
+        &self,
+        output: &mut [Color16],
+        tile_info: &TileInfo,
+        coords: &[f32],
+        texture_width: usize,
+        texture_data: *const u64,
+    ) {
+        let rp = if let Some(params) = calculate_render_params(coords, tile_info, self.scissor_rect) {
+            params
+        } else {
+            return;
+        };
+
+        let x0 = rp.x0;
+        let y0 = rp.y0;
+        let x1 = rp.x1;
+        let y1 = rp.y1;
+
+        let ylen = y1 - y0;
+        let xlen = x1 - x0;
+
+        let mut text_data = unsafe { texture_data.add((rp.clip_y * texture_width) + rp.clip_x) };
+
+        let tile_width = tile_info.width as usize;
+        let output = &mut output[(y0 as usize * tile_width + x0 as usize)..];
+        let mut output_ptr = output.as_mut_ptr();
+
+        let mut tile_line_ptr = output_ptr;
+        let mut text_line_ptr = text_data;
+
+        for _y in 0..ylen {
+            for _x in 0..(xlen >> 1) {
+                let pixel_01 = i16x8::load_unaligned_ptr(text_line_ptr as _, 0);
+                pixel_01.store_unaligned_ptr(tile_line_ptr as _);
+
+                tile_line_ptr = unsafe { tile_line_ptr.add(2) };
+                text_line_ptr = unsafe { text_line_ptr.add(2) };
+            }
+
+            if (xlen & 1) == 1 {
+                let pixel_0 = i16x8::load_unaligned_ptr(text_line_ptr as _, 0);
+                pixel_0.store_unaligned_ptr_lower(tile_line_ptr as _);
+            }
+
+            output_ptr = unsafe { output_ptr.add(tile_width) };
+            text_data = unsafe { text_data.add(texture_width) };
+
+            tile_line_ptr = output_ptr;
+            text_line_ptr = text_data;
+        }
+    }
+
     #[inline(never)]
     #[allow(dead_code)]
     pub fn render_aligned_texture(
         &self,
-        output: &mut [i16],
+        output: &mut [Color16],
         tile_info: &TileInfo,
         coords: &[f32],
         texture_data: *const i16,
@@ -694,7 +819,7 @@ impl Raster {
     #[allow(dead_code)]
     pub fn render_solid_quad(
         &self,
-        output: &mut [i16],
+        output: &mut [Color16],
         tile_info: &TileInfo,
         coords: &[f32],
         color: i16x8,
@@ -751,7 +876,7 @@ impl Raster {
     #[allow(dead_code)]
     pub fn render_gradient_quad(
         &self,
-        output: &mut [i16],
+        output: &mut [Color16],
         tile_info: &TileInfo,
         coords: &[f32],
         color_top: i16x8,
@@ -809,7 +934,7 @@ impl Raster {
     #[allow(clippy::too_many_arguments)]
     pub fn render_solid_rounded_corner(
         &self,
-        output: &mut [i16],
+        output: &mut [Color16],
         tile_info: &TileInfo,
         coords: &[f32],
         color: i16x8,
@@ -897,7 +1022,7 @@ impl Raster {
     #[inline(never)]
     pub fn render_solid_quad_rounded(
         &self,
-        output: &mut [i16],
+        output: &mut [Color16],
         tile_info: &TileInfo,
         coords: &[f32],
         color: i16x8,
@@ -928,9 +1053,8 @@ impl Raster {
             );
         }
 
-        for side in 0..3 {
-            // TODO: Fix me
-            let radius = raddii[side] - 1.0;
+        for (side, radius) in raddii.iter().enumerate().take(3) {
+            let radius = radius - 1.0;
             let side_coords = Self::get_side_coords(side, coords, radius);
             self.render_solid_quad(output, tile_info, &side_coords, color, blend_mode);
         }
@@ -940,7 +1064,7 @@ impl Raster {
     #[allow(dead_code)]
     pub fn render_solid_lerp_radius(
         &self,
-        output: &mut [i16],
+        output: &mut [Color16],
         tile_info: &TileInfo,
         coords: &[f32],
         radius: f32,
@@ -969,7 +1093,7 @@ impl Raster {
     #[allow(dead_code)]
     pub fn render_text_texture(
         &self,
-        output: &mut [i16],
+        output: &mut [Color16],
         text_data: *const i16,
         tile_info: &TileInfo,
         texture_width: usize,

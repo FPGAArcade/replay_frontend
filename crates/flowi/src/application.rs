@@ -1,29 +1,21 @@
-//use flowi_core::imgui::{DrawCmd, DrawData, DrawVert, FontAtlas, ImDrawIdx};
-//use crate::bgfx_renderer::BgfxRenderer;
-//use crate::glfw_window::GlfwWindow;
 use crate::sdl_window::Sdl2Window;
-//use crate::sw_renderer::SwRenderer;
-
 use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
-use flowi_core::ApplicationSettings;
-use flowi_core::Ui;
-use flowi_renderer::SoftwareRenderData;
+use flowi_core::{input::Input, ApplicationSettings, Renderer, SoftwareRenderData, Ui};
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
-
-use flowi_renderer::Renderer;
 
 //use flowi_core::Instance;
 //use flowi_core::Result;
 
+#[allow(dead_code)]
 pub(crate) trait Window {
     fn new(settings: &ApplicationSettings) -> Self
     where
         Self: Sized;
-    fn update(&mut self);
+    fn update(&mut self, input: &mut Input);
     fn should_close(&mut self) -> bool;
     fn update_software_renderer<'a>(&'a mut self, _data: Option<SoftwareRenderData<'a>>) {}
-    fn present(&mut self);
+    fn present(&mut self) {}
     //fn is_focused(&self) -> bool;
     //fn raw_window_handle(&self) -> RawWindowHandle;
 }
@@ -53,14 +45,18 @@ unsafe extern "C" fn user_trampoline_ud<T>(app: &mut Application) {
 unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
 
+    //let mut input = Input::new();
+
     while !state.window.should_close() {
         //state.core.pre_update();
-        state.window.update();
+        state.window.update(state.ui.input());
         state.ui.update();
 
-        state
-            .ui
-            .begin(0.0, state.settings.width, state.settings.height);
+        state.ui.begin(
+            state.ui.input().delta_time,
+            state.settings.width,
+            state.settings.height,
+        );
         user_trampoline_ud::<T>(state);
         state.ui.end();
 
@@ -79,7 +75,10 @@ unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
 impl Application<'_> {
     pub fn new(settings: &ApplicationSettings) -> Box<Self> {
         let window = Box::new(Sdl2Window::new(settings));
-        let ui = Ui::new(Box::new(SoftwareRenderer::new(None)));
+        let ui = Ui::new(Box::new(SoftwareRenderer::new(
+            (settings.width, settings.height),
+            None,
+        )));
 
         Box::new(Self {
             window,

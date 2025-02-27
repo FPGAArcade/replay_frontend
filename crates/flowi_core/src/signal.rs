@@ -11,6 +11,8 @@ bitflags! {
         const KEYBOARD_PRESSED = 1 << 24;
         const HOVERING = 1 << 25;
         const MOUSE_OVER = 1 << 26;
+        const ENTER_HOVER = 1 << 27;
+        const EXIT_HOVER = 1 << 28;
 
         const PRESSED = Self::LEFT_PRESSED.bits() | Self::KEYBOARD_PRESSED.bits();
         const RELEASED = Self::LEFT_RELEASED.bits();

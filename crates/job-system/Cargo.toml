@@ -1,0 +1,9 @@
+[package]
+name = "job-system"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossbeam = "0.8.4"
+thiserror = "2"
+crossbeam-channel = "0.5.14"

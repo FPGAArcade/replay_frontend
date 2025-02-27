@@ -24,6 +24,7 @@ pub enum ArenaError {
     ReserveFailed(String),
     ProtectionFailed(String),
     OutOfReservedMemory,
+    TooLargeReserve,
 }
 
 use std::error::Error;
@@ -35,6 +36,9 @@ impl fmt::Display for ArenaError {
             ArenaError::ReserveFailed(reason) => write!(f, "Reserve failed: {}", reason),
             ArenaError::ProtectionFailed(reason) => write!(f, "Protection failed: {}", reason),
             ArenaError::OutOfReservedMemory => write!(f, "Out of reserved memory"),
+            ArenaError::TooLargeReserve => {
+                write!(f, "Trying to reserve more memory than the arena can handle")
+            }
         }
     }
 }
@@ -303,8 +307,13 @@ struct VmRange {
 
 impl VmRange {
     pub fn new(reserved_size: usize) -> Result<Self, ArenaError> {
+        if reserved_size > isize::MAX as usize {
+            return Err(ArenaError::TooLargeReserve);
+        }
+
         let page_size = get_page_size();
-        let ptr = reserve_range(std::cmp::max(reserved_size, page_size))?;
+        let reserved_size = Self::align_pow2(reserved_size, page_size);
+        let ptr = reserve_range(reserved_size)?;
         Ok(Self {
             ptr,
             reserved_size,
@@ -324,15 +333,17 @@ impl VmRange {
     /// # Safety
     /// The returned data is uninitialized. The caller must ensure that the data is
     /// properly initialized.
+    /*
     pub(crate) unsafe fn alloc_raw(
         &mut self,
         size: usize,
         alignment: usize,
     ) -> Result<*mut [u8], ArenaError> {
-        //println!("Alignments: {} {}", size, alignment);
-
         let new_pos = self.pos + Self::align_pow2(size, alignment);
         let commit_size = Self::align_pow2(size, self.page_size);
+
+        //dbg!(new_pos, commit_size);
+        //dbg!(self.committed_size, self.reserved_size);
 
         if self.committed_size + commit_size > self.reserved_size {
             return Err(ArenaError::OutOfReservedMemory);
@@ -350,6 +361,41 @@ impl VmRange {
 
         self.committed_size += commit_size;
         let return_slice = std::slice::from_raw_parts_mut(self.ptr.add(self.pos) as *mut u8, size);
+        self.pos = new_pos;
+        Ok(return_slice)
+    }
+    */
+
+    /// Allocates a raw memory block in the arena.
+    ///
+    /// # Safety
+    /// The returned data is uninitialized. The caller must ensure that the data is
+    /// properly initialized.
+    pub(crate) unsafe fn alloc_raw(
+        &mut self,
+        size: usize,
+        alignment: usize,
+    ) -> Result<*mut [u8], ArenaError> {
+        // Align `pos` instead of `size` to avoid over-allocations
+        let aligned_pos = Self::align_pow2(self.pos, alignment);
+        let new_pos = aligned_pos + size;
+
+        if new_pos > self.committed_size {
+            let required_commit = new_pos - self.committed_size;
+            let commit_size = Self::align_pow2(required_commit, self.page_size);
+
+            // Check reserved memory limit
+            if self.committed_size + commit_size > self.reserved_size {
+                return Err(ArenaError::OutOfReservedMemory);
+            }
+
+            // Commit only the necessary memory
+            commit_memory(self.ptr.add(self.committed_size), commit_size)?;
+            self.committed_size += commit_size;
+        }
+
+        let return_slice =
+            std::slice::from_raw_parts_mut(self.ptr.add(aligned_pos) as *mut u8, size);
         self.pos = new_pos;
         Ok(return_slice)
     }
@@ -576,10 +622,10 @@ impl Arena {
         }
     }
 
+    /// Retrieves a slice of elements of type T from the current memory position.
     pub fn get_array_by_type<T: Sized>(&self) -> &[T] {
         let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let count = self.current.pos / total_item_size;
-
         unsafe { core::slice::from_raw_parts(self.current.ptr as *const T, count) }
     }
 
@@ -819,7 +865,7 @@ impl<T> VecArena<T> {
             return;
         }
 
-        self.arena.current.pos -= core::mem::size_of::<T>();
+        self.arena.current.pos -= VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
     }
 
     pub fn last<'a>(&mut self) -> Option<&'a T> {
@@ -827,18 +873,21 @@ impl<T> VecArena<T> {
             return None;
         }
 
-        let index = self.arena.current.pos / core::mem::size_of::<T>();
+        let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
+        let index = self.arena.current.pos - total_item_size;
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
         Some(unsafe { &*ptr })
     }
 }
 
+/// A memory arena for efficient allocation of Plain Old Data (POD) types.
 pub struct PodArena<T: Sized + Default + Clone> {
     arena: Arena,
     phantom: core::marker::PhantomData<T>,
 }
 
 impl<T: Sized + Default + Clone> PodArena<T> {
+    /// Initializes a new arena with the specified virtual memory reservation size.
     pub fn new(reserve_virtual_size: usize) -> Result<Self, ArenaError> {
         Ok(Self {
             arena: Arena::new(reserve_virtual_size)?,
@@ -846,39 +895,147 @@ impl<T: Sized + Default + Clone> PodArena<T> {
         })
     }
 
+    /// Pushes an item into the arena by allocating memory and copying the value.
     pub fn push(&mut self, item: T) {
         let t = unsafe { self.arena.alloc::<T>().unwrap() };
         *t = item;
     }
 
+    /// Removes the last item from the arena if it exists.
     pub fn pop(&mut self) {
         if self.arena.current.pos == 0 {
             return;
         }
-
         self.arena.current.pos -= VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
     }
 
+    /// Returns an optional mutable reference to the last item in the arena.
     pub fn last(&mut self) -> Option<&mut T> {
         if self.arena.current.pos == 0 {
             return None;
         }
-
         let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let index = self.arena.current.pos - total_item_size;
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
         Some(unsafe { &mut *ptr })
     }
 
+    /// Returns the last item in the arena or a default value if the arena is empty.
     pub fn last_or_default(&mut self) -> T {
         if self.arena.current.pos == 0 {
             return T::default();
         }
-
         let total_item_size = VmRange::align_pow2(core::mem::size_of::<T>(), align_of::<T>());
         let index = self.arena.current.pos - total_item_size;
         let ptr = unsafe { self.arena.current.ptr.add(index) as *mut T };
         unsafe { (*ptr).clone() }
+    }
+}
+
+#[cfg(test)]
+mod pod_arena_tests {
+    use super::*;
+
+    #[test]
+    fn test_pod_arena_basic() -> Result<(), ArenaError> {
+        let mut arena = PodArena::<i32>::new(1024)?;
+
+        // Test pushing and popping
+        arena.push(42);
+        assert_eq!(arena.last_or_default(), 42);
+
+        arena.pop();
+        assert_eq!(arena.last_or_default(), i32::default());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pod_arena_multiple_push_pop() -> Result<(), ArenaError> {
+        let mut arena = PodArena::<i32>::new(1024)?;
+
+        // Push multiple elements
+        for i in 0..5 {
+            arena.push(i);
+        }
+
+        // Pop and check elements in reverse order
+        for i in (0..5).rev() {
+            assert_eq!(arena.last_or_default(), i);
+            arena.pop();
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pod_arena_last_or_default_empty() -> Result<(), ArenaError> {
+        let mut arena = PodArena::<i32>::new(1024)?;
+        assert_eq!(arena.last_or_default(), 0); // i32 default is 0
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod vec_arena_tests {
+    use super::*;
+
+    #[test]
+    fn test_vec_arena_basic() -> Result<(), ArenaError> {
+        let mut arena = VecArena::<i32>::new(1024)?;
+
+        // Test pushing and popping
+        arena.push(42);
+        assert_eq!(arena.last().unwrap(), &42);
+
+        arena.pop();
+        assert!(arena.last().is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_vec_arena_multiple_push_pop() -> Result<(), ArenaError> {
+        let mut arena = VecArena::<i32>::new(1024)?;
+
+        // Push multiple elements
+        for i in 0..5 {
+            arena.push(i);
+        }
+
+        // Pop and check elements in reverse order
+        for i in (0..5).rev() {
+            assert_eq!(arena.last().unwrap(), &i);
+            arena.pop();
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_vec_arena_last_empty() -> Result<(), ArenaError> {
+        let mut arena = VecArena::<i32>::new(1024)?;
+        assert!(arena.last().is_none());
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod alternative_pod_arena_tests {
+    use super::*;
+
+    #[test]
+    fn test_alternative_pod_arena_basic() -> Result<(), ArenaError> {
+        let mut arena = PodArena::<i32>::new(1024)?;
+
+        // Test pushing and popping
+        arena.push(42);
+        assert_eq!(arena.last().unwrap(), &42);
+
+        arena.pop();
+        assert!(arena.last().is_none());
+
+        Ok(())
     }
 }
 
@@ -929,14 +1086,14 @@ mod test {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+/*
+#[cfg(any(target_os = "linux"))]
 #[cfg(test)]
-mod macos_linux_tests {
+mod linux_tests {
     use super::*;
     use libc::{fork, waitpid, SIGSEGV, WIFEXITED, WIFSIGNALED};
     use std::process;
 
-    /*
     #[test]
     fn test_crash_handling() {
         unsafe {
@@ -947,7 +1104,7 @@ mod macos_linux_tests {
                 let mut arena = TypedArena::<u32>::new(32 * 1024).unwrap();
                 let single = arena.alloc().unwrap();
                 *single = 42;
-                //arena.rewind();
+                arena.rewind();
                 *single = 43; // will crash here as trying to write to protected memory
                 println!("Single: {}", *single);
             } else {
@@ -963,5 +1120,5 @@ mod macos_linux_tests {
             }
         }
     }
-    */
 }
+*/

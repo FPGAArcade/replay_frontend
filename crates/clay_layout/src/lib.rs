@@ -9,33 +9,95 @@ pub mod id;
 pub mod layout;
 pub mod math;
 pub mod render_commands;
+pub mod text;
 
 mod mem;
 
-use crate::elements::text::Text;
-use elements::{text::TextElementConfig, ElementConfigType};
+use crate::bindings::*;
 use errors::Error;
+use id::Id;
 use math::{BoundingBox, Dimensions, Vector2};
 use render_commands::RenderCommand;
 
-pub use crate::bindings::*;
+pub use bindings::{Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig};
+pub use color::Color;
+pub use layout::*;
 
-#[derive(Debug, Clone, Copy)]
-#[repr(C)]
-pub struct TypedConfig {
-    pub config_memory: *const u8,
-    pub id: Clay_ElementId,
-    pub config_type: ElementConfigType,
+#[cfg(feature = "std")]
+use text::TextConfig;
+
+use text::TextElementConfig;
+
+#[derive(Copy, Clone)]
+pub struct Declaration {
+    inner: Clay_ElementDeclaration,
+}
+
+impl Declaration {
+    #[inline]
+    pub fn new() -> Self {
+        mem::zeroed_init()
+    }
+
+    #[inline]
+    pub fn background_color(&mut self, color: Color) -> &mut Self {
+        self.inner.backgroundColor = color.into();
+        self
+    }
+
+    #[inline]
+    pub fn scroll(&mut self, horizontal: bool, vertical: bool) -> &mut Self {
+        self.inner.scroll.horizontal = horizontal;
+        self.inner.scroll.vertical = vertical;
+        self
+    }
+
+    #[inline]
+    pub fn id(&mut self, id: Id) -> &mut Self {
+        self.inner.id = id.id;
+        self
+    }
+
+    #[inline]
+    pub fn layout(&mut self) -> LayoutBuilder {
+        LayoutBuilder::new(self)
+    }
+
+    #[inline]
+    pub fn image(&mut self) -> elements::ImageBuilder {
+        elements::ImageBuilder::new(self)
+    }
+
+    #[inline]
+    pub fn floating(&mut self) -> elements::FloatingBuilder {
+        elements::FloatingBuilder::new(self)
+    }
+
+    #[inline]
+    pub fn border(&mut self) -> elements::BorderBuilder {
+        elements::BorderBuilder::new(self)
+    }
+
+    #[inline]
+    pub fn corner_radius(&mut self) -> elements::CornerRadiusBuilder {
+        elements::CornerRadiusBuilder::new(self)
+    }
+}
+
+impl Default for Declaration {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(feature = "std")]
 unsafe extern "C" fn measure_text_trampoline_user_data<'a, F, T>(
     text_slice: Clay_StringSlice,
     config: *mut Clay_TextElementConfig,
-    user_data: usize,
+    user_data: *mut core::ffi::c_void,
 ) -> Clay_Dimensions
 where
-    F: Fn(&str, &Text, &'a mut T) -> Dimensions + 'a,
+    F: Fn(&str, &TextConfig, &'a mut T) -> Dimensions + 'a,
     T: 'a,
 {
     let text = core::str::from_utf8_unchecked(core::slice::from_raw_parts(
@@ -44,7 +106,7 @@ where
     ));
 
     let closure_and_data: &mut (F, T) = &mut *(user_data as *mut (F, T));
-    let text_config = Text::from(*config);
+    let text_config = TextConfig::from(*config);
     let (callback, data) = closure_and_data;
     callback(text, &text_config, data).into()
 }
@@ -53,10 +115,10 @@ where
 unsafe extern "C" fn measure_text_trampoline<'a, F>(
     text_slice: Clay_StringSlice,
     config: *mut Clay_TextElementConfig,
-    user_data: usize,
+    user_data: *mut core::ffi::c_void,
 ) -> Clay_Dimensions
 where
-    F: Fn(&str, &Text) -> Dimensions + 'a,
+    F: Fn(&str, &TextConfig) -> Dimensions + 'a,
 {
     let text = core::str::from_utf8_unchecked(core::slice::from_raw_parts(
         text_slice.chars as *const u8,
@@ -64,7 +126,7 @@ where
     ));
 
     let callback: &mut F = &mut *(user_data as *mut F);
-    let text_config = Text::from(*config);
+    let text_config = TextConfig::from(*config);
     callback(text, &text_config).into()
 }
 
@@ -110,7 +172,7 @@ impl<'a> Clay<'a> {
                 dimensions.into(),
                 Clay_ErrorHandler {
                     errorHandlerFunction: Some(error_handler),
-                    userData: 0,
+                    userData: std::ptr::null_mut(),
                 },
             );
         }
@@ -142,7 +204,7 @@ impl<'a> Clay<'a> {
             dimensions.into(),
             Clay_ErrorHandler {
                 errorHandlerFunction: Some(error_handler),
-                userData: 0,
+                userData: core::ptr::null_mut(),
             },
         );
 
@@ -163,14 +225,14 @@ impl<'a> Clay<'a> {
     #[cfg(feature = "std")]
     pub fn set_measure_text_function_user_data<F, T>(&mut self, userdata: T, callback: F)
     where
-        F: Fn(&str, &Text, &'a mut T) -> Dimensions + 'static,
+        F: Fn(&str, &TextConfig, &'a mut T) -> Dimensions + 'static,
         T: 'a,
     {
         // Box the callback and userdata together
         let boxed = Box::new((callback, userdata));
 
         // Get a raw pointer to the boxed data
-        let user_data_ptr = Box::into_raw(boxed) as usize;
+        let user_data_ptr = Box::into_raw(boxed) as _;
 
         // Register the callback with the external C function
         unsafe {
@@ -184,6 +246,27 @@ impl<'a> Clay<'a> {
         self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
     }
 
+    /// Set the callback for text measurement
+    #[cfg(feature = "std")]
+    pub fn set_measure_text_function<F>(&mut self, callback: F)
+    where
+        F: Fn(&str, &TextConfig) -> Dimensions + 'static,
+    {
+        // Box the callback and userdata together
+        let boxed = Box::new(callback);
+
+        // Get a raw pointer to the boxed data
+        let user_data_ptr = Box::into_raw(boxed) as *mut core::ffi::c_void;
+
+        // Register the callback with the external C function
+        unsafe {
+            Self::set_measure_text_function_unsafe(measure_text_trampoline::<F>, user_data_ptr);
+        }
+
+        // Store the raw pointer for later cleanup
+        self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
+    }
+
     /// Set the callback for text measurement with user data.
     /// # Safety
     /// This function is unsafe because it sets a callback function without any error checking
@@ -191,32 +274,43 @@ impl<'a> Clay<'a> {
         callback: unsafe extern "C" fn(
             Clay_StringSlice,
             *mut Clay_TextElementConfig,
-            usize,
+            *mut core::ffi::c_void,
         ) -> Clay_Dimensions,
-        user_data: usize,
+        user_data: *mut core::ffi::c_void,
     ) {
         Clay_SetMeasureTextFunction(Some(callback), user_data);
     }
 
-    /// Set the callback for text measurement
-    #[cfg(feature = "std")]
-    pub fn set_measure_text_function<F>(&mut self, callback: F)
-    where
-        F: Fn(&str, &Text) -> Dimensions + 'static,
-    {
-        // Box the callback and userdata together
-        let boxed = Box::new(callback);
+    /// Generates a unique ID based on the given `label`.
+    ///
+    /// This ID is global and must be unique across the entire scope.
+    #[inline]
+    pub fn id(&self, label: &'a str) -> Id {
+        Id::new(label)
+    }
 
-        // Get a raw pointer to the boxed data
-        let user_data_ptr = Box::into_raw(boxed) as usize;
+    /// Generates a unique indexed ID based on the given `label` and `index`.
+    ///
+    /// This is useful when multiple elements share the same label but need distinct IDs.
+    #[inline]
+    pub fn id_index(&self, label: &'a str, index: u32) -> Id {
+        Id::new_index(label, index)
+    }
 
-        // Register the callback with the external C function
-        unsafe {
-            Clay_SetMeasureTextFunction(Some(measure_text_trampoline::<F>), user_data_ptr);
-        }
+    /// Generates a locally unique ID based on the given `label`.
+    ///
+    /// The ID is unique within a specific local scope but not globally.
+    #[inline]
+    pub fn id_local(&self, label: &'a str) -> Id {
+        Id::new_index_local(label, 0)
+    }
 
-        // Store the raw pointer for later cleanup
-        self.text_measure_callback = Some(user_data_ptr as *const core::ffi::c_void);
+    /// Generates a locally unique indexed ID based on the given `label` and `index`.
+    ///
+    /// This is useful for differentiating elements within a local scope while keeping their labels consistent.
+    #[inline]
+    pub fn id_index_local(&self, label: &'a str, index: u32) -> Id {
+        Id::new_index_local(label, index)
     }
 
     /// Sets the maximum number of element that clay supports
@@ -271,15 +365,15 @@ impl<'a> Clay<'a> {
         unsafe { Clay_Hovered() }
     }
 
-    pub fn pointer_over(&self, cfg: TypedConfig) -> bool {
+    pub fn pointer_over(&self, cfg: Id) -> bool {
         unsafe { Clay_PointerOver(cfg.id) }
     }
 
-    fn get_element_data(id: TypedConfig) -> Clay_ElementData {
+    fn get_element_data(id: Id) -> Clay_ElementData {
         unsafe { Clay_GetElementData(id.id) }
     }
 
-    pub fn get_bounding_box(&self, id: TypedConfig) -> Option<BoundingBox> {
+    pub fn bounding_box(&self, id: Id) -> Option<BoundingBox> {
         let element_data = Self::get_element_data(id);
 
         if element_data.found {
@@ -289,68 +383,41 @@ impl<'a> Clay<'a> {
         }
     }
 
+    pub fn scroll_container_data(&self, id: Id) -> Option<Clay_ScrollContainerData> {
+        unsafe {
+            Clay_SetCurrentContext(self.context);
+            let scroll_container_data = Clay_GetScrollContainerData(id.id);
+
+            if scroll_container_data.found {
+                Some(scroll_container_data)
+            } else {
+                None
+            }
+        }
+    }
+
+    #[inline]
     pub fn begin(&self) {
         unsafe { Clay_BeginLayout() };
     }
 
+    #[inline]
     pub fn end(&self) -> impl Iterator<Item = RenderCommand> {
         let array = unsafe { Clay_EndLayout() };
         let slice = unsafe { core::slice::from_raw_parts(array.internalArray, array.length as _) };
         slice.iter().map(|command| RenderCommand::from(*command))
     }
 
-    /// Create an element, passing it's config and a function to add childrens
+    /// Create an element, passing its config and a function to add childrens
     /// ```
     /// // TODO: Add Example
     /// ```
-    pub fn with<F: FnOnce(&Clay), const N: usize>(
-        &self,
-        id: Option<&'a str>,
-        configs: [TypedConfig; N],
-        f: F,
-    ) {
-        // Mapping `id: Option<&str>` to `Option<(&str, u32)>` with index being zero
-        let id: Option<(&str, u32)> = id.map(|name| (name, 0));
-        self.with_id_index(id, configs, f)
-    }
-
-    /// Create an element, passing it's config and a function to add childrens
-    /// ```
-    /// // TODO: Add Example
-    /// ```
-    pub fn with_id_index<F: FnOnce(&Clay), const N: usize>(
-        &self,
-        id: Option<(&'a str, u32)>,
-        configs: [TypedConfig; N],
-        f: F,
-    ) {
+    pub fn with<F: FnOnce(&Clay)>(&self, declaration: &Declaration, f: F) {
         unsafe {
             Clay_SetCurrentContext(self.context);
-            Clay__OpenElement()
+            Clay__OpenElement();
+            Clay__ConfigureOpenElement(declaration.inner);
         };
-
-        if let Some((id_name, index)) = id {
-            unsafe {
-                Clay__AttachId(Clay__HashString(id_name.into(), index, 0));
-            }
-        }
-
-        for config in configs {
-            if config.config_type == ElementConfigType::Layout as _ {
-                unsafe { Clay__AttachLayoutConfig(config.config_memory as _) };
-            } else {
-                unsafe {
-                    Clay__AttachElementConfig(
-                        core::mem::transmute::<*const u8, bindings::Clay_ElementConfigUnion>(
-                            config.config_memory,
-                        ),
-                        config.config_type as _,
-                    )
-                };
-            }
-        }
-
-        unsafe { Clay__ElementPostConfiguration() };
 
         f(self);
 
@@ -384,6 +451,7 @@ impl From<&str> for Clay_String {
         }
     }
 }
+
 impl From<Clay_String> for &str {
     fn from(value: Clay_String) -> Self {
         unsafe {
@@ -395,24 +463,23 @@ impl From<Clay_String> for &str {
     }
 }
 
+impl From<Clay_StringSlice> for &str {
+    fn from(value: Clay_StringSlice) -> Self {
+        unsafe {
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(
+                value.chars as *const u8,
+                value.length as _,
+            ))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use color::Color;
-    use elements::{
-        containers::border::BorderContainer, rectangle::Rectangle, text::Text, CornerRadius,
-    };
-    use layout::{padding::Padding, sizing::Sizing, Layout};
-
     use super::*;
+    use color::Color;
+    use layout::{Padding, Sizing};
 
-    /*
-    #[test]
-    fn test_create() {
-        let _clay = Clay::new(800.0, 600.0);
-    }
-    */
-
-    /*
     #[test]
     #[rustfmt::skip]
     fn test_begin() {
@@ -431,31 +498,33 @@ mod tests {
 
         clay.begin();
 
-        clay.with(Some("parent_rect"), [
-            Layout::new()
+        clay.with(&Declaration::new()
+            .id(clay.id("parent_rect"))
+            .layout()
                 .width(Sizing::Fixed(100.0))
                 .height(Sizing::Fixed(100.0))
                 .padding(Padding::all(10))
-                .end(),
-            Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
+                .end()
+            .background_color(Color::rgb(255., 255., 255.)), |clay|
         {
-            clay.with(None, [
-                Layout::new()
+            clay.with(&Declaration::new()
+                .layout()
                     .width(Sizing::Fixed(100.0))
                     .height(Sizing::Fixed(100.0))
                     .padding(Padding::all(10))
-                    .end(),
-                Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
+                    .end()
+                .background_color(Color::rgb(255., 255., 255.)), |clay| 
             {
-                clay.with(Some("rect_under_rect"), [
-                    Layout::new()
+                clay.with(&Declaration::new()
+                    .id(clay.id("rect_under_rect"))
+                    .layout()
                         .width(Sizing::Fixed(100.0))
                         .height(Sizing::Fixed(100.0))
                         .padding(Padding::all(10))
-                        .end(),
-                    Rectangle::new().color(Color::rgb(255., 255., 255.)).end()], |clay|
+                        .end()
+                    .background_color(Color::rgb(255., 255., 255.)), |clay| 
                     {
-                        clay.text("test", Text::new()
+                        clay.text("test", TextConfig::new()
                             .color(Color::rgb(255., 255., 255.))
                             .font_size(24)
                             .end());
@@ -464,19 +533,24 @@ mod tests {
             });
         });
 
-        clay.with_id_index(Some(("Border_container", 1)), [
-            Layout::new().padding(Padding::all(16)).end(),
-            BorderContainer::new()
-                .all_directions(2, Color::rgb(255., 255., 0.))
-                .corner_radius(CornerRadius::All(25.))
-                .end()], |clay|
+        clay.with(&Declaration::new()
+            .id(clay.id_index("border_container", 1))
+            .layout()
+                .padding(Padding::all(16))
+                .end()
+            .border()
+                .color(Color::rgb(255., 255., 0.))
+                .all_directions(2)
+                .end()
+            .corner_radius().all(10.0).end(), |clay|
         {
-            clay.with(Some("rect_under_border"), [
-                Layout::new()
+            clay.with(&Declaration::new()
+                .id(clay.id("rect_under_border"))
+                .layout()
                     .width(Sizing::Fixed(50.0))
                     .height(Sizing::Fixed(50.0))
-                    .end(),
-                Rectangle::new().color(Color::rgb(0., 255., 255.)).end()], |_clay| {},
+                    .end()
+                .background_color(Color::rgb(0., 255., 255.)), |_clay| {},
             );
         });
 
@@ -488,27 +562,5 @@ mod tests {
                 item.id, item.bounding_box, item.config,
             );
         }
-    }
-    */
-
-    /*
-    #[test]
-    fn clay_floating_attach_point_type() {
-        assert_eq!(FloatingAttachPointType::LeftTop as c_uchar, 0 as c_uchar);
-    }
-
-    #[test]
-    fn clay_element_config_type() {
-        assert_eq!(ElementConfigType::BorderContainer as c_uchar, 2 as c_uchar);
-    }
-
-    */
-
-    #[test]
-    fn size_of_union() {
-        assert_eq!(
-            core::mem::size_of::<Clay_SizingAxis__bindgen_ty_1>(),
-            core::mem::size_of::<Clay_SizingAxis__bindgen_ty_1>()
-        )
     }
 }

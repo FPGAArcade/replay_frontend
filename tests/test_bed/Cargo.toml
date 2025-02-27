@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+arena-allocator = { path = "../../crates/arena-allocator" }
+env_logger = "0.10"
 flowi = { path = "../../crates/flowi" }
+log = "0.4"
+online-demo-display = { path = "../../crates/online-demo-display" }
 
 [features]
 default = []
