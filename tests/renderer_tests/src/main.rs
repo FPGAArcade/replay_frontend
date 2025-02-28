@@ -419,6 +419,7 @@ fn render_shapes(
                 &coords,
                 scale_image.data.as_ptr() as _,
                 scale_factor,
+                scale_image.stride,
                 &texture_sizes);
             /*
             image::draw_scaled_image::<1>(

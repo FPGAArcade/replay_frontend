@@ -1,7 +1,6 @@
 use crate::TileInfo;
 use flowi_core::primitives::Color16;
 use simd::*;
-use crate::raster::calculate_render_params;
 
 const FRACT_BITS: i32 = 15;
 const FRACT_MASK: i32 = (1 << FRACT_BITS) - 1;
@@ -124,6 +123,7 @@ pub fn render_sharp_bilinear(
     coords: &[f32],
     texture_data: *const Color16,
     scale_factor: f32,
+    texture_stride: usize,
     texture_size: &[i32; 4])
 {
     let x0y0x1y1_adjust =
@@ -150,8 +150,6 @@ pub fn render_sharp_bilinear(
     let x1 = min_box.extract::<2>();
     let y1 = min_box.extract::<3>();
 
-    let texture_width = texture_size[0] as usize;
-
     let x1y1x0y0_int = x0y0x1y1.shuffle::<0x2301>();
     let len_delta = x1y1x0y0_int - x0y0x1y1;
 
@@ -170,7 +168,7 @@ pub fn render_sharp_bilinear(
     //let v_step = i32x4::new_splat((texture_size.1 << FRACT_BITS) / ylen_delta);
     //let u_step = i32x4::new_splat((texture_size.0 << FRACT_BITS) / xlen_delta);
 
-    let tex_width = i32x4::new_splat(texture_size[0]);
+    let tex_stride = i32x4::new_splat(texture_stride as _);
     let fract_mask = i32x4::new_splat(FRACT_MASK);
 
     // setup for interpolating 4 steps
@@ -189,21 +187,21 @@ pub fn render_sharp_bilinear(
         let vt = apply_aa_simd(v, scale_factor);
         let v_fract = vt & fract_mask;
         let v_int = vt.shift_right::<FRACT_BITS>();
-        let v_offset = v_int * tex_width;
+        let v_offset = v_int * tex_stride;
         let v_fract = v_fract.pack_i16x8();
         let v_fract = v_fract.shuffle::<0x0000_0000>();
 
         let mut u = u_start;
 
-        for x in (0..xlen).step_by(4) {
-            process_pixels::<4>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_width, x, _y, tile_info);
+        for x in 0..xlen >> 2 {
+            process_pixels::<4>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, x * 4, _y, tile_info);
             u += u_step;
         }
 
         match xlen & 3 {
-            1 => process_pixels::<1>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_width, xlen - 1, _y, tile_info),
-            2 => process_pixels::<2>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_width, xlen - 2, _y, tile_info),
-            3 => process_pixels::<3>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_width, xlen - 3, _y, tile_info),
+            1 => process_pixels::<1>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 1, _y, tile_info),
+            2 => process_pixels::<2>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 2, _y, tile_info),
+            3 => process_pixels::<3>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 3, _y, tile_info),
             _ => (),
         }
 

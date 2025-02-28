@@ -55,6 +55,7 @@ pub use crate::io::io::*;
 pub use job_system;
 
 pub use crate::render_api::*;
+use simd::*;
 
 type FlowiKey = u64;
 
@@ -97,6 +98,7 @@ pub(crate) struct State<'a> {
     pub(crate) delta_time: f32,
     pub(crate) focus_id: Option<Id>,
     pub(crate) job_system: JobSystem,
+    pub(crate) screen_area: f32x4,
 }
 
 #[allow(dead_code)]
@@ -155,6 +157,7 @@ impl<'a> Ui<'a> {
             screen_size: (0, 0),
             delta_time: 0.0,
             focus_id: None,
+            screen_area: f32x4::new_splat(0.0),
             job_system: JobSystem::new(2).unwrap(),
         };
 
@@ -232,6 +235,7 @@ impl<'a> Ui<'a> {
         state.button_id = 0;
         state.screen_size = (width, height);
         state.delta_time = delta_time;
+        state.screen_area = f32x4::new(0.0, 0.0, width as f32, height as f32);
     }
 
     pub fn with_layout<F: FnOnce(&Ui)>(&self, declaration: &Declaration, f: F) {
@@ -434,6 +438,7 @@ impl<'a> Ui<'a> {
                         rounded_corners: [0.0, 0.0, 0.0, 0.0],
                         width: image.width as _,
                         height: image.height as _,
+                        stride: image.stride as _,
                         handle: image.data.as_ptr() as _,
                         rounding: false,
                     }),
@@ -446,6 +451,18 @@ impl<'a> Ui<'a> {
 
         for command in state.layout.end() {
             let aabb = Self::bounding_box(&command);
+
+            // Skip if we have no bounding box
+            if aabb[0] == 0.0 && aabb[1] == 0.0 && aabb[2] == 0.0 && aabb[3] == 0.0 {
+                continue;
+            }
+
+            let t_aabb = f32x4::new(aabb[0], aabb[1], aabb[2], aabb[3]);
+
+            // Skip if the item is outside the screen
+            if !f32x4::test_intersect(state.screen_area, t_aabb) {
+                continue;
+            }
 
             let item = state.item_states.entry(command.id).or_insert(ItemState {
                 ..Default::default()
@@ -502,6 +519,7 @@ impl<'a> Ui<'a> {
                         rounded_corners: [0.0, 0.0, 0.0, 0.0],
                         width: image.dimensions.width as _,
                         height: image.dimensions.height as _,
+                        stride: (image.dimensions.width as u32 + 1) as _, // HACK
                         handle: image.data as _,
                         rounding: false,
                     }),
@@ -533,11 +551,11 @@ impl<'a> Ui<'a> {
                 }
 
                 RenderCommandConfig::ScissorStart() => {
-                    (RenderType::ScissorStart, Color::new(1.0, 1.0, 1.0, 1.0))
+                    (RenderType::ScissorStart, Color::new(0.0, 0.0, 0.0, 0.0))
                 }
 
                 RenderCommandConfig::ScissorEnd() => {
-                    (RenderType::ScissorEnd, Color::new(1.0, 1.0, 1.0, 1.0))
+                    (RenderType::ScissorEnd, Color::new(0.0, 0.0, 0.0, 0.0))
                 }
 
                 RenderCommandConfig::Custom(_) => {
@@ -551,6 +569,15 @@ impl<'a> Ui<'a> {
                 render_type: cmd,
                 color,
             };
+
+            // ignore scissor for now
+            if let RenderType::ScissorStart = cmd.render_type {
+                continue;
+            }
+
+            if let RenderType::ScissorEnd = cmd.render_type {
+                continue;
+            }
 
             primitives.push(cmd);
         }
@@ -580,6 +607,24 @@ impl<'a> Ui<'a> {
     pub fn id_index(&self, name: &str, index: u32) -> Id {
         let state = unsafe { &mut *self.state.get() };
         state.layout.id_index(name, index)
+    }
+
+    pub fn is_visible(&self, id: Id) -> bool {
+        let state = unsafe { &mut *self.state.get() };
+        if let Some(state) = state.item_states.get(&id.id.id) {
+            if state.aabb == Vec4::ZERO {
+                false
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn hint_load_priority(&self, handle: IoHandle, priority: LoadPriority) {
+        let state = unsafe { &mut *self.state.get() };
+        state.io_handler.hint_priority(handle, priority);
     }
 
     pub fn input(&self) -> &mut Input {

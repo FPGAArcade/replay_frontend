@@ -165,9 +165,13 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
     for tile in renderer.tiles.iter_mut() {
         let tile_aabb = tile.aabb;
 
+
+        /*
         if tile.data.is_empty() {
             continue;
         }
+
+         */
 
         let tile_width = tile_aabb.extract::<2>() - tile_aabb.extract::<0>();
         let tile_height = tile_aabb.extract::<3>() - tile_aabb.extract::<1>();
@@ -184,6 +188,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
         // TODO: We should here support clearing the buffer with another color, bg image or have a
         // check during the binning if we need to clear at all.
+
         for t in tile_buffer.iter_mut() {
             *t = Color16::new_splat(200);
         }
@@ -259,6 +264,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &render_cmd.bounding_box,
                         buffer.handle as _,
                         1.0,
+                        buffer.stride as _,
                         &texture_sizes);
 
                     //dbg!("DrawImage {:?}", render_cmd.bounding_box);

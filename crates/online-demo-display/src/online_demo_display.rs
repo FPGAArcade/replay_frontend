@@ -1,5 +1,6 @@
 use crate::data::*;
-use flowi_core::content_provider::{ContentProvider, Item};
+use log::*;
+use flowi_core::content_provider::{ContentProvider, Item, ItemVisibility};
 use flowi_core::content_selector::ContentSelector;
 /// This file is the main code for the online demo browser for the frontend. It is responsible for
 /// displaying a list of items that can be selected. It acts very similar to how movie based
@@ -7,7 +8,7 @@ use flowi_core::content_selector::ContentSelector;
 /// select one of them. The selected item will be displayed in a larger size than the other items.
 /// THe backend uses the Demozoo API to fetch the metadata along with screenshots from it's db.
 use flowi_core::{
-    Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection,
+    Alignment, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection,
     //Padding,
     Ui, fixed, grow,
     //job_system::{BoxAnySend, JobHandle, JobResult, JobSystem},
@@ -105,7 +106,7 @@ impl OnlineDemoDisplay {
                                 self.production_items.insert(*id, Item {
                                     unselected_image: screenshots.0,
                                     selected_image: screenshots.1,
-                                    id: *id as u64,
+                                    id: *id as _,
                                 });
                             }
                             Err(_) => error!("Failed to downcast to ProductionEntry"),
@@ -119,7 +120,18 @@ impl OnlineDemoDisplay {
 }
 
 impl ContentProvider for OnlineDemoDisplay {
-    fn get_item(&mut self, ui: &Ui, row: u64, col: u64) -> Item {
+    fn get_item_id(&mut self, row: u64, col: u64) -> u64 {
+        if self.parties.is_empty() {
+            return 0;
+        }
+
+        let party = &self.parties[0];
+        let release = &party.competitions[row as usize].results[col as usize].production;
+        // in order to make the ids unique wi include row / column in the idea
+        let id = release.id as u64;
+        id ^ ((row as u64) << 16) ^ (row as u64)
+    }
+    fn get_item(&mut self, ui: &Ui, visibility: ItemVisibility, row: u64, col: u64) -> Item {
         if self.parties.is_empty() {
             return Item {
                 unselected_image: IoHandle(0),
@@ -128,14 +140,20 @@ impl ContentProvider for OnlineDemoDisplay {
             };
         }
 
+        let id = self.get_item_id(row, col) as i32;
         let party = &self.parties[0];
         let release = &party.competitions[row as usize].results[col as usize].production;
-        let id = release.id;
 
         // First we check if we have loaded the production entry
         if let Some(entry) = self.production_items.get(&id) {
             return *entry;
         }
+
+        let priority = match visibility {
+            ItemVisibility::Hidden => LoadPriority::Low,
+            ItemVisibility::Visible => LoadPriority::High,
+            ItemVisibility::Selected => LoadPriority::Highest,
+        };
 
         // find if we have the job in the queue already
         let found = self.jobs.iter().find(|job| match job {
@@ -143,25 +161,35 @@ impl ContentProvider for OnlineDemoDisplay {
             _ => false,
         });
 
-        if found.is_none() {
-            let handle = ui.load_with_callback(
-                &release.url,
-                LoadPriority::Normal,
-                Box::new(|data| {
-                    let json_data = std::str::from_utf8(data).expect("Failed to parse string");
-                    let production: ProductionEntry =
-                        DeJson::deserialize_json(json_data).expect("Failed to parse JSON");
-                    Box::new(production)
-                }),
-            );
+        match found {
+            Some(QueuedJob::Production(_, handle)) => {
+                debug!("Hinting production {} with priority {:?}", id, priority);
+                ui.hint_load_priority(*handle, priority);
+            },
+            None => {
+                debug!("Loading production {} with priority {:?}", id, priority);
 
-            self.jobs.push(QueuedJob::Production(id, handle));
+                let handle = ui.load_with_callback(
+                    &release.url,
+                    priority,
+                    Box::new(|data| {
+                        let json_data = std::str::from_utf8(data).expect("Failed to parse string");
+                        let production: ProductionEntry =
+                            DeJson::deserialize_json(json_data).expect("Failed to parse JSON");
+                        Box::new(production)
+                    }),
+                );
+
+                self.jobs.push(QueuedJob::Production(id, handle));
+            }
+
+            _ => (),
         }
 
         Item {
             unselected_image: IoHandle(0),
             selected_image: IoHandle(0),
-            id: id as _,
+            id: self.get_item_id(row, col) as _,
         }
     }
 
@@ -176,7 +204,7 @@ impl ContentProvider for OnlineDemoDisplay {
     }
 
     fn get_row_name(&mut self, _ui: &Ui, row: u64) -> &str {
-        if self.parties.is_empty() {
+        if self.parties.is_empty() || row as usize >= self.parties[0].competitions.len() {
             return "";
         }
 
@@ -217,9 +245,7 @@ impl OnlineDemoSelector {
                     LayoutAlignmentY::Center,
                 ))
                 .child_gap(10)
-                .end()
-                .background_color(ClayColor::rgba(255.0, 0.0, 0.0, 255.0)),
-            |_ui| {
+                .end(), |_ui| {
                 // TODO: Fill out entry info here
             },
         );
