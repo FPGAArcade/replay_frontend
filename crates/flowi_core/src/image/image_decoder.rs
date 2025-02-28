@@ -64,39 +64,8 @@ pub(crate) fn decode_zune_internal(
     }
 
     let mut color16_output = Vec::with_capacity(output_size);
-    /*
 
-    if color_space == ZuneColorSpace::RGB {
-        for v in image_data.chunks(3) {
-            let r = v[0] as usize;
-            let g = v[1] as usize;
-            let b = v[2] as usize;
-
-            let r = SRGB_TO_LINEAR_TABLE[r];
-            let g = SRGB_TO_LINEAR_TABLE[g];
-            let b = SRGB_TO_LINEAR_TABLE[b];
-            let a = 255 << 7;
-
-            color16_output.push(Color16::new(r, g, b, a));
-        }
-    } else if color_space == ZuneColorSpace::RGBA {
-        for v in image_data.chunks(4) {
-            let r = v[0] as usize;
-            let g = v[1] as usize;
-            let b = v[2] as usize;
-            let a = v[3] as usize;
-
-            let r = SRGB_TO_LINEAR_TABLE[r];
-            let g = SRGB_TO_LINEAR_TABLE[g];
-            let b = SRGB_TO_LINEAR_TABLE[b];
-            let a = (a << 7) as i16;
-
-            color16_output.push(Color16::new(r, g, b, a));
-        }
-    }
-    */
-
-    if color_space != ZuneColorSpace::RGB || color_space != ZuneColorSpace::RGBA {
+    if color_space != ZuneColorSpace::RGB && color_space != ZuneColorSpace::RGBA {
         return Err(ImageErrors::Generic(format!(
             "Unsupported color space: {:?}",
             color_space
