@@ -39,7 +39,7 @@ const CORNER_OFFSETS: [(f32, f32); 4] = [
     (0.0, 0.0), // BottomRight: Shift right and down
 ];
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[allow(dead_code)]
 pub enum BlendMode {
     None = BLEND_MODE_NONE as _,

@@ -1,4 +1,4 @@
-use crate::TileInfo;
+use crate::{BlendMode, TileInfo};
 use flowi_core::primitives::Color16;
 use simd::*;
 
@@ -70,6 +70,7 @@ fn apply_aa_simd(coord: i32x4, _scale: f32) -> i32x4 {
 #[allow(clippy::too_many_arguments)]
 fn process_pixels<const PIXEL_COUNT: usize>(
     output: &mut [Color16],
+    blend_background: i16x8,
     u: i32x4,
     scale_factor: f32,
     v_offset: i32x4,
@@ -99,19 +100,40 @@ fn process_pixels<const PIXEL_COUNT: usize>(
         let c0 = sample_aligned_texture_2(texture_data, texture_width, u0_fract, v_fract, uv0 as _, uv1 as _);
         let c1 = sample_aligned_texture_2(texture_data, texture_width, u2_fract, v_fract, uv2 as _, uv3 as _);
 
+        let t0 = i16x8::load_unaligned(output, (_y * tile_info.width + x + 0) as _);
+        let t1 = i16x8::load_unaligned(output, (_y * tile_info.width + x + 2) as _);
+
+        let c0 = i16x8::lerp(t0, c0, blend_background);
+        let c1 = i16x8::lerp(t1, c1, blend_background);
+
         c0.store_unaligned(output, (_y * tile_info.width + x + 0) as _);
         c1.store_unaligned(output, (_y * tile_info.width + x + 2) as _);
+
     } else if PIXEL_COUNT == 3 {
         let c0 = sample_aligned_texture_2(texture_data, texture_width, u0_fract, v_fract, uv0 as _, uv1 as _);
         let c1 = sample_aligned_texture(texture_data, texture_width, u2_fract, v_fract, uv2 as _);
+
+        let t0 = i16x8::load_unaligned(output, (_y * tile_info.width + x + 0) as _);
+        let t1 = i16x8::load_unaligned(output, (_y * tile_info.width + x + 2) as _);
+
+        let c0 = i16x8::lerp(t0, c0, blend_background);
+        let c1 = i16x8::lerp(t1, c1, blend_background);
 
         c0.store_unaligned(output, (_y * tile_info.width + x + 0) as _);
         c1.store_unaligned_lower(output, (_y * tile_info.width + x + 2) as _);
     } else if PIXEL_COUNT == 2 {
         let c0 = sample_aligned_texture_2(texture_data, texture_width, u0_fract, v_fract, uv0 as _, uv1 as _);
+
+        let t0 = i16x8::load_unaligned(output, (_y * tile_info.width + x + 0) as _);
+        let c0 = i16x8::lerp(t0, c0, blend_background);
+
         c0.store_unaligned(output, (_y * tile_info.width + x + 0) as _);
     } else if PIXEL_COUNT == 1 {
         let c0 = sample_aligned_texture(texture_data, texture_width, u0_fract, v_fract, uv0 as _);
+
+        let t0 = i16x8::load_unaligned(output, (_y * tile_info.width + x + 0) as _);
+        let c0 = i16x8::lerp(t0, c0, blend_background);
+
         c0.store_unaligned_lower(output, (_y * tile_info.width + x + 0) as _);
     }
 }
@@ -123,6 +145,8 @@ pub fn render_sharp_bilinear(
     coords: &[f32],
     texture_data: *const Color16,
     scale_factor: f32,
+    _blend_mode: BlendMode,
+    color: i16x8,
     texture_stride: usize,
     texture_size: &[i32; 4])
 {
@@ -194,14 +218,14 @@ pub fn render_sharp_bilinear(
         let mut u = u_start;
 
         for x in 0..xlen >> 2 {
-            process_pixels::<4>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, x * 4, _y, tile_info);
+            process_pixels::<4>(output, color, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, x * 4, _y, tile_info);
             u += u_step;
         }
 
         match xlen & 3 {
-            1 => process_pixels::<1>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 1, _y, tile_info),
-            2 => process_pixels::<2>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 2, _y, tile_info),
-            3 => process_pixels::<3>(output, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 3, _y, tile_info),
+            1 => process_pixels::<1>(output, color, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 1, _y, tile_info),
+            2 => process_pixels::<2>(output, color, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 2, _y, tile_info),
+            3 => process_pixels::<3>(output, color, u, scale_factor, v_offset, v_fract, fract_mask, texture_data, texture_stride, xlen - 3, _y, tile_info),
             _ => (),
         }
 

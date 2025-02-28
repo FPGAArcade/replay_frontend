@@ -301,7 +301,8 @@ impl<'a> Ui<'a> {
                         .image()
                         .data_ptr(image.data.as_ptr() as _)
                         .source_dimensions(source_dimensions)
-                        .end(),
+                        .end()
+                        .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)),
                     |_ui| {},
                 );
             }
@@ -523,7 +524,7 @@ impl<'a> Ui<'a> {
                         handle: image.data as _,
                         rounding: false,
                     }),
-                    Color::new(1.0, 1.0, 1.0, 1.0),
+                    Self::color(image.background_color),
                 ),
 
                 RenderCommandConfig::Border(ref border) => {

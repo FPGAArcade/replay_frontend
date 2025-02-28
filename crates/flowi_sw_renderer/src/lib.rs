@@ -255,6 +255,13 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                     let texture_sizes = [
                         buffer.width as _, buffer.height as _,
                         buffer.width as _, buffer.height as _];
+
+                    let color = if blend_mode == BlendMode::WithBackground {
+                        i16x8::new_splat((render_cmd.color.a as i16) << 7)
+                    } else {
+                        i16x8::new_splat(0x07fff)
+                    };
+
                     //let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
 
                     sharp_bilinear::render_sharp_bilinear(
@@ -264,6 +271,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &render_cmd.bounding_box,
                         buffer.handle as _,
                         1.0,
+                        blend_mode,
+                        color,
                         buffer.stride as _,
                         &texture_sizes);
 
