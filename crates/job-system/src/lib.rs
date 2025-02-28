@@ -3,7 +3,7 @@
 //! This library provides a thread-based job system for executing tasks in parallel.
 //! Jobs can share state through Arc<Mutex<T>> and return results through channels.
 
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use std::any::Any;
 use std::thread;
 use thiserror::Error;
@@ -110,7 +110,7 @@ impl JobSystem {
     /// # Errors
     /// Returns `JobError` if thread creation fails
     pub fn new(num_threads: usize) -> JobResult<Self> {
-        let (sender, receiver) = bounded(32);
+        let (sender, receiver) = unbounded();
         let receiver_clone: Receiver<(Option<Job>, BoxAnySend, Sender<JobResult<BoxAnySend>>)> =
             receiver.clone();
 
@@ -147,7 +147,7 @@ impl JobSystem {
     where
         F: FnOnce(BoxAnySend) -> JobResult<BoxAnySend> + Send + 'static,
     {
-        let (result_sender, result_receiver) = bounded(1);
+        let (result_sender, result_receiver) = unbounded();
         let job = Box::new(f) as Job;
 
         self.sender
