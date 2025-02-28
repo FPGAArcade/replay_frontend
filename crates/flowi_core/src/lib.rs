@@ -99,6 +99,7 @@ pub(crate) struct State<'a> {
     pub(crate) focus_id: Option<Id>,
     pub(crate) job_system: JobSystem,
     pub(crate) screen_area: f32x4,
+    pub(crate) fonts: Vec<FontHandle>,
 }
 
 #[allow(dead_code)]
@@ -122,6 +123,14 @@ pub enum InputAction {
     MoveRight,
     Select,
     Cancel,
+}
+
+// TODO: We likely need something better than this
+pub enum FontStyle {
+    Default,
+    Bold,
+    Thin,
+    Light,
 }
 
 /*
@@ -159,6 +168,7 @@ impl<'a> Ui<'a> {
             focus_id: None,
             screen_area: f32x4::new_splat(0.0),
             job_system: JobSystem::new(2).unwrap(),
+            fonts: vec![0; 16],
         };
 
         let data = Box::new(Ui {
@@ -222,6 +232,16 @@ impl<'a> Ui<'a> {
     pub fn set_font(&self, font_id: FontHandle) {
         let state = unsafe { &mut *self.state.get() };
         state.active_font = font_id;
+    }
+
+    pub fn register_font(&self, font_id: FontHandle, font_style: FontStyle) {
+        let state = unsafe { &mut *self.state.get() };
+        state.fonts[font_id as usize] = font_id;
+    }
+
+    pub fn select_font(&self, font_style: FontStyle) {
+        let state = unsafe { &mut *self.state.get() };
+        state.active_font = state.fonts[font_style as usize];
     }
 
     pub fn begin(&mut self, delta_time: f32, width: usize, height: usize) {

@@ -7,13 +7,7 @@ use flowi_core::content_selector::ContentSelector;
 /// selectors for many streaming services works. The user can scroll through a list of items and
 /// select one of them. The selected item will be displayed in a larger size than the other items.
 /// THe backend uses the Demozoo API to fetch the metadata along with screenshots from it's db.
-use flowi_core::{
-    Alignment, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection,
-    //Padding,
-    Ui, fixed, grow,
-    //job_system::{BoxAnySend, JobHandle, JobResult, JobSystem},
-    //percent,
-};
+use flowi_core::{Alignment, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, fixed, grow, percent, Color, FontStyle};
 use flowi_core::{IoHandle, LoadPriority, LoadState};
 use log::error;
 //use log::*;
@@ -35,6 +29,7 @@ pub struct OnlineDemoDisplay {
     productions_loaded: HashMap<i32, Box<ProductionEntry>>,
     production_items: HashMap<i32, Item>,
     jobs: Vec<QueuedJob>,
+    selected_item: Option<(u64, u64)>,
 }
 
 impl OnlineDemoDisplay {
@@ -45,6 +40,7 @@ impl OnlineDemoDisplay {
             url_string: String::with_capacity(128),
             productions_loaded: HashMap::new(),
             production_items: HashMap::new(),
+            selected_item: None,
         }
     }
 
@@ -146,6 +142,9 @@ impl ContentProvider for OnlineDemoDisplay {
 
         // First we check if we have loaded the production entry
         if let Some(entry) = self.production_items.get(&id) {
+            if visibility == ItemVisibility::Selected {
+                self.selected_item = Some((row, col));
+            }
             return *entry;
         }
 
@@ -245,7 +244,24 @@ impl OnlineDemoSelector {
                     LayoutAlignmentY::Center,
                 ))
                 .child_gap(10)
-                .end(), |_ui| {
+                .end(), |ui| {
+
+                let selected_id = if let Some((row, col)) = self.content_provider.selected_item {
+                    self.content_provider.get_item_id(row, col) as _
+                } else {
+                    0
+                };
+
+                if let Some((row, col)) = self.content_provider.selected_item {
+                    let party = &self.content_provider.parties[0];
+                    let release = &party.competitions[row as usize].results[col as usize].production;
+                    if let Some(entry) = self.content_provider.productions_loaded.get(&selected_id) {
+                        display_entry(ui, release, entry);
+                    }
+                } else {
+                    //ui.text("No item selected");
+                }
+
                 // TODO: Fill out entry info here
             },
         );
@@ -270,14 +286,13 @@ impl OnlineDemoSelector {
     }
 }
 
-/*
 #[rustfmt::skip]
-fn display_entry(ui: &Ui, app: &App, entry: &DemoEntry) {
+fn display_entry(ui: &Ui, release: &Release, entry: &ProductionEntry) {
     ui.with_layout(&Declaration::new()
         .id(ui.id("entry_info"))
         .layout()
             .width(grow!())
-            .height(percent!(0.5))
+            .height(fixed!(200.0))
             .direction(LayoutDirection::TopToBottom)
             .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
             .child_gap(10)
@@ -292,12 +307,11 @@ fn display_entry(ui: &Ui, app: &App, entry: &DemoEntry) {
                 .direction(LayoutDirection::LeftToRight)
             .end(), |ui|
         {
-            ui.set_font(app.fonts.thin);
+            ui.select_font(FontStyle::Thin);
 
-            let text_size = ui.text_size(&entry.metadata.title, 78);
+            let text_size = ui.text_size(&entry.title, 78);
 
-            ui.text_with_layout(&entry.metadata.title, 78,
-                ClayColor::rgba(255.0, 255.0, 255.0, 255.0),
+            ui.text_with_layout(&entry.title, 78, (255.0, 255.0, 255.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(fixed!(text_size.width))
@@ -305,8 +319,7 @@ fn display_entry(ui: &Ui, app: &App, entry: &DemoEntry) {
                         .padding(Padding::horizontal(32))
                         .end());
 
-            ui.text_with_layout("1992", 78,
-                ClayColor::rgba(128.0, 128.0, 128.0, 255.0),
+            ui.text_with_layout("1992", 78, (128.0, 128.0, 128.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(grow!())
@@ -323,28 +336,29 @@ fn display_entry(ui: &Ui, app: &App, entry: &DemoEntry) {
                 .direction(LayoutDirection::LeftToRight)
             .end(), |ui|
         {
-            ui.set_font(app.fonts.default);
+            ui.select_font(FontStyle::Default);
 
-            ui.button("DEMO");
-            ui.button("AMIGA OCS/ECS");
+            if release.types.len() > 0 {
+                ui.button(&release.types[0].name);
+            }
 
-            ui.text_with_layout("by", 36,
-                ClayColor::rgba(255.0, 255.0, 255.0, 255.0),
+            if entry.platforms.len() > 0 {
+                ui.button(&entry.platforms[0].name);
+            }
+
+            ui.text_with_layout("by", 36, (255.0, 255.0, 255.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(fixed!(44.0))
                         .end());
 
-            ui.set_font(app.fonts.bold);
+            ui.select_font(FontStyle::Bold);
 
-            ui.text_with_layout(&entry.metadata.author_nicks[0].name, 36,
-                ClayColor::rgba(201.0, 22.0, 38.0, 255.0),
+            ui.text_with_layout(&entry.author_nicks[0].name, 36, (201.0, 22.0, 38.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(grow!())
                         .end());
-
         });
     });
 }
-*/

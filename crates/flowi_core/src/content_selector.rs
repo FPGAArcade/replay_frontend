@@ -106,7 +106,7 @@ impl ContentSelector {
 
                 // Figure out visibility of the item
                 let is_visible = ui.is_visible(id);
-                let is_selected = col == 0;
+                let is_selected = col == self.selected_item.col && row == self.selected_item.row;
 
                 let visibility = if is_selected {
                     ItemVisibility::Selected

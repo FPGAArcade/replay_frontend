@@ -1,7 +1,7 @@
 //use arena_allocator;
 use flowi::Application;
 use flowi::Ui;
-use flowi::{grow, Declaration, FontHandle, LayoutDirection};
+use flowi::{grow, Declaration, FontHandle, LayoutDirection, FontStyle};
 use log::*;
 //use demozoo_fetcher::ProductionEntry;
 use online_demo_display::OnlineDemoSelector;
@@ -59,6 +59,11 @@ fn main() {
         thin: ui.load_font("data/fonts/roboto/Roboto-Thin.ttf").unwrap(),
         light: ui.load_font("data/fonts/roboto/Roboto-Light.ttf").unwrap(),
     };
+
+    ui.register_font(fonts.default, FontStyle::Default);
+    ui.register_font(fonts.thin, FontStyle::Thin);
+    ui.register_font(fonts.bold, FontStyle::Bold);
+    ui.register_font(fonts.light, FontStyle::Light);
 
     let mut app = Box::new(App {
         width,
