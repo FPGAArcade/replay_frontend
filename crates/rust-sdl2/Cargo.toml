@@ -1,0 +1,172 @@
+[package]
+name = "sdl2"
+description = "SDL2 bindings for Rust"
+repository = "https://github.com/Rust-SDL2/rust-sdl2"
+documentation = "https://docs.rs/sdl2"
+version = "0.37.0"
+license = "MIT"
+authors = [ "Tony Aldridge <tony@angry-lawyer.com>", "Cobrand <cobrandw@gmail.com>"]
+keywords = ["SDL", "windowing", "graphics", "api", "engine"]
+categories = ["rendering","api-bindings","game-engines","multimedia"]
+readme = "README.md"
+resolver = "2"
+
+[lib]
+name = "sdl2"
+path = "src/sdl2/lib.rs"
+
+[dependencies]
+bitflags = "1.2.1"
+libc = "0.2.92"
+lazy_static = "1.4.0"
+
+[dependencies.sdl2-sys]
+path = "sdl2-sys"
+default-features = false
+features = ["bundled", "static-link"]
+
+[dependencies.c_vec]
+# allow both 1.* and 2.0 versions
+version = ">= 1.0"
+optional = true
+
+[dev-dependencies]
+rand = "0.7"
+wgpu = { version = "0.20", features = ["spirv"] }
+pollster = "0.2.4"
+env_logger = "0.11.0"
+
+[dependencies.raw-window-handle]
+version = "0.6.0"
+optional = true
+
+[features]
+unsafe_textures = []
+default = []
+gfx = ["c_vec", "sdl2-sys/gfx"]
+mixer = ["sdl2-sys/mixer"]
+image = ["sdl2-sys/image"]
+ttf = ["sdl2-sys/ttf"]
+# Use hidapi support in SDL. Only 2.0.12 and after
+hidapi = []
+
+use-bindgen = ["sdl2-sys/use-bindgen"]
+use-pkgconfig = ["sdl2-sys/use-pkgconfig"]
+use-vcpkg = ["sdl2-sys/use-vcpkg"]
+use_mac_framework = ["sdl2-sys/use_mac_framework"]
+use_ios_framework = ["sdl2-sys/use_ios_framework"]
+bundled = ["sdl2-sys/bundled"]
+static-link = ["sdl2-sys/static-link"]
+
+[package.metadata.docs.rs]
+features = ["default", "gfx", "mixer", "image", "ttf"]
+
+[[example]]
+name = "animation"
+
+[[example]]
+name = "audio-capture-and-replay"
+
+[[example]]
+name = "audio-queue-squarewave"
+
+[[example]]
+name = "audio-squarewave"
+
+[[example]]
+name = "audio-wav"
+
+[[example]]
+name = "audio-whitenoise"
+
+[[example]]
+required-features = ["image"]
+name = "cursor"
+
+[[example]]
+name = "demo"
+
+[[example]]
+name = "game-controller"
+
+[[example]]
+required-features = ["unsafe_textures"]
+name = "game-of-life-unsafe-textures"
+
+[[example]]
+name = "game-of-life"
+
+[[example]]
+required-features = ["gfx"]
+name = "gfx-demo"
+
+[[example]]
+name = "haptic"
+
+[[example]]
+required-features = ["image"]
+name = "image-demo"
+
+[[example]]
+name = "joystick"
+
+[[example]]
+name = "keyboard-state"
+
+[[example]]
+name = "message-box"
+
+[[example]]
+required-features = ["mixer"]
+name = "mixer-demo"
+
+[[example]]
+name = "mouse-state"
+
+[[example]]
+name = "no-renderer"
+
+[[example]]
+name = "relative-mouse-state"
+
+[[example]]
+name = "renderer-target"
+
+[[example]]
+name = "events"
+
+[[example]]
+name = "renderer-texture"
+
+[[example]]
+name = "renderer-yuv"
+
+[[example]]
+required-features = ["ttf", "image"]
+name = "resource-manager"
+
+[[example]]
+required-features = ["hidapi"]
+name = "sensors"
+
+[[example]]
+required-features = ["ttf"]
+name = "ttf-demo"
+
+[[example]]
+name = "window-properties"
+
+[[example]]
+required-features = ["raw-window-handle"]
+name = "raw-window-handle-with-wgpu"
+
+[package.metadata.vcpkg]
+dependencies = ["sdl2"]
+
+# dependencies required when building examples and tests for this crate
+dev-dependencies = ["sdl2", "sdl2-image[libjpeg-turbo,tiff,libwebp]", "sdl2-ttf", "sdl2-gfx", "sdl2-mixer"]
+git = "https://github.com/microsoft/vcpkg"
+rev = "2024.05.24" # release 2024.05.24 # to check for a new one, check https://github.com/microsoft/vcpkg/releases
+
+[package.metadata.vcpkg.target]
+x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md" }
