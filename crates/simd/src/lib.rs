@@ -385,9 +385,9 @@ impl f32x4 {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             let mask = vld1q_u8(table.as_ptr());
-            let result = vqtbl1q_s8(vreinterpretq_s8_s16(self.v), mask);
+            let result = vqtbl1q_s8(vreinterpretq_s8_f32(self.v), mask);
             Self {
-                v: vreinterpretq_s16_s8(result),
+                v: vreinterpretq_f32_s8(result),
             }
         }
         #[cfg(target_arch = "x86_64")]
@@ -1095,9 +1095,9 @@ impl i32x4 {
         #[cfg(target_arch = "aarch64")]
         unsafe {
             let mask = vld1q_u8(table.as_ptr());
-            let result = vqtbl1q_s8(vreinterpretq_s8_s16(self.v), mask);
+            let result = vqtbl1q_s8(vreinterpretq_s8_s32(self.v), mask);
             Self {
-                v: vreinterpretq_s16_s8(result),
+                v: vreinterpretq_s32_s8(result),
             }
         }
         #[cfg(target_arch = "x86_64")]
