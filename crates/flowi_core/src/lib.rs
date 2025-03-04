@@ -30,6 +30,8 @@ use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::time::Duration;
+use tracy_client::span;
+
 //pub use image::ImageInfo;
 
 pub use clay_layout::{
@@ -434,6 +436,16 @@ impl<'a> Ui<'a> {
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
 
+        let zone = span!("rendering");
+        zone.emit_color(0x00FF00);
+
+        let mut primitives = Vec::with_capacity(1024);
+
+        {
+        let zone = span!("binning");
+
+        let state = unsafe { &mut *self.state.get() };
+
         // TODO: Don't iterate over all boxes twices
         let focus_id = if let Some(id) = state.focus_id {
             id.id
@@ -443,7 +455,6 @@ impl<'a> Ui<'a> {
 
         let anime_rate = 1.0 - 2f32.powf(-8.0 * state.delta_time);
 
-        let mut primitives = Vec::with_capacity(1024);
 
         if let Some(bg_image) = state.background_image.as_ref() {
             if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(bg_image.handle) {
@@ -604,14 +615,16 @@ impl<'a> Ui<'a> {
 
             primitives.push(cmd);
         }
+        }
 
         // remove all items that doesn't match the current frame
-        state
-            .item_states
+        state.item_states
             .retain(|_, item| item.frame == state.current_frame);
 
-        //let primitives = Self::translate_clay_render_commands(state, commands);
-        state.renderer.render(&primitives);
+        {
+            let zone = span!("render");
+            state.renderer.render(&primitives);
+        }
 
         // Generate primitives from all boxes
         //state.generate_primitives();

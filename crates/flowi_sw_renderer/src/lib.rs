@@ -1,4 +1,5 @@
 use simd::*;
+use tracy_client::span;
 
 pub mod raster;
 pub mod sharp_bilinear;
@@ -106,6 +107,9 @@ pub fn copy_tile_linear_to_srgb(
     tile_info: &Tile,
     width: usize,
 ) {
+    let copy_tile = span!("copy_tile_linear_to_srgb");
+    copy_tile.emit_color(0xFF00FF);
+
     let x0 = tile_info.aabb.extract::<0>() as usize;
     let y0 = tile_info.aabb.extract::<1>() as usize;
     let x1 = tile_info.aabb.extract::<2>() as usize;
@@ -160,11 +164,15 @@ pub fn copy_tile_linear_to_srgb(
 }
 
 fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
+    let span = span!("render_tiles");
+    span.emit_color(0xFFFF00);
+
     //dbg!("---------------------------------");
 
     for tile in renderer.tiles.iter_mut() {
         let tile_aabb = tile.aabb;
 
+        span!("tile loop");
 
         /*
         if tile.data.is_empty() {
@@ -188,10 +196,18 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
         // TODO: We should here support clearing the buffer with another color, bg image or have a
         // check during the binning if we need to clear at all.
+        {
+            let clear_tile = span!("clear tile");
+            clear_tile.emit_color(0x0000FF);
 
-        for t in tile_buffer.iter_mut() {
-            *t = Color16::new_splat(200);
+            for t in tile_buffer.iter_mut() {
+                *t = Color16::new_splat(200);
+            }
         }
+
+        {
+        let tile_loop = span!("tile loop");
+        tile_loop.emit_color(0x00FFFF);
 
         for index in tile.data.iter() {
             let render_cmd = &commands[*index];
@@ -204,124 +220,116 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
             let color =
                 get_color_from_floats_0_255(render_cmd.color, &renderer.srgb_to_linear_table);
 
-            match &render_cmd.render_type {
-                RenderType::DrawRect => {
-                    //dbg!("DrawRect {:?}", render_cmd.bounding_box);
-                    renderer.raster.render_solid_quad(
-                        tile_buffer,
-                        &tile_info,
-                        &render_cmd.bounding_box,
-                        color,
-                        blend_mode,
-                    );
-                }
+            {
+                let command = span!("RenderCommand");
+                command.emit_color(0x00FF00);
 
-                RenderType::DrawRectRounded(rect) => {
-                    //dbg!("DrawRectRounded {:?}", render_cmd.bounding_box);
-                    //dbg!("DrawRectRounded");
-                    renderer.raster.render_solid_quad_rounded(
-                        tile_buffer,
-                        &tile_info,
-                        &render_cmd.bounding_box,
-                        color,
-                        &rect.corners,
-                        blend_mode,
-                    );
-                }
-
-                RenderType::DrawTextBuffer(buffer) => {
-                    if buffer.data.0 == core::ptr::null() {
-                        continue;
+                match &render_cmd.render_type {
+                    RenderType::DrawRect => {
+                        span!("DrawRect");
+                        renderer.raster.render_solid_quad(
+                            tile_buffer,
+                            &tile_info,
+                            &render_cmd.bounding_box,
+                            color,
+                            blend_mode,
+                        );
                     }
 
-                    let coords = [
-                        render_cmd.bounding_box[0],
-                        render_cmd.bounding_box[1],
-                        render_cmd.bounding_box[0] + buffer.width as f32,
-                        render_cmd.bounding_box[1] + buffer.height as f32,
-                    ];
+                    RenderType::DrawRectRounded(rect) => {
+                        span!("DrawRectRounded");
+                        renderer.raster.render_solid_quad_rounded(
+                            tile_buffer,
+                            &tile_info,
+                            &render_cmd.bounding_box,
+                            color,
+                            &rect.corners,
+                            blend_mode,
+                        );
+                    }
 
-                    renderer.raster.render_text_texture(
-                        tile_buffer,
-                        buffer.data.0 as _,
-                        &tile_info,
-                        buffer.width as _,
-                        &coords,
-                        color,
-                    );
+                    RenderType::DrawTextBuffer(buffer) => {
+                        span!("DrawTextBuffer");
+                        if buffer.data.0 == core::ptr::null() {
+                            continue;
+                        }
+
+                        let coords = [
+                            render_cmd.bounding_box[0],
+                            render_cmd.bounding_box[1],
+                            render_cmd.bounding_box[0] + buffer.width as f32,
+                            render_cmd.bounding_box[1] + buffer.height as f32,
+                        ];
+
+                        renderer.raster.render_text_texture(
+                            tile_buffer,
+                            buffer.data.0 as _,
+                            &tile_info,
+                            buffer.width as _,
+                            &coords,
+                            color,
+                        );
+                    }
+
+                    RenderType::DrawImage(buffer) => {
+                        span!("DrawImage");
+                        let texture_sizes = [
+                            buffer.width as _, buffer.height as _,
+                            buffer.width as _, buffer.height as _];
+
+                        let color = if blend_mode == BlendMode::WithBackground {
+                            i16x8::new_splat((render_cmd.color.a as i16) << 7)
+                        } else {
+                            i16x8::new_splat(0x07fff)
+                        };
+
+                        //let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
+
+                        sharp_bilinear::render_sharp_bilinear(
+                            tile_buffer,
+                            renderer.raster.scissor_rect,
+                            &tile_info,
+                            &render_cmd.bounding_box,
+                            buffer.handle as _,
+                            1.0,
+                            blend_mode,
+                            color,
+                            buffer.stride as _,
+                            &texture_sizes);
+
+                        //dbg!("DrawImage {:?}", render_cmd.bounding_box);
+                        //dbg!("DrawImage {:?}", buffer.handle);
+
+                        /*
+                        renderer.raster.render_aligned_texture(
+                            tile_buffer,
+                            &tile_info,
+                            &render_cmd.bounding_box,
+                            buffer.handle as _,
+                            &uv,
+                            &texture_sizes,
+                        );
+
+                         */
+                    }
+
+                    RenderType::DrawBackground(buffer) => {
+                        span!("DrawBackground");
+                        renderer.raster.draw_background(
+                            tile_buffer,
+                            &tile_info,
+                            &render_cmd.bounding_box,
+                            buffer.width as _,
+                            buffer.handle as _,
+                        );
+                    }
+
+                    _ => {}
                 }
 
-                RenderType::DrawImage(buffer) => {
-                    let texture_sizes = [
-                        buffer.width as _, buffer.height as _,
-                        buffer.width as _, buffer.height as _];
-
-                    let color = if blend_mode == BlendMode::WithBackground {
-                        i16x8::new_splat((render_cmd.color.a as i16) << 7)
-                    } else {
-                        i16x8::new_splat(0x07fff)
-                    };
-
-                    //let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
-
-                    sharp_bilinear::render_sharp_bilinear(
-                        tile_buffer,
-                        renderer.raster.scissor_rect,
-                        &tile_info,
-                        &render_cmd.bounding_box,
-                        buffer.handle as _,
-                        1.0,
-                        blend_mode,
-                        color,
-                        buffer.stride as _,
-                        &texture_sizes);
-
-                    //dbg!("DrawImage {:?}", render_cmd.bounding_box);
-                    //dbg!("DrawImage {:?}", buffer.handle);
-
-                    /*
-                    renderer.raster.render_aligned_texture(
-                        tile_buffer,
-                        &tile_info,
-                        &render_cmd.bounding_box,
-                        buffer.handle as _,
-                        &uv,
-                        &texture_sizes,
-                    );
-
-                     */
-                }
-
-                RenderType::DrawBackground(buffer) => {
-                    renderer.raster.draw_background(
-                        tile_buffer,
-                        &tile_info,
-                        &render_cmd.bounding_box,
-                        buffer.width as _,
-                        buffer.handle as _,
-                    );
-                }
-
-                _ => {}
             }
+        }
 
-            /*
-            self.raster.render_solid_quad(
-                tile_buffer,
-                &tile_info,
-                &coords,
-                color,
-                raster::BlendMode::None);
-
-            self.raster.render_solid_quad_rounded(
-                tile_buffer,
-                &tile_info,
-                &render_command.coords,
-                color,
-                16.0,
-                raster::BlendMode::None,
-            );
-            */
         }
 
         // Rasterize the primitives for this tile
@@ -345,7 +353,7 @@ fn get_tile_size(pos: usize, max_size: usize, tile_size: usize) -> usize {
 
 impl flowi_core::Renderer for Renderer {
     fn new(screen_size: (usize, usize), _window: Option<&RawWindowHandle>) -> Self {
-        let tile_size = (128usize, 128usize);
+        let tile_size = (512usize, 512usize);
 
         let mut tiles = Vec::new();
         let mut tile_index = 0;

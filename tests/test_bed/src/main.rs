@@ -5,6 +5,7 @@ use flowi::{grow, Declaration, FontHandle, LayoutDirection, FontStyle};
 use log::*;
 //use demozoo_fetcher::ProductionEntry;
 use online_demo_display::OnlineDemoSelector;
+use tracy_client::{set_thread_name, span, Client};
 
 pub struct Fonts {
     pub default: FontHandle,
@@ -40,8 +41,13 @@ fn main() {
     let width = 1920;
     let height = 1080;
 
+    println!("tracy_client::Client::start");
+
+    tracy_client::Client::start();
+    tracy_client::set_thread_name!("Main Thread");
+
     let _ = env_logger::builder()
-        .filter_level(LevelFilter::Info)
+        .filter_level(LevelFilter::Error)
         .init();
 
     let settings = flowi::ApplicationSettings { width, height };

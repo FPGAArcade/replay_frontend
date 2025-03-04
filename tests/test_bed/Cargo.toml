@@ -9,6 +9,7 @@ env_logger = "0.10"
 flowi = { path = "../../crates/flowi" }
 log = "0.4"
 online-demo-display = { path = "../../crates/online-demo-display" }
+tracy-client = "0.18.0"
 
 [features]
 default = []

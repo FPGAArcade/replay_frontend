@@ -7,6 +7,7 @@ edition = "2021"
 flowi_core = { path = "../flowi_core" }
 flowi_sw_renderer = { path = "../flowi_sw_renderer" }
 png = "0.16"
+tracy-client = "0.18.0"
 
 [dependencies.sdl2]
 path = "../rust-sdl2"

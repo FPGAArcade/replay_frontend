@@ -7,4 +7,5 @@ edition = "2021"
 raw-window-handle = "0.6"
 simd = { path = "../simd" }
 flowi_core = { path = "../flowi_core" }
+tracy-client = "0.18.0"
 

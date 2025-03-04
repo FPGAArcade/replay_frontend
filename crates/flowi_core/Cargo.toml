@@ -24,3 +24,4 @@ zune-image = { version = "0.4", default-features = false, features = ["metadata"
 ureq = "3.0"
 simd = { path = "../simd" }
 priority-queue = "2"
+tracy-client = "0.18.0"

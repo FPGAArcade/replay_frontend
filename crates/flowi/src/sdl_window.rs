@@ -2,6 +2,7 @@ use crate::application::Window;
 use flowi_core::input::{Input, Key};
 use flowi_core::ApplicationSettings;
 use flowi_core::SoftwareRenderData;
+use tracy_client::span;
 
 use sdl2::{
     //controller::{Axis, Button, GameController},
@@ -325,11 +326,18 @@ impl Window for Sdl2Window {
         let width = settings.width as u32;
         let height = settings.height as u32;
 
-        let window = video_subsystem
+        let mut window = video_subsystem
             .window("test-bed", width, height)
             .position_centered()
             .build()
             .expect("Failed to create SDL window.");
+
+        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+        {
+            println!("Running on aarch64-linux, setting fullscreen mode");
+            window.set_fullscreen(sdl2::video::FullscreenType::Desktop).unwrap();
+            // Or use FullscreenType::True if you prefer true fullscreen
+        }
 
         let mut canvas = window
             .into_canvas()
@@ -407,6 +415,26 @@ impl Window for Sdl2Window {
         // Update the internal intput state
         input.update(self.time as f32, delta_time as f32);
 
+    }
+
+    fn present(&mut self) {
+        self.canvas.present();
+    }
+
+
+    fn update_software_renderer<'a>(&'a mut self, data: Option<SoftwareRenderData<'a>>) {
+        if let Some(data) = data {
+            let t = span!("update_software_renderer");
+            t.emit_color(0xFF0000);
+            //self.export_frame(data.buffer);
+            self.texture
+                .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+                    buffer.copy_from_slice(data.buffer);
+                })
+                .unwrap();
+        }
+        let t = span!("sdl copy texture");
+        t.emit_color(0x00FFF00);
         self.canvas
             .copy(
                 &self.texture,
@@ -419,23 +447,6 @@ impl Window for Sdl2Window {
                 )),
             )
             .unwrap();
-        self.canvas.present();
-    }
-
-    fn present(&mut self) {
-        self.canvas.present();
-    }
-
-
-    fn update_software_renderer<'a>(&'a mut self, data: Option<SoftwareRenderData<'a>>) {
-        if let Some(data) = data {
-            //self.export_frame(data.buffer);
-            self.texture
-                .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-                    buffer.copy_from_slice(data.buffer);
-                })
-                .unwrap();
-        }
     }
 
     /*
