@@ -67,16 +67,17 @@ impl OnlineDemoDisplay {
     /// Queues the screenshots for loading. If there are no screenshots, it will return a pair of
     /// (0, 0) IoHandles.
     /// TODO: We should have a default image here instead of null handles
-    fn queue_screenshots(entry: &ProductionEntry, ui: &Ui) -> (IoHandle, IoHandle){
+    fn queue_screenshots(entry: &ProductionEntry, ui: &Ui) -> (IoHandle, IoHandle) {
         if entry.screenshots.is_empty() {
             (IoHandle(0), IoHandle(0))
         } else if entry.screenshots.len() == 1 {
             let handle = ui.load_image(&entry.screenshots[0].thumbnail_url, None);
-            (handle, handle)
+            let bgi = ui.load_background_image(&entry.screenshots[0].original_url);
+            (handle, bgi)
         } else {
             let h0 = ui.load_image(&entry.screenshots[0].thumbnail_url, None);
-            let h1 = ui.load_image(&entry.screenshots[1].thumbnail_url, None);
-            (h0, h1)
+            let bgi = ui.load_background_image(&entry.screenshots[1].original_url);
+            (h0, bgi)
         }
     }
 
@@ -100,8 +101,8 @@ impl OnlineDemoDisplay {
                                 let screenshots = Self::queue_screenshots(&production, ui);
                                 self.productions_loaded.insert(*id, production);
                                 self.production_items.insert(*id, Item {
-                                    unselected_image: screenshots.0,
-                                    selected_image: screenshots.1,
+                                    image: screenshots.0,
+                                    background_image: screenshots.1,
                                     id: *id as _,
                                 });
                             }
@@ -130,8 +131,8 @@ impl ContentProvider for OnlineDemoDisplay {
     fn get_item(&mut self, ui: &Ui, visibility: ItemVisibility, row: u64, col: u64) -> Item {
         if self.parties.is_empty() {
             return Item {
-                unselected_image: IoHandle(0),
-                selected_image: IoHandle(0),
+                image: IoHandle(0),
+                background_image: IoHandle(0),
                 id: u64::MAX / 2,
             };
         }
@@ -186,8 +187,8 @@ impl ContentProvider for OnlineDemoDisplay {
         }
 
         Item {
-            unselected_image: IoHandle(0),
-            selected_image: IoHandle(0),
+            image: IoHandle(0),
+            background_image: IoHandle(0),
             id: self.get_item_id(row, col) as _,
         }
     }
@@ -258,31 +259,14 @@ impl OnlineDemoSelector {
                     if let Some(entry) = self.content_provider.productions_loaded.get(&selected_id) {
                         display_entry(ui, release, entry);
                     }
-                } else {
-                    //ui.text("No item selected");
                 }
 
                 // TODO: Fill out entry info here
             },
         );
 
-        /*
-        ui.with_layout(&Declaration::new()
-            .id(ui.id("bar"))
-            .layout()
-                .width(grow!())
-                .height(grow!())
-                .direction(LayoutDirection::LeftToRight)
-                .child_alignment(Alignment::new(LayoutAlignmentX::Left, LayoutAlignmentY::Center))
-                .child_gap(10)
-            .end()
-            .background_color(ClayColor::rgba(0.0, 255.0, 0.0, 255.0)), |ui|
-        {
-
-         */
         self.content_provider.update(ui);
         update(ui, &mut self.content_selector, &mut self.content_provider);
-        //});
     }
 }
 

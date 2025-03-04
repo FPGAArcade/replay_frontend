@@ -1,14 +1,14 @@
 use crate::io::io::IoHandle;
-use crate::Ui;
+use crate::{BackgroundImage, Ui};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Item {
+    /// The background image of the item. This is the image that is shown in the background of the
+    /// item. Image is scaled to power of two.
+    pub background_image: IoHandle,
     /// This image is being shown when the item is non-selected. We used a scaled down image
     /// that fits the screen size we need exactly to save performance.
-    pub unselected_image: IoHandle,
-    /// This image is being shown when the item is selected. This has the original size when
-    /// loaded from the source, unless it's very large it will have been downsized as well.
-    pub selected_image: IoHandle,
+    pub image: IoHandle,
     /// The ID of the item. This is used to identify the item in the content provider.
     pub id: u64
 }

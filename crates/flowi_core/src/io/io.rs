@@ -1,7 +1,7 @@
 use priority_queue::PriorityQueue;
 use crate::{io::cache::CacheStore, LoadOptions};
 use job_system::{JobSystem, BoxAnySend, JobHandle, JobResult};
-use log::{debug, error};
+use log::{debug, error, info, warn};
 use std::{
     collections::HashMap,
     fs::File,
@@ -140,6 +140,13 @@ impl IoHandler {
         image_options: LoadOptions,
         job_system: &JobSystem,
     ) -> IoHandle {
+        info!("Load image: {}", url);
+
+        if url.ends_with(".gif") {
+            warn!("GIF images are not supported yet: {}", url);
+            return IoHandle(0);
+        }
+
         // Create a callback that decodes the image with the given options
         let callback = Box::new(move |data: &[u8]| {
             crate::image::image_decoder::decode_zune(data, image_options)
@@ -258,7 +265,7 @@ fn write_to_cache(url: &str, data: &[u8]) -> io::Result<()> {
 #[allow(dead_code)]
 pub fn read_data_from_remote(url: &str) -> io::Result<Vec<u8>> {
     // Fetch the image from the URL
-    debug!("Start read from remote: {}", url);
+    info!("Start read from remote: {}", url);
 
     let resp = ureq::get(url)
         .call()
@@ -269,6 +276,8 @@ pub fn read_data_from_remote(url: &str) -> io::Result<Vec<u8>> {
     use std::io::Read;
     let mut bytes = Vec::new();
     reader.read_to_end(&mut bytes)?;
+
+    info!("Done  read from remote: {} (size {})", url, bytes.len());
 
     match write_to_cache(url, &bytes) {
         Ok(_) => Ok(bytes),

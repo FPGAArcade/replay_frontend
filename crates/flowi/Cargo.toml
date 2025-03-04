@@ -6,8 +6,9 @@ edition = "2021"
 [dependencies]
 flowi_core = { path = "../flowi_core" }
 flowi_sw_renderer = { path = "../flowi_sw_renderer" }
+png = "0.16"
 
 [dependencies.sdl2]
-version = "0.37"
+path = "../rust-sdl2"
 default-features = false
 features = ["bundled", "unsafe_textures"]

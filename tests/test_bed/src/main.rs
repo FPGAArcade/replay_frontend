@@ -72,7 +72,7 @@ fn main() {
         online_demo_selector: OnlineDemoSelector::new(),
     });
 
-    app.online_demo_selector.content_provider.fetch_party(ui, 93);
+    app.online_demo_selector.content_provider.fetch_party(ui, 92);
 
     if !flowi_app.run(app, main_loop) {
         println!("Failed to create main application");

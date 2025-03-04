@@ -56,6 +56,7 @@ pub use job_system;
 
 pub use crate::render_api::*;
 use simd::*;
+use crate::image::Resize;
 
 type FlowiKey = u64;
 
@@ -540,7 +541,8 @@ impl<'a> Ui<'a> {
                         rounded_corners: [0.0, 0.0, 0.0, 0.0],
                         width: image.dimensions.width as _,
                         height: image.dimensions.height as _,
-                        stride: (image.dimensions.width as u32 + 1) as _, // HACK
+                        //stride: (image.dimensions.width as u32 + 1) as _, // HACK
+                        stride: image.dimensions.width as u32, // HACK
                         handle: image.data as _,
                         rounding: false,
                     }),
@@ -668,7 +670,17 @@ impl<'a> Ui<'a> {
         state.io_handler.load_image(url, opts, &state.job_system)
     }
 
-    pub fn set_background_image(&mut self, handle: IoHandle, mode: BackgroundMode) {
+    pub fn load_background_image(&self, url: &str) -> IoHandle {
+        let state = unsafe { &mut *self.state.get() };
+        let opts = LoadOptions {
+            resize: Resize::IntegerVignette,
+            target_size: (state.screen_size.0 as _, state.screen_size.1 as _),
+            ..Default::default()
+        };
+        state.io_handler.load_image(url, opts, &state.job_system)
+    }
+
+    pub fn set_background_image(&self, handle: IoHandle, mode: BackgroundMode) {
         let state = unsafe { &mut *self.state.get() };
         state.background_image = Some(BackgroundImage { handle, mode });
     }

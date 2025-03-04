@@ -121,6 +121,7 @@ pub(crate) struct Sdl2Window {
     time: f64,
     should_close: bool,
     window_size: (u32, u32),
+    frame_index: u32,
 }
 
 impl Sdl2Window {
@@ -272,6 +273,48 @@ impl Sdl2Window {
         }
     }
     */
+
+    fn write_png(filename: &str, width: u32, height: u32, pixels: &[u8]) -> Result<(), String> {
+        use std::fs::File;
+        use std::io::BufWriter;
+
+        // Create file
+        let file = File::create(filename).map_err(|e| e.to_string())?;
+        let writer = BufWriter::new(file);
+
+        // Create PNG encoder
+        let mut encoder = png::Encoder::new(writer, width, height);
+        encoder.set_color(png::ColorType::RGB);
+        encoder.set_depth(png::BitDepth::Eight);
+
+        // Write image data
+        let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+        writer.write_image_data(pixels).map_err(|e| e.to_string())?;
+
+        Ok(())
+    }
+
+    fn export_frame(&mut self, buffer: &[u8]) {
+        // Create Pixels data in RGB format
+        let mut pixels = vec![0; 1920 * 1080 * 3];
+        pixels.copy_from_slice(buffer);
+
+        // Create filename with frame count
+        let filename = format!("target/export/frame_{:05}.png", self.frame_index);
+        self.frame_index += 1;
+
+        // Use a separate thread to write the PNG so it doesn't block the main thread
+        let width = 1920 as u32;
+        let height = 1080 as u32;
+        let pixels_clone = pixels.clone();
+
+        std::thread::spawn(move || {
+            // Create image and write to file
+            if let Err(e) = Self::write_png(&filename, width, height, &pixels_clone) {
+                eprintln!("Error exporting frame: {}", e);
+            }
+        });
+    }
 }
 
 impl Window for Sdl2Window {
@@ -319,6 +362,7 @@ impl Window for Sdl2Window {
             time: 0.0,
             should_close: false,
             window_size: (width, height),
+            frame_index: 0,
         }
     }
 
@@ -328,11 +372,15 @@ impl Window for Sdl2Window {
             self.sdl_context.timer().unwrap().ticks() as f64 / 1000.0,
         );
 
+        /*
         let delta_time = if self.time > 0.0 {
             current_time - self.time
         } else {
             1.0 / 60.0
         };
+
+         */
+        let delta_time = 1.0 / 60.0;
 
         input.delta_time = delta_time as f32;
 
@@ -378,8 +426,10 @@ impl Window for Sdl2Window {
         self.canvas.present();
     }
 
+
     fn update_software_renderer<'a>(&'a mut self, data: Option<SoftwareRenderData<'a>>) {
         if let Some(data) = data {
+            //self.export_frame(data.buffer);
             self.texture
                 .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
                     buffer.copy_from_slice(data.buffer);

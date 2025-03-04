@@ -42,7 +42,7 @@ pub(crate) fn decode_zune_internal(
 
     let depth = image.depth();
     let color_space = image.colorspace();
-    let dimensions = image.dimensions();
+    let mut dimensions = image.dimensions();
 
     // Only supporting 8 bit depth for now
     if depth != BitDepth::Eight {
@@ -98,18 +98,24 @@ pub(crate) fn decode_zune_internal(
         }
 
         // Duplicate the last pixel of each row
-        let last_pixel_offset = (y * width + (width - 1)) * bytes_per_pixel;
-        color16_output.push(convert_to_color16(image_data_slice, last_pixel_offset, has_alpha));
+        //let last_pixel_offset = (y * width + (width - 1)) * bytes_per_pixel;
+        //color16_output.push(convert_to_color16(image_data_slice, last_pixel_offset, has_alpha));
     }
 
     // Duplicate the entire bottom row, including the duplicated edge pixel
-    for x in 0..width + 1 {
+    for x in 0..width {
         let last_x = if x == width { width - 1 } else { x };
         let bottom_pixel_offset = ((height - 1) * width + last_x) * bytes_per_pixel;
         color16_output.push(convert_to_color16(image_data_slice, bottom_pixel_offset, has_alpha));
     }
 
-    if load_options.resize == Resize::Integer {
+    for x in 0..width {
+        let last_x = if x == width { width - 1 } else { x };
+        let bottom_pixel_offset = ((height - 1) * width + last_x) * bytes_per_pixel;
+        color16_output.push(convert_to_color16(image_data_slice, bottom_pixel_offset, has_alpha));
+    }
+
+    if load_options.resize == Resize::IntegerVignette {
         let target_size = (
             load_options.target_size.0 as _,
             load_options.target_size.1 as _,
@@ -119,6 +125,8 @@ pub(crate) fn decode_zune_internal(
             _ => Falloff::Disabled,
         };
 
+        let falloff = Falloff::Enabled;
+
         let image_info = upscale_image_integer(&color16_output, dimensions, target_size, falloff);
 
         Ok(image_info)
@@ -127,7 +135,8 @@ pub(crate) fn decode_zune_internal(
             data: vec_to_u8(color16_output),
             width: dimensions.0 as i32,
             height: dimensions.1 as i32,
-            stride: dimensions.0 + 1,
+            //stride: dimensions.0 + 1,
+            stride: dimensions.0,
             frame_count: 1,
             frame_delay: 0,
             format: crate::image::Format::Rgba16,
@@ -147,11 +156,15 @@ fn apply_falloff(v: i16x8, x_pos: usize, y_pos: usize, width: usize, height: usi
     let height_f = height as f32;
     let dx = x_pos as f32 / width_f;
     let dy = (height - y_pos) as f32 / height_f;
+    //let dy = y_pos as f32 / height_f;
+    //let dy = 1.0;
 
     // Removed .powf(1.0) since it does nothing.
-    let alpha_factor = (dx * dy) * 32767.0;
+    let alpha_factor = ((dx * dy) * 32767.0).min(32767.0);
+    let background_color = i16x8::new_splat(200);
+    i16x8::lerp(background_color, v, i16x8::new_splat(alpha_factor as i16))
 
-    i16x8::mul_high(v, i16x8::new_splat(alpha_factor as i16))
+    //i16x8::mul_high(v, i16x8::new_splat(alpha_factor as i16))
 }
 
 fn calculate_scale_factor(
@@ -209,8 +222,6 @@ pub fn upscale_image_integer(
                             }
                             Falloff::Disabled => color,
                         };
-
-                        //let falloff_factor = compute_falloff(current_x, current_y); // Pass correct (x, y)
 
                         // Store using SIMD-friendly vectorized writes
                         if dx + 1 < scale {

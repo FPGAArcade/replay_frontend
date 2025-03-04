@@ -8,6 +8,7 @@ members = [
     "crates/job-system",
     "crates/online-demo-display",
     "crates/request-manager",
+    "crates/rust-sdl2",
     "crates/simd",
     "main", 
     "tests/renderer_tests",

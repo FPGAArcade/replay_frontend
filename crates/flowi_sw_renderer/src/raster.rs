@@ -758,6 +758,8 @@ impl Raster {
         let ylen = y1 - y0;
         let xlen = x1 - x0;
 
+        //let texture_width = texture_width + 1;
+
         let mut text_data = unsafe { texture_data.add((rp.clip_y * texture_width) + rp.clip_x) };
 
         let tile_width = tile_info.width as usize;
