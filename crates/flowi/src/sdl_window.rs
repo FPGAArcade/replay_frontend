@@ -122,7 +122,7 @@ pub(crate) struct Sdl2Window {
     time: f64,
     should_close: bool,
     window_size: (u32, u32),
-    frame_index: u32,
+    _frame_index: u32,
 }
 
 impl Sdl2Window {
@@ -295,14 +295,15 @@ impl Sdl2Window {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn export_frame(&mut self, buffer: &[u8]) {
         // Create Pixels data in RGB format
         let mut pixels = vec![0; 1920 * 1080 * 3];
         pixels.copy_from_slice(buffer);
 
         // Create filename with frame count
-        let filename = format!("target/export/frame_{:05}.png", self.frame_index);
-        self.frame_index += 1;
+        let filename = format!("target/export/frame_{:05}.png", self._frame_index);
+        self._frame_index += 1;
 
         // Use a separate thread to write the PNG so it doesn't block the main thread
         let width = 1920 as u32;
@@ -319,6 +320,7 @@ impl Sdl2Window {
 }
 
 impl Window for Sdl2Window {
+    #[allow(unused_mut)]
     fn new(settings: &ApplicationSettings) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
@@ -370,7 +372,7 @@ impl Window for Sdl2Window {
             time: 0.0,
             should_close: false,
             window_size: (width, height),
-            frame_index: 0,
+            _frame_index: 0,
         }
     }
 
