@@ -210,7 +210,7 @@ impl ContentSelector {
 
 #[allow(dead_code)]
 #[rustfmt::skip]
-fn draw_selection_entry(_time: f32, ui: &Ui, item: &Item, is_selected: bool, opacity: f32) {
+fn draw_selection_entry(_time: f32, ui: &Ui, item: &Item, _is_selected: bool, opacity: f32) {
     // TODO: Get the data from settings structs as this is affected by the screen size
     let mut size = (250.0, 187.5);
     let id = ui.id_index(ENTRY_ID, item.id as _);

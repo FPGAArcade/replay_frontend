@@ -24,7 +24,7 @@ pub enum ColorSpace {
     Srgb,
 }
 
-const SRGB_BIT_COUNT: i32 = 12;
+const SRGB_BIT_COUNT: i32 = 11;
 const LINEAR_BIT_COUNT: i32 = 15;
 const LINEAR_TO_SRGB_SHIFT: i32 = LINEAR_BIT_COUNT - SRGB_BIT_COUNT;
 
@@ -101,7 +101,7 @@ pub fn get_color_from_floats_0_255(color: Color, srgb_to_linear_table: &[u16; 1 
 #[inline(never)]
 #[allow(clippy::identity_op)]
 pub fn copy_tile_linear_to_srgb(
-    linear_to_srgb_table: &[u8; 4096],
+    linear_to_srgb_table: &[u8; 2048],
     output: &mut [u8],
     tile: &[Color16],
     tile_info: &Tile,
@@ -172,7 +172,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
     for tile in renderer.tiles.iter_mut() {
         let tile_aabb = tile.aabb;
 
-        span!("tile loop");
+        let _ = span!("tile loop");
 
         /*
         if tile.data.is_empty() {
@@ -205,11 +205,10 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
             }
         }
 
-        {
-        let tile_loop = span!("tile loop");
-        tile_loop.emit_color(0x00FFFF);
-
         for index in tile.data.iter() {
+            let command = span!("commands");
+            command.emit_color(0x00FF00);
+
             let render_cmd = &commands[*index];
             let blend_mode = if render_cmd.color.a == 255.0 {
                 raster::BlendMode::None
@@ -220,116 +219,108 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
             let color =
                 get_color_from_floats_0_255(render_cmd.color, &renderer.srgb_to_linear_table);
 
-            {
-                let command = span!("RenderCommand");
-                command.emit_color(0x00FF00);
-
-                match &render_cmd.render_type {
-                    RenderType::DrawRect => {
-                        span!("DrawRect");
-                        renderer.raster.render_solid_quad(
-                            tile_buffer,
-                            &tile_info,
-                            &render_cmd.bounding_box,
-                            color,
-                            blend_mode,
-                        );
-                    }
-
-                    RenderType::DrawRectRounded(rect) => {
-                        span!("DrawRectRounded");
-                        renderer.raster.render_solid_quad_rounded(
-                            tile_buffer,
-                            &tile_info,
-                            &render_cmd.bounding_box,
-                            color,
-                            &rect.corners,
-                            blend_mode,
-                        );
-                    }
-
-                    RenderType::DrawTextBuffer(buffer) => {
-                        span!("DrawTextBuffer");
-                        if buffer.data.0 == core::ptr::null() {
-                            continue;
-                        }
-
-                        let coords = [
-                            render_cmd.bounding_box[0],
-                            render_cmd.bounding_box[1],
-                            render_cmd.bounding_box[0] + buffer.width as f32,
-                            render_cmd.bounding_box[1] + buffer.height as f32,
-                        ];
-
-                        renderer.raster.render_text_texture(
-                            tile_buffer,
-                            buffer.data.0 as _,
-                            &tile_info,
-                            buffer.width as _,
-                            &coords,
-                            color,
-                        );
-                    }
-
-                    RenderType::DrawImage(buffer) => {
-                        span!("DrawImage");
-                        let texture_sizes = [
-                            buffer.width as _, buffer.height as _,
-                            buffer.width as _, buffer.height as _];
-
-                        let color = if blend_mode == BlendMode::WithBackground {
-                            i16x8::new_splat((render_cmd.color.a as i16) << 7)
-                        } else {
-                            i16x8::new_splat(0x07fff)
-                        };
-
-                        //let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
-
-                        sharp_bilinear::render_sharp_bilinear(
-                            tile_buffer,
-                            renderer.raster.scissor_rect,
-                            &tile_info,
-                            &render_cmd.bounding_box,
-                            buffer.handle as _,
-                            1.0,
-                            blend_mode,
-                            color,
-                            buffer.stride as _,
-                            &texture_sizes);
-
-                        //dbg!("DrawImage {:?}", render_cmd.bounding_box);
-                        //dbg!("DrawImage {:?}", buffer.handle);
-
-                        /*
-                        renderer.raster.render_aligned_texture(
-                            tile_buffer,
-                            &tile_info,
-                            &render_cmd.bounding_box,
-                            buffer.handle as _,
-                            &uv,
-                            &texture_sizes,
-                        );
-
-                         */
-                    }
-
-                    RenderType::DrawBackground(buffer) => {
-                        span!("DrawBackground");
-                        renderer.raster.draw_background(
-                            tile_buffer,
-                            &tile_info,
-                            &render_cmd.bounding_box,
-                            buffer.width as _,
-                            buffer.handle as _,
-                        );
-                    }
-
-                    _ => {}
+            match &render_cmd.render_type {
+                RenderType::DrawRect => {
+                    let _ = span!("DrawRect");
+                    renderer.raster.render_solid_quad(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        color,
+                        blend_mode,
+                    );
                 }
 
-            }
-        }
+                RenderType::DrawRectRounded(rect) => {
+                    let _ = span!("DrawRectRounded");
+                    renderer.raster.render_solid_quad_rounded(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        color,
+                        &rect.corners,
+                        blend_mode,
+                    );
+                }
 
+                RenderType::DrawTextBuffer(buffer) => {
+                    let _ = span!("DrawTextBuffer");
+                    if buffer.data.0 == core::ptr::null() {
+                        continue;
+                    }
+
+                    let coords = [
+                        render_cmd.bounding_box[0],
+                        render_cmd.bounding_box[1],
+                        render_cmd.bounding_box[0] + buffer.width as f32,
+                        render_cmd.bounding_box[1] + buffer.height as f32,
+                    ];
+
+                    renderer.raster.render_text_texture(
+                        tile_buffer,
+                        buffer.data.0 as _,
+                        &tile_info,
+                        buffer.width as _,
+                        &coords,
+                        color,
+                    );
+                }
+
+                RenderType::DrawImage(buffer) => {
+                    let _ = span!("DrawImage");
+                    let texture_sizes = [
+                        buffer.width as _, buffer.height as _,
+                        buffer.width as _, buffer.height as _];
+
+                    let color = if blend_mode == BlendMode::WithBackground {
+                        i16x8::new_splat((render_cmd.color.a as i16) << 7)
+                    } else {
+                        i16x8::new_splat(0x07fff)
+                    };
+
+                    //let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
+
+                    sharp_bilinear::render_sharp_bilinear(
+                        tile_buffer,
+                        renderer.raster.scissor_rect,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        buffer.handle as _,
+                        1.0,
+                        blend_mode,
+                        color,
+                        buffer.stride as _,
+                        &texture_sizes);
+
+                    //dbg!("DrawImage {:?}", render_cmd.bounding_box);
+                    //dbg!("DrawImage {:?}", buffer.handle);
+
+                    /*
+                    renderer.raster.render_aligned_texture(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        buffer.handle as _,
+                        &uv,
+                        &texture_sizes,
+                    );
+
+                     */
+                }
+
+                RenderType::DrawBackground(buffer) => {
+                    let _ = span!("DrawBackground");
+                    renderer.raster.draw_background(
+                        tile_buffer,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        buffer.width as _,
+                        buffer.handle as _,
+                    );
+                }
+
+                _ => {}
+            }
         }
 
         // Rasterize the primitives for this tile
@@ -353,7 +344,7 @@ fn get_tile_size(pos: usize, max_size: usize, tile_size: usize) -> usize {
 
 impl flowi_core::Renderer for Renderer {
     fn new(screen_size: (usize, usize), _window: Option<&RawWindowHandle>) -> Self {
-        let tile_size = (512usize, 512usize);
+        let tile_size = (128, 128);
 
         let mut tiles = Vec::new();
         let mut tile_index = 0;
@@ -412,14 +403,10 @@ impl Renderer {
 
     /// Bins the render primitives into the provided tiles.
     ///
-    /// This function iterates over each tile and clears its data. Then, it iterates
-    /// over the provided render primitives and checks if the primitive's axis-aligned
-    /// bounding box (AABB) intersects with the tile's AABB. If there is a intersection,
+    /// This function iterates over the provided render primitives and checks if the
+    /// primitive's (AABB) intersects with the tile's AABB. If there is a intersection,
     /// the index of the primitive is added to the tile's data.
     ///
-    /// # Parameters
-    /// - `tiles`: A mutable slice of `Tile` objects to bin the primitives into.
-    /// - `commands`: RenderCommands to be binned
     fn bin_primitives(tiles: &mut [Tile], commands: &[RenderCommand]) {
         for tile in tiles.iter_mut() {
             let tile_aabb = tile.aabb;

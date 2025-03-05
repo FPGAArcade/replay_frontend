@@ -42,7 +42,7 @@ pub(crate) fn decode_zune_internal(
 
     let depth = image.depth();
     let color_space = image.colorspace();
-    let mut dimensions = image.dimensions();
+    let dimensions = image.dimensions();
 
     // Only supporting 8 bit depth for now
     if depth != BitDepth::Eight {
@@ -120,7 +120,7 @@ pub(crate) fn decode_zune_internal(
             load_options.target_size.0 as _,
             load_options.target_size.1 as _,
         );
-        let falloff = match load_options.resize {
+        let _falloff = match load_options.resize {
             Resize::IntegerVignette => Falloff::Enabled,
             _ => Falloff::Disabled,
         };
