@@ -166,6 +166,23 @@ pub fn copy_tile_linear_to_srgb(
     }
 }
 
+#[inline(never)]
+fn clear_tile_buffer(tile_buffer: &mut [Color16]) {
+    let clear_tile = span!("clear tile");
+    clear_tile.emit_color(0x0000FF);
+
+    let clear_color = Color16::new_splat(200);
+    let c = i16x8::new_splat(200);
+    let count = tile_buffer.len();
+
+    for i in (0..count).step_by(8) {
+        c.store_unaligned(tile_buffer, i + 0);
+        c.store_unaligned(tile_buffer, i + 2);
+        c.store_unaligned(tile_buffer, i + 4);
+        c.store_unaligned(tile_buffer, i + 6);
+    }
+}
+
 fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
     let span = span!("render_tiles");
     span.emit_color(0xFFFF00);
@@ -199,18 +216,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
         let tile_buffer = &mut renderer.tile_buffer;
 
-        // TODO: We should here support clearing the buffer with another color, bg image or have a
-        // check during the binning if we need to clear at all.
-        {
-            let clear_tile = span!("clear tile");
-            clear_tile.emit_color(0x0000FF);
-
-            let clear_color = Color16::new_splat(200);
-
-            for t in tile_buffer.iter_mut() {
-                *t = clear_color;
-            }
-        }
+        clear_tile_buffer(tile_buffer);
 
         for index in tile.data.iter() {
             let command = span!("commands");
