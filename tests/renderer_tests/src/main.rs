@@ -264,6 +264,7 @@ fn main() {
 
         let coords = [0.0, 0.0, 128.0, 128.0];
 
+        /*
         if let Some(text) = core.get_text(text_to_render, 16, font) {
             render_shapes(
                 &mut tile_output_u32,
@@ -285,6 +286,8 @@ fn main() {
             );
         }
 
+         */
+
         //copy_tile_linear_to_srgb(&linear_to_srgb_table, &mut tile_output_u32, &tile_output);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
@@ -299,6 +302,7 @@ fn main() {
     }
 }
 
+#[allow(dead_code)]
 fn render_shapes(
     output: &mut [u32],
     temp_output: &mut [Color16],
@@ -402,6 +406,7 @@ fn render_shapes(
         }
 
         Shape::ScaleImage => {
+            /*
             let x0 = (RENDER_WIDTH as f32 - scale_image.width as f32 * scale_factor) / 2.0;
             let y0 = (RENDER_HEIGHT as f32 - scale_image.height as f32 * scale_factor) / 2.0;
             let x1 = (RENDER_WIDTH as f32 + scale_image.width as f32 * scale_factor) / 2.0;
@@ -412,6 +417,9 @@ fn render_shapes(
                 scale_image.width, scale_image.height,
                 scale_image.width, scale_image.height];
 
+             */
+
+            /*
             flowi_sw_renderer::sharp_bilinear::render_sharp_bilinear(
                 temp_output,
                 raster.scissor_rect,
@@ -421,6 +429,8 @@ fn render_shapes(
                 scale_factor,
                 scale_image.stride,
                 &texture_sizes);
+
+             */
             /*
             image::draw_scaled_image::<1>(
                 temp_output,
