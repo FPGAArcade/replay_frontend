@@ -237,7 +237,7 @@ impl<'a> Ui<'a> {
         state.active_font = font_id;
     }
 
-    pub fn register_font(&self, font_id: FontHandle, font_style: FontStyle) {
+    pub fn register_font(&self, font_id: FontHandle, _font_style: FontStyle) {
         let state = unsafe { &mut *self.state.get() };
         state.fonts[font_id as usize] = font_id;
     }
@@ -442,8 +442,7 @@ impl<'a> Ui<'a> {
         let mut primitives = Vec::with_capacity(1024);
 
         {
-        let zone = span!("binning");
-
+        let _ = span!("binning");
         let state = unsafe { &mut *self.state.get() };
 
         // TODO: Don't iterate over all boxes twices
@@ -622,7 +621,7 @@ impl<'a> Ui<'a> {
             .retain(|_, item| item.frame == state.current_frame);
 
         {
-            let zone = span!("render");
+            let _ = span!("render");
             state.renderer.render(&primitives);
         }
 
