@@ -8,4 +8,5 @@ raw-window-handle = "0.6"
 simd = { path = "../simd" }
 flowi_core = { path = "../flowi_core" }
 tracy-client = "0.18.0"
+fxhash = "0.2"
 

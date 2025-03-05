@@ -12,6 +12,7 @@ pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
 use flowi_core::render_api::{RenderCommand, RenderType, SoftwareRenderData};
+use std::hash::{Hash, Hasher};
 
 pub struct TileInfo {
     pub offsets: f32x4,
@@ -34,7 +35,7 @@ pub struct Renderer {
     srgb_to_linear_table: [u16; 1 << 8],
     // TODO: Arena
     tiles: Vec<Tile>,
-    tile_buffers: [Vec<Color16>; 2],
+    tile_buffer: Vec<Color16>,
     output: Vec<u8>,
     //tile_size: (usize, usize),
     screen_size: (usize, usize),
@@ -85,6 +86,8 @@ pub fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
 pub struct Tile {
     aabb: f32x4,
     data: Vec<usize>,
+    prev_hash: u64,
+    current_hash: u64,
     tile_index: usize,
 }
 
@@ -167,12 +170,14 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
     let span = span!("render_tiles");
     span.emit_color(0xFFFF00);
 
-    //dbg!("---------------------------------");
-
     for tile in renderer.tiles.iter_mut() {
         let tile_aabb = tile.aabb;
 
         let _ = span!("tile loop");
+
+        if tile.prev_hash == tile.current_hash {
+            continue;
+        }
 
         /*
         if tile.data.is_empty() {
@@ -192,7 +197,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
         renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, tile_width as _, tile_height as _);
 
-        let tile_buffer = &mut renderer.tile_buffers[tile.tile_index];
+        let tile_buffer = &mut renderer.tile_buffer;
 
         // TODO: We should here support clearing the buffer with another color, bg image or have a
         // check during the binning if we need to clear at all.
@@ -200,8 +205,10 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
             let clear_tile = span!("clear tile");
             clear_tile.emit_color(0x0000FF);
 
+            let clear_color = Color16::new_splat(200);
+
             for t in tile_buffer.iter_mut() {
-                *t = Color16::new_splat(200);
+                *t = clear_color;
             }
         }
 
@@ -221,7 +228,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
             match &render_cmd.render_type {
                 RenderType::DrawRect => {
-                    let _ = span!("DrawRect");
+                    let zone = span!("DrawRect");
+                    zone.emit_color(0xFF00FF);
                     renderer.raster.render_solid_quad(
                         tile_buffer,
                         &tile_info,
@@ -232,7 +240,9 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawRectRounded(rect) => {
-                    let _ = span!("DrawRectRounded");
+                    let zone = span!("DrawRectRounded");
+                    zone.emit_color(0xFF00FF);
+
                     renderer.raster.render_solid_quad_rounded(
                         tile_buffer,
                         &tile_info,
@@ -244,7 +254,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawTextBuffer(buffer) => {
-                    let _ = span!("DrawTextBuffer");
+                    let zone = span!("DrawTextBuffer");
+                    zone.emit_color(0xFF00FF);
                     if buffer.data.0 == core::ptr::null() {
                         continue;
                     }
@@ -267,7 +278,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawImage(buffer) => {
-                    let _ = span!("DrawImage");
+                    let zone = span!("DrawImage");
+                    zone.emit_color(0xFF00FF);
                     let texture_sizes = [
                         buffer.width as _, buffer.height as _,
                         buffer.width as _, buffer.height as _];
@@ -309,7 +321,9 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawBackground(buffer) => {
-                    let _ = span!("DrawBackground");
+                    let zone = span!("DrawBackground");
+                    zone.emit_color(0xFF00FF);
+
                     renderer.raster.draw_background(
                         tile_buffer,
                         &tile_info,
@@ -363,20 +377,21 @@ impl flowi_core::Renderer for Renderer {
                     ),
                     data: Vec::with_capacity(8192),
                     tile_index: tile_index & 1,
+                    prev_hash: 1,
+                    current_hash: 0,
                 });
 
                 tile_index += 1;
             }
         }
 
-        let t0 = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
-        let t1 = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
+        let tile_buffer = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
 
         Self {
             linear_to_srgb_table: build_linear_to_srgb_table(),
             srgb_to_linear_table: build_srgb_to_linear_table(),
             raster: Raster::new(),
-            tile_buffers: [t0, t1],
+            tile_buffer,
             tiles,
             screen_size,
             //tile_size,
@@ -394,6 +409,7 @@ impl flowi_core::Renderer for Renderer {
 
     fn render(&mut self, commands: &[RenderCommand]) {
         Self::bin_primitives(&mut self.tiles, commands);
+        Self::hash_all_tiles(&mut self.tiles, commands);
         render_tiles(self, commands);
     }
 }
@@ -418,5 +434,22 @@ impl Renderer {
                 }
             }
         }
+    }
+
+    fn hash_all_tiles(tiles: &mut [Tile], commands: &[RenderCommand]) {
+        let zone = span!("hash_all_tiles");
+        zone.emit_color(0xFFFF00);
+        for tile in tiles.iter_mut() {
+            tile.prev_hash = tile.current_hash;
+            tile.current_hash = Self::hash_tile_data(tile, commands);
+        }
+    }
+    fn hash_tile_data(tile: &Tile, commands: &[RenderCommand]) -> u64 {
+        let mut hasher = fxhash::FxHasher::default();
+        for index in tile.data.iter() {
+            let command = &commands[*index];
+            command.hash(&mut hasher);
+        }
+        hasher.finish()
     }
 }
