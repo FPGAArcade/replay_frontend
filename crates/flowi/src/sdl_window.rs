@@ -2,6 +2,7 @@ use crate::application::Window;
 use flowi_core::input::{Input, Key};
 use flowi_core::ApplicationSettings;
 use flowi_core::SoftwareRenderData;
+use tracy_client::span;
 
 use sdl2::{
     //controller::{Axis, Button, GameController},
@@ -121,6 +122,7 @@ pub(crate) struct Sdl2Window {
     time: f64,
     should_close: bool,
     window_size: (u32, u32),
+    _frame_index: u32,
 }
 
 impl Sdl2Window {
@@ -272,9 +274,53 @@ impl Sdl2Window {
         }
     }
     */
+
+    fn write_png(filename: &str, width: u32, height: u32, pixels: &[u8]) -> Result<(), String> {
+        use std::fs::File;
+        use std::io::BufWriter;
+
+        // Create file
+        let file = File::create(filename).map_err(|e| e.to_string())?;
+        let writer = BufWriter::new(file);
+
+        // Create PNG encoder
+        let mut encoder = png::Encoder::new(writer, width, height);
+        encoder.set_color(png::ColorType::RGB);
+        encoder.set_depth(png::BitDepth::Eight);
+
+        // Write image data
+        let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+        writer.write_image_data(pixels).map_err(|e| e.to_string())?;
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn export_frame(&mut self, buffer: &[u8]) {
+        // Create Pixels data in RGB format
+        let mut pixels = vec![0; 1920 * 1080 * 3];
+        pixels.copy_from_slice(buffer);
+
+        // Create filename with frame count
+        let filename = format!("target/export/frame_{:05}.png", self._frame_index);
+        self._frame_index += 1;
+
+        // Use a separate thread to write the PNG so it doesn't block the main thread
+        let width = 1920 as u32;
+        let height = 1080 as u32;
+        let pixels_clone = pixels.clone();
+
+        std::thread::spawn(move || {
+            // Create image and write to file
+            if let Err(e) = Self::write_png(&filename, width, height, &pixels_clone) {
+                eprintln!("Error exporting frame: {}", e);
+            }
+        });
+    }
 }
 
 impl Window for Sdl2Window {
+    #[allow(unused_mut)]
     fn new(settings: &ApplicationSettings) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
@@ -282,11 +328,18 @@ impl Window for Sdl2Window {
         let width = settings.width as u32;
         let height = settings.height as u32;
 
-        let window = video_subsystem
+        let mut window = video_subsystem
             .window("test-bed", width, height)
             .position_centered()
             .build()
             .expect("Failed to create SDL window.");
+
+        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+        {
+            println!("Running on aarch64-linux, setting fullscreen mode");
+            window.set_fullscreen(sdl2::video::FullscreenType::Desktop).unwrap();
+            // Or use FullscreenType::True if you prefer true fullscreen
+        }
 
         let mut canvas = window
             .into_canvas()
@@ -319,6 +372,7 @@ impl Window for Sdl2Window {
             time: 0.0,
             should_close: false,
             window_size: (width, height),
+            _frame_index: 0,
         }
     }
 
@@ -328,11 +382,15 @@ impl Window for Sdl2Window {
             self.sdl_context.timer().unwrap().ticks() as f64 / 1000.0,
         );
 
+        /*
         let delta_time = if self.time > 0.0 {
             current_time - self.time
         } else {
             1.0 / 60.0
         };
+
+         */
+        let delta_time = 1.0 / 60.0;
 
         input.delta_time = delta_time as f32;
 
@@ -359,6 +417,26 @@ impl Window for Sdl2Window {
         // Update the internal intput state
         input.update(self.time as f32, delta_time as f32);
 
+    }
+
+    fn present(&mut self) {
+        self.canvas.present();
+    }
+
+
+    fn update_software_renderer<'a>(&'a mut self, data: Option<SoftwareRenderData<'a>>) {
+        if let Some(data) = data {
+            let t = span!("update_software_renderer");
+            t.emit_color(0xFF0000);
+            //self.export_frame(data.buffer);
+            self.texture
+                .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+                    buffer.copy_from_slice(data.buffer);
+                })
+                .unwrap();
+        }
+        let t = span!("sdl copy texture");
+        t.emit_color(0x00FFF00);
         self.canvas
             .copy(
                 &self.texture,
@@ -371,21 +449,6 @@ impl Window for Sdl2Window {
                 )),
             )
             .unwrap();
-        self.canvas.present();
-    }
-
-    fn present(&mut self) {
-        self.canvas.present();
-    }
-
-    fn update_software_renderer<'a>(&'a mut self, data: Option<SoftwareRenderData<'a>>) {
-        if let Some(data) = data {
-            self.texture
-                .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-                    buffer.copy_from_slice(data.buffer);
-                })
-                .unwrap();
-        }
     }
 
     /*

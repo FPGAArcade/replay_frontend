@@ -498,7 +498,7 @@ mod tests {
 
         clay.begin();
 
-        clay.with(&Declaration::new()
+        clay.with(Declaration::new()
             .id(clay.id("parent_rect"))
             .layout()
                 .width(Sizing::Fixed(100.0))
@@ -507,7 +507,7 @@ mod tests {
                 .end()
             .background_color(Color::rgb(255., 255., 255.)), |clay|
         {
-            clay.with(&Declaration::new()
+            clay.with(Declaration::new()
                 .layout()
                     .width(Sizing::Fixed(100.0))
                     .height(Sizing::Fixed(100.0))
@@ -515,7 +515,7 @@ mod tests {
                     .end()
                 .background_color(Color::rgb(255., 255., 255.)), |clay| 
             {
-                clay.with(&Declaration::new()
+                clay.with(Declaration::new()
                     .id(clay.id("rect_under_rect"))
                     .layout()
                         .width(Sizing::Fixed(100.0))
@@ -533,7 +533,7 @@ mod tests {
             });
         });
 
-        clay.with(&Declaration::new()
+        clay.with(Declaration::new()
             .id(clay.id_index("border_container", 1))
             .layout()
                 .padding(Padding::all(16))
@@ -544,7 +544,7 @@ mod tests {
                 .end()
             .corner_radius().all(10.0).end(), |clay|
         {
-            clay.with(&Declaration::new()
+            clay.with(Declaration::new()
                 .id(clay.id("rect_under_border"))
                 .layout()
                     .width(Sizing::Fixed(50.0))

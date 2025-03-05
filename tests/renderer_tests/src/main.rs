@@ -1,7 +1,7 @@
 use std::time::Instant;
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
 use flowi_sw_renderer::{BlendMode, Corner, Raster, TileInfo};
-use flowi_core::image::{BorderType, ImageInfo};
+use flowi_core::image::ImageInfo;
 use flowi_core::primitives::Color16;
 use flowi_core::Renderer;
 
@@ -140,8 +140,6 @@ fn generate_sample_test_image(srgb_to_linear: &[u16; 256]) -> ImageInfo {
         stride: 5,
         frame_count: 1,
         frame_delay: 0,
-        border_type: BorderType::None,
-        start_offset_ex_borders: 0,
     }
 }
 
@@ -168,8 +166,6 @@ fn load_image(path: &str, srgb_to_linear: &[u16; 256]) -> ImageInfo {
         stride: i.width() as _,
         frame_count: 1,
         frame_delay: 0,
-        border_type: BorderType::None,
-        start_offset_ex_borders: 0,
     }
 }
 
@@ -185,7 +181,7 @@ fn main() {
     };
 
     //let scale_image = generate_sample_test_image(&srgb_to_linear_table);
-    let scale_image = load_image("cat.png", &srgb_to_linear_table);
+    let scale_image = load_image("target/cache/a46adb333155e42d.png", &srgb_to_linear_table);
 
     let mut core = flowi_core::Ui::new(Box::new(SoftwareRenderer::new((WIDTH, HEIGHT), None)));
     let font = core
@@ -268,6 +264,7 @@ fn main() {
 
         let coords = [0.0, 0.0, 128.0, 128.0];
 
+        /*
         if let Some(text) = core.get_text(text_to_render, 16, font) {
             render_shapes(
                 &mut tile_output_u32,
@@ -289,6 +286,8 @@ fn main() {
             );
         }
 
+         */
+
         //copy_tile_linear_to_srgb(&linear_to_srgb_table, &mut tile_output_u32, &tile_output);
 
         // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
@@ -303,6 +302,7 @@ fn main() {
     }
 }
 
+#[allow(dead_code)]
 fn render_shapes(
     output: &mut [u32],
     temp_output: &mut [Color16],
@@ -406,13 +406,20 @@ fn render_shapes(
         }
 
         Shape::ScaleImage => {
+            /*
             let x0 = (RENDER_WIDTH as f32 - scale_image.width as f32 * scale_factor) / 2.0;
             let y0 = (RENDER_HEIGHT as f32 - scale_image.height as f32 * scale_factor) / 2.0;
             let x1 = (RENDER_WIDTH as f32 + scale_image.width as f32 * scale_factor) / 2.0;
             let y1 = (RENDER_HEIGHT as f32 + scale_image.height as f32 * scale_factor) / 2.0;
 
             let coords = [x0, y0, x1, y1];
+            let texture_sizes = [
+                scale_image.width, scale_image.height,
+                scale_image.width, scale_image.height];
 
+             */
+
+            /*
             flowi_sw_renderer::sharp_bilinear::render_sharp_bilinear(
                 temp_output,
                 raster.scissor_rect,
@@ -420,8 +427,10 @@ fn render_shapes(
                 &coords,
                 scale_image.data.as_ptr() as _,
                 scale_factor,
-                (scale_image.width, scale_image.height),
-            );
+                scale_image.stride,
+                &texture_sizes);
+
+             */
             /*
             image::draw_scaled_image::<1>(
                 temp_output,

@@ -72,6 +72,8 @@ pub struct Border {
 /// Represents an image with defined dimensions and data.
 #[derive(Debug, Clone)]
 pub struct Image {
+    /// The background color of the custom element.
+    pub background_color: Color,
     /// The dimensions of the image.
     pub dimensions: Dimensions,
     /// A pointer to the image data.
@@ -121,6 +123,7 @@ impl From<Clay_TextRenderData> for Text<'_> {
 impl From<Clay_ImageRenderData> for Image {
     fn from(value: Clay_ImageRenderData) -> Self {
         Self {
+            background_color: value.backgroundColor.into(),
             dimensions: value.sourceDimensions.into(),
             data: value.imageData,
         }

@@ -39,7 +39,7 @@ const CORNER_OFFSETS: [(f32, f32); 4] = [
     (0.0, 0.0), // BottomRight: Shift right and down
 ];
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[allow(dead_code)]
 pub enum BlendMode {
     None = BLEND_MODE_NONE as _,
@@ -757,6 +757,8 @@ impl Raster {
 
         let ylen = y1 - y0;
         let xlen = x1 - x0;
+
+        //let texture_width = texture_width + 1;
 
         let mut text_data = unsafe { texture_data.add((rp.clip_y * texture_width) + rp.clip_x) };
 

@@ -1,13 +1,10 @@
-use crate::content_provider::{ContentProvider, Item};
-use crate::{
-    fixed, grow, Alignment, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui,
-};
+use crate::content_provider::{ContentProvider, Item, ItemVisibility};
+use crate::{fixed, grow, Alignment, BackgroundMode, ClayColor, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, LoadPriority, Padding, Ui};
 /// This module is responsible for displaying a list of items that can be selected. It acts very
 /// similar to how movie based selectors for many streaming services works. The user can scroll
 /// through a list of items and select one of them. The selected item will be displayed in a larger
 /// size than the other items. Each item has an ID that
 /// TODO: This shouldn't really be part of core-flowi, but we will keep it here for now.
-//use image_old::RenderImage;
 
 #[derive(Debug, Default, Copy, Clone)]
 #[allow(dead_code)]
@@ -96,7 +93,6 @@ impl ContentSelector {
             .end()
             .scroll(true, false), |ui|
        {
-
             // Get the number of columns we have for this row
             let column_count = provider.get_column_count(ui, row);
 
@@ -105,8 +101,39 @@ impl ContentSelector {
             //       as much as possible.
             // Added all the items to the layout for this row.
             for col in 0..column_count {
-                let item = provider.get_item(ui, row, col);
-                let is_selected = col == 0;
+                let item_id = provider.get_item_id(row, col);
+                let id = ui.id_index(ENTRY_ID, item_id as _);
+
+                // Figure out visibility of the item
+                let is_visible = ui.is_visible(id);
+                let is_selected = col == self.selected_item.col && row == self.selected_item.row;
+
+                let visibility = if is_selected {
+                    ItemVisibility::Selected
+                } else if is_visible {
+                    ItemVisibility::Visible
+                } else {
+                    ItemVisibility::Hidden
+                };
+
+                let item = provider.get_item(ui, visibility, row, col);
+
+                match visibility {
+                    ItemVisibility::Hidden => {
+                        ui.hint_load_priority(item.image, LoadPriority::Low);
+                        ui.hint_load_priority(item.background_image, LoadPriority::Low);
+                    }
+
+                    ItemVisibility::Visible => {
+                        ui.hint_load_priority(item.image, LoadPriority::High);
+                    },
+
+                    ItemVisibility::Selected => {
+                        ui.hint_load_priority(item.background_image, LoadPriority::Highest);
+                        ui.hint_load_priority(item.image, LoadPriority::High);
+                    }
+                }
+
                 draw_selection_entry(self.temp_time, ui, &item, is_selected, opacity);
             }
        });
@@ -146,8 +173,9 @@ impl ContentSelector {
         };
 
         if self.state == State::Init {
-            let item = provider.get_item(ui, 0, 0);
-            ui.set_focus_id(ui.id_index(ENTRY_ID, item.id as _));
+            let item_id = provider.get_item_id(0, 0);
+            provider.get_item(ui, ItemVisibility::Hidden, 0, 0);
+            ui.set_focus_id(ui.id_index(ENTRY_ID, item_id as _));
             self.state = State::Idle;
         }
 
@@ -170,38 +198,34 @@ impl ContentSelector {
         // TODO: Handle the case if we already are in a transition state
         if self.state == State::Idle && down {
             self.transition_row = self.selected_item.row + 1;
-            let item = provider.get_item(ui, self.transition_row, 0);
-            ui.set_focus_id(ui.id_index(ENTRY_ID, item.id as _));
+            let item_id = provider.get_item_id(self.transition_row, 0);
+            let item = provider.get_item(ui, ItemVisibility::Hidden, self.transition_row, 0);
+            ui.set_background_image(item.background_image, BackgroundMode::AlignTopRight);
+            ui.set_focus_id(ui.id_index(ENTRY_ID, item_id as _));
             self.state = State::RowTransition;
         }
     }
 }
 
+
 #[allow(dead_code)]
 #[rustfmt::skip]
-fn draw_selection_entry(_time: f32, ui: &Ui, item: &Item, is_selected: bool, opacity: f32) {
+fn draw_selection_entry(_time: f32, ui: &Ui, item: &Item, _is_selected: bool, opacity: f32) {
     // TODO: Get the data from settings structs as this is affected by the screen size
     let mut size = (250.0, 187.5);
     let id = ui.id_index(ENTRY_ID, item.id as _);
 
-    if is_selected {
-        // Extra layout here so we can animate the selected item with the fixed border without
-        // affecting the size of the parent.
-        ui.with_layout(&Declaration::new()
-            .id(ui.id_index(ENTRY_ID, (item.id + 10000) as _))
-            .layout()
-                .width(fixed!(size.0))
-                .height(fixed!(size.1))
-                .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
-            .end(), |ui|
-        {
-           if let Some(item_state) = ui.item_state(id) {
-               size = (250.0 + (item_state.active * 40.0),  187.5 + (item_state.active * 40.0));
-           }
-
-            ui.image_with_opts(id, item.selected_image, opacity, size);
-        });
-    } else {
-        ui.image_with_opts(id, item.unselected_image, opacity, size);
-    }
+    ui.with_layout(&Declaration::new()
+        .id(ui.id_index(ENTRY_ID, (item.id + 10000) as _))
+        .layout()
+            .width(fixed!(size.0))
+            .height(fixed!(size.1))
+            .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
+        .end(), |ui|
+    {
+        if let Some(item_state) = ui.item_state(id) {
+            size = (250.0 + (item_state.active * 40.0),  187.5 + (item_state.active * 40.0));
+        }
+        ui.image_with_opts(id, item.image, opacity, size);
+    });
 }

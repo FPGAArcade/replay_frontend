@@ -1,9 +1,8 @@
 //use arena_allocator;
 use flowi::Application;
 use flowi::Ui;
-use flowi::{grow, Declaration, FontHandle, LayoutDirection};
+use flowi::{grow, Declaration, FontHandle, LayoutDirection, FontStyle};
 use log::*;
-//use demozoo_fetcher::ProductionEntry;
 use online_demo_display::OnlineDemoSelector;
 
 pub struct Fonts {
@@ -31,8 +30,6 @@ fn main_loop(ui: &Ui, app: &mut App) {
         .end(), |ui|
     {
         app.online_demo_selector.update(ui);
-        //display_demo_entry(ui, &_app, &_app.demo_entries[0]);
-        //draw_image_grid_unlimited_scroll(ui, _app);
     });
 }
 
@@ -40,8 +37,11 @@ fn main() {
     let width = 1920;
     let height = 1080;
 
+    tracy_client::Client::start();
+    tracy_client::set_thread_name!("Main Thread");
+
     let _ = env_logger::builder()
-        .filter_level(LevelFilter::Debug)
+        .filter_level(LevelFilter::Info)
         .init();
 
     let settings = flowi::ApplicationSettings { width, height };
@@ -60,6 +60,11 @@ fn main() {
         light: ui.load_font("data/fonts/roboto/Roboto-Light.ttf").unwrap(),
     };
 
+    ui.register_font(fonts.default, FontStyle::Default);
+    ui.register_font(fonts.thin, FontStyle::Thin);
+    ui.register_font(fonts.bold, FontStyle::Bold);
+    ui.register_font(fonts.light, FontStyle::Light);
+
     let mut app = Box::new(App {
         width,
         height,
@@ -67,7 +72,7 @@ fn main() {
         online_demo_selector: OnlineDemoSelector::new(),
     });
 
-    app.online_demo_selector.content_provider.fetch_party(ui, 93);
+    app.online_demo_selector.content_provider.fetch_party(ui, 92);
 
     if !flowi_app.run(app, main_loop) {
         println!("Failed to create main application");

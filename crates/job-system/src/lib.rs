@@ -3,7 +3,7 @@
 //! This library provides a thread-based job system for executing tasks in parallel.
 //! Jobs can share state through Arc<Mutex<T>> and return results through channels.
 
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
 use std::any::Any;
 use std::thread;
 use thiserror::Error;
@@ -53,7 +53,7 @@ pub struct JobHandle {
 impl JobHandle {
     /// Check if the job has completed without blocking
     pub fn is_finished(&self) -> bool {
-        self.receiver.is_empty() == false
+        !self.receiver.is_empty()
     }
 
     /// Wait for the job to complete and get its result with automatic type conversion
@@ -63,6 +63,10 @@ impl JobHandle {
             .recv()
             .map_err(|e| JobError::ChannelReceiveError(e.to_string()))?;
 
+        Self::match_result(result)
+    }
+
+    fn match_result<T: 'static>(result: JobResult<BoxAnySend>) -> JobResult<T> {
         match result {
             Ok(data) => data
                 .downcast()
@@ -76,15 +80,7 @@ impl JobHandle {
 
     /// Try to get the job's result without blocking, with automatic type conversion
     pub fn try_get_result<T: 'static>(&self) -> Option<JobResult<T>> {
-        self.receiver.try_recv().ok().map(|result| match result {
-            Ok(data) => data
-                .downcast()
-                .map(|boxed| *boxed)
-                .map_err(|_| JobError::DowncastError {
-                    expected: std::any::type_name::<T>(),
-                }),
-            Err(e) => Err(e),
-        })
+        self.receiver.try_recv().ok().map(|result| Self::match_result(result))
     }
 
     /// Get the raw result without type conversion
@@ -110,7 +106,7 @@ impl JobSystem {
     /// # Errors
     /// Returns `JobError` if thread creation fails
     pub fn new(num_threads: usize) -> JobResult<Self> {
-        let (sender, receiver) = bounded(32);
+        let (sender, receiver) = unbounded();
         let receiver_clone: Receiver<(Option<Job>, BoxAnySend, Sender<JobResult<BoxAnySend>>)> =
             receiver.clone();
 
@@ -147,7 +143,7 @@ impl JobSystem {
     where
         F: FnOnce(BoxAnySend) -> JobResult<BoxAnySend> + Send + 'static,
     {
-        let (result_sender, result_receiver) = bounded(1);
+        let (result_sender, result_receiver) = unbounded();
         let job = Box::new(f) as Job;
 
         self.sender
@@ -176,9 +172,8 @@ impl Drop for JobSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
     use std::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]

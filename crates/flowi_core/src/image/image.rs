@@ -19,16 +19,6 @@ pub enum Format {
     Alpha16,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum BorderType {
-    /// No border
-    None,
-    /// A single pixel border
-    Black(usize),
-    /// Repeat the edge pixels
-    Repeat(usize),
-}
-
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct ImageInfo {
@@ -43,10 +33,6 @@ pub struct ImageInfo {
     pub frame_count: i32,
     /// How long each frame should be displayed for in milliseconds
     pub frame_delay: i32,
-    /// Border type of the image
-    pub border_type: BorderType,
-    /// Start of the data excluding the border
-    pub start_offset_ex_borders: usize,
     /// Full width of the image including the border
     pub stride: usize,
 }
@@ -59,8 +45,6 @@ impl ImageInfo {
         height: i32,
         frame_count: i32,
         frame_delay: i32,
-        border_type: BorderType,
-        start_offset_ex_borders: usize,
         stride: usize,
     ) -> Self {
         ImageInfo {
@@ -70,8 +54,6 @@ impl ImageInfo {
             height,
             frame_count,
             frame_delay,
-            border_type,
-            start_offset_ex_borders,
             stride,
         }
     }

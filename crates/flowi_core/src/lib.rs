@@ -30,6 +30,8 @@ use signal::Signal;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::time::Duration;
+use tracy_client::span;
+
 //pub use image::ImageInfo;
 
 pub use clay_layout::{
@@ -55,6 +57,8 @@ pub use crate::io::io::*;
 pub use job_system;
 
 pub use crate::render_api::*;
+use simd::*;
+use crate::image::Resize;
 
 type FlowiKey = u64;
 
@@ -97,6 +101,8 @@ pub(crate) struct State<'a> {
     pub(crate) delta_time: f32,
     pub(crate) focus_id: Option<Id>,
     pub(crate) job_system: JobSystem,
+    pub(crate) screen_area: f32x4,
+    pub(crate) fonts: Vec<FontHandle>,
 }
 
 #[allow(dead_code)]
@@ -122,6 +128,14 @@ pub enum InputAction {
     Cancel,
 }
 
+// TODO: We likely need something better than this
+pub enum FontStyle {
+    Default,
+    Bold,
+    Thin,
+    Light,
+}
+
 /*
 struct ItemStatus {
     hot: f32,
@@ -132,7 +146,7 @@ struct ItemStatus {
 
  */
 
-impl<'a> Ui<'a> {
+impl<'a> Ui<'_> {
     pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
         let io_handler = IoHandler::new(Duration::from_millis(500));
         let bg_worker = WorkSystem::new(2);
@@ -155,7 +169,9 @@ impl<'a> Ui<'a> {
             screen_size: (0, 0),
             delta_time: 0.0,
             focus_id: None,
+            screen_area: f32x4::new_splat(0.0),
             job_system: JobSystem::new(2).unwrap(),
+            fonts: vec![0; 16],
         };
 
         let data = Box::new(Ui {
@@ -165,7 +181,7 @@ impl<'a> Ui<'a> {
         // This is a hack. To be fixed later
         unsafe {
             let raw_ptr = Box::into_raw(data);
-            clay_layout::Clay::set_measure_text_function_unsafe(
+            Clay::set_measure_text_function_unsafe(
                 Self::measure_text_trampoline,
                 raw_ptr as _,
             );
@@ -221,6 +237,16 @@ impl<'a> Ui<'a> {
         state.active_font = font_id;
     }
 
+    pub fn register_font(&self, font_id: FontHandle, _font_style: FontStyle) {
+        let state = unsafe { &mut *self.state.get() };
+        state.fonts[font_id as usize] = font_id;
+    }
+
+    pub fn select_font(&self, font_style: FontStyle) {
+        let state = unsafe { &mut *self.state.get() };
+        state.active_font = state.fonts[font_style as usize];
+    }
+
     pub fn begin(&mut self, delta_time: f32, width: usize, height: usize) {
         let state = unsafe { &mut *self.state.get() };
         state
@@ -232,6 +258,7 @@ impl<'a> Ui<'a> {
         state.button_id = 0;
         state.screen_size = (width, height);
         state.delta_time = delta_time;
+        state.screen_area = f32x4::new(0.0, 0.0, width as f32, height as f32);
     }
 
     pub fn with_layout<F: FnOnce(&Ui)>(&self, declaration: &Declaration, f: F) {
@@ -288,7 +315,7 @@ impl<'a> Ui<'a> {
 
             unsafe {
                 state.layout.with(
-                    &Declaration::new()
+                    Declaration::new()
                         .id(id)
                         .layout()
                         .width(fixed!(size.0))
@@ -297,13 +324,14 @@ impl<'a> Ui<'a> {
                         .image()
                         .data_ptr(image.data.as_ptr() as _)
                         .source_dimensions(source_dimensions)
-                        .end(),
+                        .end()
+                        .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)),
                     |_ui| {},
                 );
             }
         } else {
             state.layout.with(
-                &Declaration::new()
+                Declaration::new()
                     .id(id)
                     .layout()
                     .width(fixed!(size.0))
@@ -408,7 +436,16 @@ impl<'a> Ui<'a> {
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
 
-        // TODO: Don't iterate over all boxes twices
+        let zone = span!("rendering");
+        zone.emit_color(0x00FF00);
+
+        let mut primitives = Vec::with_capacity(1024);
+
+        {
+        let _ = span!("binning");
+        let state = unsafe { &mut *self.state.get() };
+
+        // TODO: Don't iterate over all boxes twice
         let focus_id = if let Some(id) = state.focus_id {
             id.id
         } else {
@@ -417,7 +454,6 @@ impl<'a> Ui<'a> {
 
         let anime_rate = 1.0 - 2f32.powf(-8.0 * state.delta_time);
 
-        let mut primitives = Vec::with_capacity(1024);
 
         if let Some(bg_image) = state.background_image.as_ref() {
             if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(bg_image.handle) {
@@ -434,6 +470,7 @@ impl<'a> Ui<'a> {
                         rounded_corners: [0.0, 0.0, 0.0, 0.0],
                         width: image.width as _,
                         height: image.height as _,
+                        stride: image.stride as _,
                         handle: image.data.as_ptr() as _,
                         rounding: false,
                     }),
@@ -446,6 +483,18 @@ impl<'a> Ui<'a> {
 
         for command in state.layout.end() {
             let aabb = Self::bounding_box(&command);
+
+            // Skip if we have no bounding box
+            if aabb[0] == 0.0 && aabb[1] == 0.0 && aabb[2] == 0.0 && aabb[3] == 0.0 {
+                continue;
+            }
+
+            let t_aabb = f32x4::new(aabb[0], aabb[1], aabb[2], aabb[3]);
+
+            // Skip if the item is outside the screen
+            if !f32x4::test_intersect(state.screen_area, t_aabb) {
+                continue;
+            }
 
             let item = state.item_states.entry(command.id).or_insert(ItemState {
                 ..Default::default()
@@ -502,10 +551,12 @@ impl<'a> Ui<'a> {
                         rounded_corners: [0.0, 0.0, 0.0, 0.0],
                         width: image.dimensions.width as _,
                         height: image.dimensions.height as _,
+                        //stride: (image.dimensions.width as u32 + 1) as _, // HACK
+                        stride: image.dimensions.width as u32, // HACK
                         handle: image.data as _,
                         rounding: false,
                     }),
-                    Color::new(1.0, 1.0, 1.0, 1.0),
+                    Self::color(image.background_color),
                 ),
 
                 RenderCommandConfig::Border(ref border) => {
@@ -533,11 +584,11 @@ impl<'a> Ui<'a> {
                 }
 
                 RenderCommandConfig::ScissorStart() => {
-                    (RenderType::ScissorStart, Color::new(1.0, 1.0, 1.0, 1.0))
+                    (RenderType::ScissorStart, Color::new(0.0, 0.0, 0.0, 0.0))
                 }
 
                 RenderCommandConfig::ScissorEnd() => {
-                    (RenderType::ScissorEnd, Color::new(1.0, 1.0, 1.0, 1.0))
+                    (RenderType::ScissorEnd, Color::new(0.0, 0.0, 0.0, 0.0))
                 }
 
                 RenderCommandConfig::Custom(_) => {
@@ -552,16 +603,27 @@ impl<'a> Ui<'a> {
                 color,
             };
 
+            // ignore scissor for now
+            if let RenderType::ScissorStart = cmd.render_type {
+                continue;
+            }
+
+            if let RenderType::ScissorEnd = cmd.render_type {
+                continue;
+            }
+
             primitives.push(cmd);
+        }
         }
 
         // remove all items that doesn't match the current frame
-        state
-            .item_states
+        state.item_states
             .retain(|_, item| item.frame == state.current_frame);
 
-        //let primitives = Self::translate_clay_render_commands(state, commands);
-        state.renderer.render(&primitives);
+        {
+            let _ = span!("render");
+            state.renderer.render(&primitives);
+        }
 
         // Generate primitives from all boxes
         //state.generate_primitives();
@@ -580,6 +642,20 @@ impl<'a> Ui<'a> {
     pub fn id_index(&self, name: &str, index: u32) -> Id {
         let state = unsafe { &mut *self.state.get() };
         state.layout.id_index(name, index)
+    }
+
+    pub fn is_visible(&self, id: Id) -> bool {
+        let state = unsafe { &mut *self.state.get() };
+        if let Some(state) = state.item_states.get(&id.id.id) {
+            state.aabb != Vec4::ZERO 
+        } else {
+            false
+        }
+    }
+
+    pub fn hint_load_priority(&self, handle: IoHandle, priority: LoadPriority) {
+        let state = unsafe { &mut *self.state.get() };
+        state.io_handler.hint_priority(handle, priority);
     }
 
     pub fn input(&self) -> &mut Input {
@@ -602,7 +678,17 @@ impl<'a> Ui<'a> {
         state.io_handler.load_image(url, opts, &state.job_system)
     }
 
-    pub fn set_background_image(&mut self, handle: IoHandle, mode: BackgroundMode) {
+    pub fn load_background_image(&self, url: &str) -> IoHandle {
+        let state = unsafe { &mut *self.state.get() };
+        let opts = LoadOptions {
+            resize: Resize::IntegerVignette,
+            target_size: (state.screen_size.0 as _, state.screen_size.1 as _),
+            ..Default::default()
+        };
+        state.io_handler.load_image(url, opts, &state.job_system)
+    }
+
+    pub fn set_background_image(&self, handle: IoHandle, mode: BackgroundMode) {
         let state = unsafe { &mut *self.state.get() };
         state.background_image = Some(BackgroundImage { handle, mode });
     }
@@ -612,7 +698,7 @@ impl<'a> Ui<'a> {
         text: &str,
         font_size: u32,
         font_id: FontHandle,
-    ) -> Option<font::CachedString> {
+    ) -> Option<CachedString> {
         let state = unsafe { &mut *self.state.get() };
         state
             .text_generator
@@ -628,9 +714,9 @@ impl<'a> Ui<'a> {
         // TODO: Cache
         let text_size = state.text_generator.measure_text_size(text, state.active_font, 36).unwrap();
 
-        state.layout.with(&Declaration::new()
+        state.layout.with(Declaration::new()
             .layout()
-                .width(fixed!(text_size.0 as f32 + 16.0))
+                .width(fixed!(text_size.0 + 16.0))
                 .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
                 .padding(Padding::all(0))
             .end()

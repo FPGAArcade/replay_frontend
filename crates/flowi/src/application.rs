@@ -3,6 +3,7 @@ use core::ptr::null_mut;
 use core::{ffi::c_void, mem::transmute};
 use flowi_core::{input::Input, ApplicationSettings, Renderer, SoftwareRenderData, Ui};
 use flowi_sw_renderer::Renderer as SoftwareRenderer;
+use tracy_client::span;
 
 //use flowi_core::Instance;
 //use flowi_core::Result;
@@ -45,30 +46,55 @@ unsafe extern "C" fn user_trampoline_ud<T>(app: &mut Application) {
 unsafe extern "C" fn mainloop_app<T>(user_data: *mut c_void) {
     let state: &mut Application = transmute(user_data);
 
+
     //let mut input = Input::new();
 
     while !state.window.should_close() {
-        //state.core.pre_update();
-        state.window.update(state.ui.input());
-        state.ui.update();
+        let zone = span!("main loop");
+        zone.emit_color(0xFF2200);
 
-        state.ui.begin(
-            state.ui.input().delta_time,
-            state.settings.width,
-            state.settings.height,
-        );
-        user_trampoline_ud::<T>(state);
-        state.ui.end();
+        {
+            let zone = span!("window update");
+            zone.emit_color(0x00FF00);
+            //state.core.pre_update();
+            state.window.update(state.ui.input());
+            state.ui.update();
+        }
 
-        state
-            .window
-            .update_software_renderer(state.ui.renderer().software_renderer_info());
+        {
+            let zone = span!("ui begin");
+            zone.emit_color(0x0000FF);
 
-        //state.core.post_update();
-        //state.core.state.renderer.render();
+            state.ui.begin(
+                state.ui.input().delta_time,
+                state.settings.width,
+                state.settings.height,
+            );
+        }
 
-        // TODO: This is a hack to not use 100% CPU
-        std::thread::sleep(std::time::Duration::from_millis(1));
+        {
+            let zone = span!("user function");
+            zone.emit_color(0x00FFFF);
+            user_trampoline_ud::<T>(state);
+        }
+
+        {
+            let zone = span!("ui end");
+            zone.emit_color(0xFF00FF);
+            state.ui.end();
+        }
+
+        {
+            state
+                .window
+                .update_software_renderer(state.ui.renderer().software_renderer_info());
+        }
+
+        {
+            let zone = span!("window present");
+            zone.emit_color(0xFFFF00);
+            state.window.present();
+        }
     }
 }
 

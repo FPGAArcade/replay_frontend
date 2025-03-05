@@ -5,7 +5,7 @@ use zune_core::{
 
 use thiserror::Error as ThisError;
 
-use crate::image::{BorderType, ImageInfo, LoadOptions, Resize};
+use crate::image::{ImageInfo, LoadOptions, Resize};
 use crate::primitives::Color16;
 use simd::*;
 
@@ -18,6 +18,20 @@ pub enum ImageErrors {
     ZuneError(#[from] ZuneError),
     #[error("Generic")]
     Generic(String),
+}
+
+#[inline]
+fn convert_to_color16(data: &[u8], offset: usize, has_alpha: bool) -> Color16 {
+    let r = SRGB_TO_LINEAR_TABLE[data[offset] as usize];
+    let g = SRGB_TO_LINEAR_TABLE[data[offset + 1] as usize];
+    let b = SRGB_TO_LINEAR_TABLE[data[offset + 2] as usize];
+    let a = if has_alpha {
+        (data[offset + 3] << 7) as i16
+    } else {
+        255 << 7
+    };
+
+    Color16::new(r, g, b, a)
 }
 
 pub(crate) fn decode_zune_internal(
@@ -51,49 +65,67 @@ pub(crate) fn decode_zune_internal(
 
     let mut color16_output = Vec::with_capacity(output_size);
 
-    if color_space == ZuneColorSpace::RGB {
-        for v in image_data.chunks(3) {
-            let r = v[0] as usize;
-            let g = v[1] as usize;
-            let b = v[2] as usize;
-
-            let r = SRGB_TO_LINEAR_TABLE[r];
-            let g = SRGB_TO_LINEAR_TABLE[g];
-            let b = SRGB_TO_LINEAR_TABLE[b];
-            let a = 255 << 7;
-
-            color16_output.push(Color16::new(r, g, b, a));
-        }
-    } else if color_space == ZuneColorSpace::RGBA {
-        for v in image_data.chunks(4) {
-            let r = v[0] as usize;
-            let g = v[1] as usize;
-            let b = v[2] as usize;
-            let a = v[3] as usize;
-
-            let r = SRGB_TO_LINEAR_TABLE[r];
-            let g = SRGB_TO_LINEAR_TABLE[g];
-            let b = SRGB_TO_LINEAR_TABLE[b];
-            let a = (a << 7) as i16;
-
-            color16_output.push(Color16::new(r, g, b, a));
-        }
-    } else {
+    if color_space != ZuneColorSpace::RGB && color_space != ZuneColorSpace::RGBA {
         return Err(ImageErrors::Generic(format!(
             "Unsupported color space: {:?}",
             color_space
         )));
     }
 
-    if load_options.resize == Resize::Integer {
+    // Calculate the required range for the entire processing
+    let bytes_per_pixel = if color_space == ZuneColorSpace::RGB { 3 } else { 4 };
+    let has_alpha = color_space == ZuneColorSpace::RGBA;
+    let width = dimensions.0;
+    let height = dimensions.1;
+
+    // Calculate the maximum index we'll access
+    // This will be the last pixel of the bottom row
+    let max_index = if height > 0 && width > 0 {
+        ((height - 1) * width + (width - 1)) * bytes_per_pixel + bytes_per_pixel - 1
+    } else {
+        0
+    };
+
+    // Get a slice covering the entire range we'll work with
+    let image_data_slice = &image_data[0..=max_index];
+
+    // Process main image data row by row
+    for y in 0..height {
+        // Process each pixel in the row
+        for x in 0..width {
+            let offset = (y * width + x) * bytes_per_pixel;
+            color16_output.push(convert_to_color16(image_data_slice, offset, has_alpha));
+        }
+
+        // Duplicate the last pixel of each row
+        //let last_pixel_offset = (y * width + (width - 1)) * bytes_per_pixel;
+        //color16_output.push(convert_to_color16(image_data_slice, last_pixel_offset, has_alpha));
+    }
+
+    // Duplicate the entire bottom row, including the duplicated edge pixel
+    for x in 0..width {
+        let last_x = if x == width { width - 1 } else { x };
+        let bottom_pixel_offset = ((height - 1) * width + last_x) * bytes_per_pixel;
+        color16_output.push(convert_to_color16(image_data_slice, bottom_pixel_offset, has_alpha));
+    }
+
+    for x in 0..width {
+        let last_x = if x == width { width - 1 } else { x };
+        let bottom_pixel_offset = ((height - 1) * width + last_x) * bytes_per_pixel;
+        color16_output.push(convert_to_color16(image_data_slice, bottom_pixel_offset, has_alpha));
+    }
+
+    if load_options.resize == Resize::IntegerVignette {
         let target_size = (
             load_options.target_size.0 as _,
             load_options.target_size.1 as _,
         );
-        let falloff = match load_options.resize {
+        let _falloff = match load_options.resize {
             Resize::IntegerVignette => Falloff::Enabled,
             _ => Falloff::Disabled,
         };
+
+        let falloff = Falloff::Enabled;
 
         let image_info = upscale_image_integer(&color16_output, dimensions, target_size, falloff);
 
@@ -103,9 +135,8 @@ pub(crate) fn decode_zune_internal(
             data: vec_to_u8(color16_output),
             width: dimensions.0 as i32,
             height: dimensions.1 as i32,
-            start_offset_ex_borders: 0,
-            stride: dimensions.0 as usize,
-            border_type: BorderType::None,
+            //stride: dimensions.0 + 1,
+            stride: dimensions.0,
             frame_count: 1,
             frame_delay: 0,
             format: crate::image::Format::Rgba16,
@@ -125,11 +156,15 @@ fn apply_falloff(v: i16x8, x_pos: usize, y_pos: usize, width: usize, height: usi
     let height_f = height as f32;
     let dx = x_pos as f32 / width_f;
     let dy = (height - y_pos) as f32 / height_f;
+    //let dy = y_pos as f32 / height_f;
+    //let dy = 1.0;
 
     // Removed .powf(1.0) since it does nothing.
-    let alpha_factor = (dx * dy) * 32767.0;
+    let alpha_factor = ((dx * dy) * 32767.0).min(32767.0);
+    let background_color = i16x8::new_splat(200);
+    i16x8::lerp(background_color, v, i16x8::new_splat(alpha_factor as i16))
 
-    i16x8::mul_high(v, i16x8::new_splat(alpha_factor as i16))
+    //i16x8::mul_high(v, i16x8::new_splat(alpha_factor as i16))
 }
 
 fn calculate_scale_factor(
@@ -188,8 +223,6 @@ pub fn upscale_image_integer(
                             Falloff::Disabled => color,
                         };
 
-                        //let falloff_factor = compute_falloff(current_x, current_y); // Pass correct (x, y)
-
                         // Store using SIMD-friendly vectorized writes
                         if dx + 1 < scale {
                             adjust_color
@@ -216,9 +249,7 @@ pub fn upscale_image_integer(
         data: vec_to_u8(output_data),
         width: out_width as i32,
         height: out_height as i32,
-        start_offset_ex_borders: 0,
         stride: out_width,
-        border_type: BorderType::None,
         frame_count: 1,
         frame_delay: 0,
         format: crate::image::Format::Rgba16,

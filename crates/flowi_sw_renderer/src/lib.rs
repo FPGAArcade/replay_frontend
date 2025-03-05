@@ -1,4 +1,5 @@
 use simd::*;
+use tracy_client::span;
 
 pub mod raster;
 pub mod sharp_bilinear;
@@ -11,6 +12,7 @@ pub use raster::{BlendMode, Corner, Raster};
 use raw_window_handle::RawWindowHandle;
 
 use flowi_core::render_api::{RenderCommand, RenderType, SoftwareRenderData};
+use std::hash::{Hash, Hasher};
 
 pub struct TileInfo {
     pub offsets: f32x4,
@@ -23,7 +25,7 @@ pub enum ColorSpace {
     Srgb,
 }
 
-const SRGB_BIT_COUNT: i32 = 12;
+const SRGB_BIT_COUNT: i32 = 11;
 const LINEAR_BIT_COUNT: i32 = 15;
 const LINEAR_TO_SRGB_SHIFT: i32 = LINEAR_BIT_COUNT - SRGB_BIT_COUNT;
 
@@ -33,7 +35,7 @@ pub struct Renderer {
     srgb_to_linear_table: [u16; 1 << 8],
     // TODO: Arena
     tiles: Vec<Tile>,
-    tile_buffers: [Vec<Color16>; 2],
+    tile_buffer: Vec<Color16>,
     output: Vec<u8>,
     //tile_size: (usize, usize),
     screen_size: (usize, usize),
@@ -47,7 +49,7 @@ fn linear_to_srgb(x: f32) -> f32 {
     }
 }
 
-fn srgb_to_linear(x: f32) -> f32 {
+fn srgb_to_linear2(x: f32) -> f32 {
     if x <= 0.04045 {
         x / 12.92
     } else {
@@ -61,7 +63,7 @@ pub fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
 
     for (i, entry) in table.iter_mut().enumerate().take(1 << 8) {
         let srgb = i as f32 / 255.0;
-        let linear = srgb_to_linear(srgb);
+        let linear = srgb_to_linear2(srgb);
         *entry = (linear * ((1 << LINEAR_BIT_COUNT) - 1) as f32).round() as u16;
     }
 
@@ -84,7 +86,8 @@ pub fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
 pub struct Tile {
     aabb: f32x4,
     data: Vec<usize>,
-    tile_index: usize,
+    prev_hash: u64,
+    current_hash: u64,
 }
 
 pub fn get_color_from_floats_0_255(color: Color, srgb_to_linear_table: &[u16; 1 << 8]) -> i16x8 {
@@ -100,12 +103,15 @@ pub fn get_color_from_floats_0_255(color: Color, srgb_to_linear_table: &[u16; 1 
 #[inline(never)]
 #[allow(clippy::identity_op)]
 pub fn copy_tile_linear_to_srgb(
-    linear_to_srgb_table: &[u8; 4096],
+    linear_to_srgb_table: &[u8; 2048],
     output: &mut [u8],
     tile: &[Color16],
     tile_info: &Tile,
     width: usize,
 ) {
+    let copy_tile = span!("copy_tile_linear_to_srgb");
+    copy_tile.emit_color(0xFF00FF);
+
     let x0 = tile_info.aabb.extract::<0>() as usize;
     let y0 = tile_info.aabb.extract::<1>() as usize;
     let x1 = tile_info.aabb.extract::<2>() as usize;
@@ -159,15 +165,41 @@ pub fn copy_tile_linear_to_srgb(
     }
 }
 
+#[inline(never)]
+fn clear_tile_buffer(tile_buffer: &mut [Color16]) {
+    let clear_tile = span!("clear tile");
+    clear_tile.emit_color(0x0000FF);
+
+    let c = i16x8::new_splat(200);
+    let count = tile_buffer.len();
+
+    for i in (0..count).step_by(8) {
+        c.store_unaligned(tile_buffer, i + 0);
+        c.store_unaligned(tile_buffer, i + 2);
+        c.store_unaligned(tile_buffer, i + 4);
+        c.store_unaligned(tile_buffer, i + 6);
+    }
+}
+
 fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
-    //dbg!("---------------------------------");
+    let span = span!("render_tiles");
+    span.emit_color(0xFFFF00);
 
     for tile in renderer.tiles.iter_mut() {
         let tile_aabb = tile.aabb;
 
+        let _ = span!("tile loop");
+
+        if tile.prev_hash == tile.current_hash {
+            continue;
+        }
+
+        /*
         if tile.data.is_empty() {
             continue;
         }
+
+         */
 
         let tile_width = tile_aabb.extract::<2>() - tile_aabb.extract::<0>();
         let tile_height = tile_aabb.extract::<3>() - tile_aabb.extract::<1>();
@@ -180,20 +212,19 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
         renderer.raster.scissor_rect = f32x4::new(0.0, 0.0, tile_width as _, tile_height as _);
 
-        let tile_buffer = &mut renderer.tile_buffers[tile.tile_index];
+        let tile_buffer = &mut renderer.tile_buffer;
 
-        // TODO: We should here support clearing the buffer with another color, bg image or have a
-        // check during the binning if we need to clear at all.
-        for t in tile_buffer.iter_mut() {
-            *t = Color16::new_splat(200);
-        }
+        clear_tile_buffer(tile_buffer);
 
         for index in tile.data.iter() {
+            let command = span!("commands");
+            command.emit_color(0x00FF00);
+
             let render_cmd = &commands[*index];
             let blend_mode = if render_cmd.color.a == 255.0 {
-                raster::BlendMode::None
+                BlendMode::None
             } else {
-                raster::BlendMode::WithBackground
+                BlendMode::WithBackground
             };
 
             let color =
@@ -201,7 +232,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
             match &render_cmd.render_type {
                 RenderType::DrawRect => {
-                    //dbg!("DrawRect {:?}", render_cmd.bounding_box);
+                    let zone = span!("DrawRect");
+                    zone.emit_color(0xFF00FF);
                     renderer.raster.render_solid_quad(
                         tile_buffer,
                         &tile_info,
@@ -212,8 +244,9 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawRectRounded(rect) => {
-                    //dbg!("DrawRectRounded {:?}", render_cmd.bounding_box);
-                    //dbg!("DrawRectRounded");
+                    let zone = span!("DrawRectRounded");
+                    zone.emit_color(0xFF00FF);
+
                     renderer.raster.render_solid_quad_rounded(
                         tile_buffer,
                         &tile_info,
@@ -225,6 +258,8 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawTextBuffer(buffer) => {
+                    let zone = span!("DrawTextBuffer");
+                    zone.emit_color(0xFF00FF);
                     if buffer.data.0 == core::ptr::null() {
                         continue;
                     }
@@ -247,12 +282,36 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                 }
 
                 RenderType::DrawImage(buffer) => {
-                    let texture_sizes = [buffer.width as _, buffer.height as _];
-                    let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
+                    let zone = span!("DrawImage");
+                    zone.emit_color(0xFF00FF);
+                    let texture_sizes = [
+                        buffer.width as _, buffer.height as _,
+                        buffer.width as _, buffer.height as _];
+
+                    let color = if blend_mode == BlendMode::WithBackground {
+                        i16x8::new_splat((render_cmd.color.a as i16) << 7)
+                    } else {
+                        i16x8::new_splat(0x07fff)
+                    };
+
+                    //let uv = [0.0, 0.0, buffer.width as _, buffer.height as _];
+
+                    sharp_bilinear::render_sharp_bilinear(
+                        tile_buffer,
+                        renderer.raster.scissor_rect,
+                        &tile_info,
+                        &render_cmd.bounding_box,
+                        buffer.handle as _,
+                        1.0,
+                        blend_mode,
+                        color,
+                        buffer.stride as _,
+                        &texture_sizes);
 
                     //dbg!("DrawImage {:?}", render_cmd.bounding_box);
                     //dbg!("DrawImage {:?}", buffer.handle);
 
+                    /*
                     renderer.raster.render_aligned_texture(
                         tile_buffer,
                         &tile_info,
@@ -261,9 +320,14 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
                         &uv,
                         &texture_sizes,
                     );
+
+                     */
                 }
 
                 RenderType::DrawBackground(buffer) => {
+                    let zone = span!("DrawBackground");
+                    zone.emit_color(0xFF00FF);
+
                     renderer.raster.draw_background(
                         tile_buffer,
                         &tile_info,
@@ -275,24 +339,6 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
                 _ => {}
             }
-
-            /*
-            self.raster.render_solid_quad(
-                tile_buffer,
-                &tile_info,
-                &coords,
-                color,
-                raster::BlendMode::None);
-
-            self.raster.render_solid_quad_rounded(
-                tile_buffer,
-                &tile_info,
-                &render_command.coords,
-                color,
-                16.0,
-                raster::BlendMode::None,
-            );
-            */
         }
 
         // Rasterize the primitives for this tile
@@ -301,7 +347,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
             &mut renderer.output,
             tile_buffer,
             tile,
-            renderer.screen_size.0 as usize,
+            renderer.screen_size.0,
         );
     }
 }
@@ -316,10 +362,9 @@ fn get_tile_size(pos: usize, max_size: usize, tile_size: usize) -> usize {
 
 impl flowi_core::Renderer for Renderer {
     fn new(screen_size: (usize, usize), _window: Option<&RawWindowHandle>) -> Self {
-        let tile_size = (128usize, 128usize);
+        let tile_size = (128, 128);
 
         let mut tiles = Vec::new();
-        let mut tile_index = 0;
 
         for y in (0..screen_size.1).step_by(tile_size.1) {
             for x in (0..screen_size.0).step_by(tile_size.0) {
@@ -334,24 +379,21 @@ impl flowi_core::Renderer for Renderer {
                         (y + tile_height) as f32,
                     ),
                     data: Vec::with_capacity(8192),
-                    tile_index: tile_index & 1,
+                    prev_hash: 1,
+                    current_hash: 0,
                 });
-
-                tile_index += 1;
             }
         }
 
-        let t0 = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
-        let t1 = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
+        let tile_buffer = vec![Color16::default(); tile_size.0 * tile_size.1 * 8];
 
         Self {
             linear_to_srgb_table: build_linear_to_srgb_table(),
             srgb_to_linear_table: build_srgb_to_linear_table(),
             raster: Raster::new(),
-            tile_buffers: [t0, t1],
+            tile_buffer,
             tiles,
             screen_size,
-            //tile_size,
             output: vec![0; screen_size.0 * screen_size.1 * 3],
         }
     }
@@ -366,6 +408,7 @@ impl flowi_core::Renderer for Renderer {
 
     fn render(&mut self, commands: &[RenderCommand]) {
         Self::bin_primitives(&mut self.tiles, commands);
+        Self::hash_all_tiles(&mut self.tiles, commands);
         render_tiles(self, commands);
     }
 }
@@ -375,14 +418,10 @@ impl Renderer {
 
     /// Bins the render primitives into the provided tiles.
     ///
-    /// This function iterates over each tile and clears its data. Then, it iterates
-    /// over the provided render primitives and checks if the primitive's axis-aligned
-    /// bounding box (AABB) intersects with the tile's AABB. If there is a intersection,
+    /// This function iterates over the provided render primitives and checks if the
+    /// primitive's (AABB) intersects with the tile's AABB. If there is an intersection,
     /// the index of the primitive is added to the tile's data.
     ///
-    /// # Parameters
-    /// - `tiles`: A mutable slice of `Tile` objects to bin the primitives into.
-    /// - `commands`: RenderCommands to be binned
     fn bin_primitives(tiles: &mut [Tile], commands: &[RenderCommand]) {
         for tile in tiles.iter_mut() {
             let tile_aabb = tile.aabb;
@@ -394,5 +433,22 @@ impl Renderer {
                 }
             }
         }
+    }
+
+    fn hash_all_tiles(tiles: &mut [Tile], commands: &[RenderCommand]) {
+        let zone = span!("hash_all_tiles");
+        zone.emit_color(0xFFFF00);
+        for tile in tiles.iter_mut() {
+            tile.prev_hash = tile.current_hash;
+            tile.current_hash = Self::hash_tile_data(tile, commands);
+        }
+    }
+    fn hash_tile_data(tile: &Tile, commands: &[RenderCommand]) -> u64 {
+        let mut hasher = fxhash::FxHasher::default();
+        for index in tile.data.iter() {
+            let command = &commands[*index];
+            command.hash(&mut hasher);
+        }
+        hasher.finish()
     }
 }

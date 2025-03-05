@@ -328,11 +328,11 @@ impl VmRange {
         (x + b - 1) & !(b - 1)
     }
 
-    /// Allocates a raw memory block in the arena.
-    ///
-    /// # Safety
-    /// The returned data is uninitialized. The caller must ensure that the data is
-    /// properly initialized.
+    // Allocates a raw memory block in the arena.
+    //
+    // # Safety
+    // The returned data is uninitialized. The caller must ensure that the data is
+    // properly initialized.
     /*
     pub(crate) unsafe fn alloc_raw(
         &mut self,

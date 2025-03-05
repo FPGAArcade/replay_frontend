@@ -3,14 +3,23 @@ use crate::Ui;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Item {
+    /// The background image of the item. This is the image that is shown in the background of the
+    /// item. Image is scaled to power of two.
+    pub background_image: IoHandle,
     /// This image is being shown when the item is non-selected. We used a scaled down image
     /// that fits the screen size we need exactly to save performance.
-    pub unselected_image: IoHandle,
-    /// This image is being shown when the item is selected. This has the original size when
-    /// loaded from the source, unless it's very large it will have been downsized as well.
-    pub selected_image: IoHandle,
-    /// The ID of the item. This is used to identify the item when it's selected.
-    pub id: u64,
+    pub image: IoHandle,
+    /// The ID of the item. This is used to identify the item in the content provider.
+    pub id: u64
+}
+
+/// The visibility of an item. This is used to determine how the item should be displayed.
+/// It's also useful to hint to the loading system to priority load items that are visible.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ItemVisibility {
+    Hidden,
+    Visible,
+    Selected,
 }
 
 /// The content provider is responsible for providing the content to the content selector. This
@@ -22,7 +31,8 @@ pub struct Item {
 pub trait ContentProvider {
     /// Get the item at the given column and row. If the item is not available at the given
     /// position it should return None.
-    fn get_item(&mut self, ui: &Ui, row: u64, col: u64) -> Item;
+    fn get_item_id(&mut self, row: u64, col: u64) -> u64;
+    fn get_item(&mut self, ui: &Ui, visible: ItemVisibility, row: u64, col: u64) -> Item;
     fn get_column_count(&mut self, ui: &Ui, row: u64) -> u64;
     /// Get the name of the row
     fn get_row_name(&mut self, ui: &Ui, row: u64) -> &str;
