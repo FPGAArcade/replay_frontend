@@ -3,9 +3,7 @@ use flowi::Application;
 use flowi::Ui;
 use flowi::{grow, Declaration, FontHandle, LayoutDirection, FontStyle};
 use log::*;
-//use demozoo_fetcher::ProductionEntry;
 use online_demo_display::OnlineDemoSelector;
-use tracy_client::{set_thread_name, span, Client};
 
 pub struct Fonts {
     pub default: FontHandle,
@@ -32,8 +30,6 @@ fn main_loop(ui: &Ui, app: &mut App) {
         .end(), |ui|
     {
         app.online_demo_selector.update(ui);
-        //display_demo_entry(ui, &_app, &_app.demo_entries[0]);
-        //draw_image_grid_unlimited_scroll(ui, _app);
     });
 }
 
@@ -41,13 +37,11 @@ fn main() {
     let width = 1920;
     let height = 1080;
 
-    println!("tracy_client::Client::start");
-
     tracy_client::Client::start();
     tracy_client::set_thread_name!("Main Thread");
 
     let _ = env_logger::builder()
-        .filter_level(LevelFilter::Error)
+        .filter_level(LevelFilter::Info)
         .init();
 
     let settings = flowi::ApplicationSettings { width, height };

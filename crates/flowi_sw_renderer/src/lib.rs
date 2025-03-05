@@ -49,7 +49,7 @@ fn linear_to_srgb(x: f32) -> f32 {
     }
 }
 
-fn srgb_to_linear(x: f32) -> f32 {
+fn srgb_to_linear2(x: f32) -> f32 {
     if x <= 0.04045 {
         x / 12.92
     } else {
@@ -63,7 +63,7 @@ pub fn build_srgb_to_linear_table() -> [u16; 1 << 8] {
 
     for (i, entry) in table.iter_mut().enumerate().take(1 << 8) {
         let srgb = i as f32 / 255.0;
-        let linear = srgb_to_linear(srgb);
+        let linear = srgb_to_linear2(srgb);
         *entry = (linear * ((1 << LINEAR_BIT_COUNT) - 1) as f32).round() as u16;
     }
 
@@ -88,7 +88,6 @@ pub struct Tile {
     data: Vec<usize>,
     prev_hash: u64,
     current_hash: u64,
-    tile_index: usize,
 }
 
 pub fn get_color_from_floats_0_255(color: Color, srgb_to_linear_table: &[u16; 1 << 8]) -> i16x8 {
@@ -171,7 +170,6 @@ fn clear_tile_buffer(tile_buffer: &mut [Color16]) {
     let clear_tile = span!("clear tile");
     clear_tile.emit_color(0x0000FF);
 
-    let clear_color = Color16::new_splat(200);
     let c = i16x8::new_splat(200);
     let count = tile_buffer.len();
 
@@ -224,9 +222,9 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
 
             let render_cmd = &commands[*index];
             let blend_mode = if render_cmd.color.a == 255.0 {
-                raster::BlendMode::None
+                BlendMode::None
             } else {
-                raster::BlendMode::WithBackground
+                BlendMode::WithBackground
             };
 
             let color =
@@ -349,7 +347,7 @@ fn render_tiles(renderer: &mut Renderer, commands: &[RenderCommand]) {
             &mut renderer.output,
             tile_buffer,
             tile,
-            renderer.screen_size.0 as usize,
+            renderer.screen_size.0,
         );
     }
 }
@@ -367,7 +365,6 @@ impl flowi_core::Renderer for Renderer {
         let tile_size = (128, 128);
 
         let mut tiles = Vec::new();
-        let mut tile_index = 0;
 
         for y in (0..screen_size.1).step_by(tile_size.1) {
             for x in (0..screen_size.0).step_by(tile_size.0) {
@@ -382,12 +379,9 @@ impl flowi_core::Renderer for Renderer {
                         (y + tile_height) as f32,
                     ),
                     data: Vec::with_capacity(8192),
-                    tile_index: tile_index & 1,
                     prev_hash: 1,
                     current_hash: 0,
                 });
-
-                tile_index += 1;
             }
         }
 
@@ -400,7 +394,6 @@ impl flowi_core::Renderer for Renderer {
             tile_buffer,
             tiles,
             screen_size,
-            //tile_size,
             output: vec![0; screen_size.0 * screen_size.1 * 3],
         }
     }
@@ -426,7 +419,7 @@ impl Renderer {
     /// Bins the render primitives into the provided tiles.
     ///
     /// This function iterates over the provided render primitives and checks if the
-    /// primitive's (AABB) intersects with the tile's AABB. If there is a intersection,
+    /// primitive's (AABB) intersects with the tile's AABB. If there is an intersection,
     /// the index of the primitive is added to the tile's data.
     ///
     fn bin_primitives(tiles: &mut [Tile], commands: &[RenderCommand]) {

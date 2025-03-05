@@ -7,7 +7,7 @@ use flowi_core::content_selector::ContentSelector;
 /// selectors for many streaming services works. The user can scroll through a list of items and
 /// select one of them. The selected item will be displayed in a larger size than the other items.
 /// THe backend uses the Demozoo API to fetch the metadata along with screenshots from it's db.
-use flowi_core::{Alignment, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, fixed, grow, percent, Color, FontStyle};
+use flowi_core::{Alignment, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, fixed, grow, FontStyle};
 use flowi_core::{IoHandle, LoadPriority, LoadState};
 use log::error;
 //use log::*;

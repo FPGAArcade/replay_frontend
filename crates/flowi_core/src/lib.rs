@@ -146,7 +146,7 @@ struct ItemStatus {
 
  */
 
-impl<'a> Ui<'a> {
+impl<'a> Ui<'_> {
     pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
         let io_handler = IoHandler::new(Duration::from_millis(500));
         let bg_worker = WorkSystem::new(2);
@@ -181,7 +181,7 @@ impl<'a> Ui<'a> {
         // This is a hack. To be fixed later
         unsafe {
             let raw_ptr = Box::into_raw(data);
-            clay_layout::Clay::set_measure_text_function_unsafe(
+            Clay::set_measure_text_function_unsafe(
                 Self::measure_text_trampoline,
                 raw_ptr as _,
             );
@@ -315,7 +315,7 @@ impl<'a> Ui<'a> {
 
             unsafe {
                 state.layout.with(
-                    &Declaration::new()
+                    Declaration::new()
                         .id(id)
                         .layout()
                         .width(fixed!(size.0))
@@ -331,7 +331,7 @@ impl<'a> Ui<'a> {
             }
         } else {
             state.layout.with(
-                &Declaration::new()
+                Declaration::new()
                     .id(id)
                     .layout()
                     .width(fixed!(size.0))
@@ -445,7 +445,7 @@ impl<'a> Ui<'a> {
         let _ = span!("binning");
         let state = unsafe { &mut *self.state.get() };
 
-        // TODO: Don't iterate over all boxes twices
+        // TODO: Don't iterate over all boxes twice
         let focus_id = if let Some(id) = state.focus_id {
             id.id
         } else {
@@ -647,11 +647,7 @@ impl<'a> Ui<'a> {
     pub fn is_visible(&self, id: Id) -> bool {
         let state = unsafe { &mut *self.state.get() };
         if let Some(state) = state.item_states.get(&id.id.id) {
-            if state.aabb == Vec4::ZERO {
-                false
-            } else {
-                true
-            }
+            state.aabb != Vec4::ZERO 
         } else {
             false
         }
@@ -702,7 +698,7 @@ impl<'a> Ui<'a> {
         text: &str,
         font_size: u32,
         font_id: FontHandle,
-    ) -> Option<font::CachedString> {
+    ) -> Option<CachedString> {
         let state = unsafe { &mut *self.state.get() };
         state
             .text_generator
@@ -718,9 +714,9 @@ impl<'a> Ui<'a> {
         // TODO: Cache
         let text_size = state.text_generator.measure_text_size(text, state.active_font, 36).unwrap();
 
-        state.layout.with(&Declaration::new()
+        state.layout.with(Declaration::new()
             .layout()
-                .width(fixed!(text_size.0 as f32 + 16.0))
+                .width(fixed!(text_size.0 + 16.0))
                 .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
                 .padding(Padding::all(0))
             .end()

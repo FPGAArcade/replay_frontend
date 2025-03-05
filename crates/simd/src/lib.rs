@@ -568,6 +568,7 @@ impl i16x8 {
     }
 
     #[inline(always)]
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn load_unaligned_ptr<T: Sized>(data: *const T, offset: usize) -> Self {
         #[cfg(target_arch = "aarch64")]
         unsafe {

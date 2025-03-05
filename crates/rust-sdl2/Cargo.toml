@@ -5,6 +5,7 @@ repository = "https://github.com/Rust-SDL2/rust-sdl2"
 documentation = "https://docs.rs/sdl2"
 version = "0.37.0"
 license = "MIT"
+edition = "2015"
 authors = [ "Tony Aldridge <tony@angry-lawyer.com>", "Cobrand <cobrandw@gmail.com>"]
 keywords = ["SDL", "windowing", "graphics", "api", "engine"]
 categories = ["rendering","api-bindings","game-engines","multimedia"]

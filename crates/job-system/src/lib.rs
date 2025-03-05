@@ -53,7 +53,7 @@ pub struct JobHandle {
 impl JobHandle {
     /// Check if the job has completed without blocking
     pub fn is_finished(&self) -> bool {
-        self.receiver.is_empty() == false
+        !self.receiver.is_empty()
     }
 
     /// Wait for the job to complete and get its result with automatic type conversion
@@ -63,6 +63,10 @@ impl JobHandle {
             .recv()
             .map_err(|e| JobError::ChannelReceiveError(e.to_string()))?;
 
+        Self::match_result(result)
+    }
+
+    fn match_result<T: 'static>(result: JobResult<BoxAnySend>) -> JobResult<T> {
         match result {
             Ok(data) => data
                 .downcast()
@@ -76,15 +80,7 @@ impl JobHandle {
 
     /// Try to get the job's result without blocking, with automatic type conversion
     pub fn try_get_result<T: 'static>(&self) -> Option<JobResult<T>> {
-        self.receiver.try_recv().ok().map(|result| match result {
-            Ok(data) => data
-                .downcast()
-                .map(|boxed| *boxed)
-                .map_err(|_| JobError::DowncastError {
-                    expected: std::any::type_name::<T>(),
-                }),
-            Err(e) => Err(e),
-        })
+        self.receiver.try_recv().ok().map(|result| Self::match_result(result))
     }
 
     /// Get the raw result without type conversion
@@ -176,9 +172,8 @@ impl Drop for JobSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
     use std::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
     use std::time::Duration;
 
     #[test]
