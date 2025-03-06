@@ -12,5 +12,5 @@ pub use flowi_core::{
     fixed, font::FontHandle, grow, ActionResponse, Alignment, BackgroundMode, ClayColor,
     Dimensions, Id, ImageInfo, InputAction, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection,
     Padding, Renderer, Sizing,
-    FontStyle,
+    FontStyle, UiDeclaration, UiLayoutScope,
 };

@@ -23,7 +23,7 @@ pub enum Sizing {
     Grow(f32, f32),
     /// Sets a fixed width/height.
     Fixed(f32),
-    /// Sets width/height as a percentage of its parent.
+    /// Sets width/height as a percentage of its parent. Value should be between `0.0` and `1.0`.
     Percent(f32),
 }
 
@@ -151,14 +151,23 @@ pub enum LayoutDirection {
 }
 
 /// Builder for configuring layout properties in a `Declaration`.
-pub struct LayoutBuilder<'a> {
-    parent: &'a mut Declaration,
+pub struct LayoutBuilder<
+    'declaration,
+    'render,
+    ImageElementData: 'render,
+    CustomElementData: 'render,
+> {
+    parent: &'declaration mut Declaration<'render, ImageElementData, CustomElementData>,
 }
 
-impl LayoutBuilder<'_> {
+impl<'declaration, 'render, ImageElementData: 'render, CustomElementData: 'render>
+    LayoutBuilder<'declaration, 'render, ImageElementData, CustomElementData>
+{
     /// Creates a new `LayoutBuilder` with the given parent `Declaration`.
     #[inline]
-    pub fn new(parent: &mut Declaration) -> LayoutBuilder {
+    pub fn new(
+        parent: &'declaration mut Declaration<'render, ImageElementData, CustomElementData>,
+    ) -> Self {
         LayoutBuilder { parent }
     }
 
@@ -210,7 +219,7 @@ impl LayoutBuilder<'_> {
 
     /// Returns the modified `Declaration`.
     #[inline]
-    pub fn end(&mut self) -> &mut Declaration {
+    pub fn end(&mut self) -> &mut Declaration<'render, ImageElementData, CustomElementData> {
         self.parent
     }
 }
@@ -258,7 +267,7 @@ macro_rules! percent {
     ($percent:expr) => {{
         const _: () = assert!(
             $percent >= 0.0 && $percent <= 1.0,
-            "Percent value must be between 0.0 and 1.0."
+            "Percent value must be between 0.0 and 1.0 inclusive!"
         );
         $crate::layout::Sizing::Percent($percent)
     }};

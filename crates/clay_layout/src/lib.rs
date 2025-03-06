@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod bindings;
-
 pub mod color;
 pub mod elements;
 pub mod errors;
@@ -12,31 +11,34 @@ pub mod render_commands;
 pub mod text;
 
 mod mem;
+pub mod renderers;
 
-use crate::bindings::*;
+use core::marker::PhantomData;
+
+pub use crate::bindings::*;
 use errors::Error;
 use id::Id;
 use math::{BoundingBox, Dimensions, Vector2};
 use render_commands::RenderCommand;
 
-pub use bindings::{Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig};
 pub use color::Color;
-pub use layout::*;
 
 #[cfg(feature = "std")]
 use text::TextConfig;
 
 use text::TextElementConfig;
-
 #[derive(Copy, Clone)]
-pub struct Declaration {
+pub struct Declaration<'render, ImageElementData: 'render, CustomElementData: 'render> {
     inner: Clay_ElementDeclaration,
+    _phantom: PhantomData<(&'render CustomElementData, &'render ImageElementData)>,
 }
 
-impl Declaration {
+impl<'render, ImageElementData: 'render, CustomElementData: 'render>
+    Declaration<'render, ImageElementData, CustomElementData>
+{
     #[inline]
     pub fn new() -> Self {
-        mem::zeroed_init()
+        crate::mem::zeroed_init()
     }
 
     #[inline]
@@ -59,32 +61,50 @@ impl Declaration {
     }
 
     #[inline]
-    pub fn layout(&mut self) -> LayoutBuilder {
-        LayoutBuilder::new(self)
+    pub fn custom_element(&mut self, data: &'render CustomElementData) -> &mut Self {
+        self.inner.custom.customData = data as *const CustomElementData as _;
+        self
     }
 
     #[inline]
-    pub fn image(&mut self) -> elements::ImageBuilder {
+    pub fn layout(
+        &mut self,
+    ) -> layout::LayoutBuilder<'_, 'render, ImageElementData, CustomElementData> {
+        layout::LayoutBuilder::new(self)
+    }
+
+    #[inline]
+    pub fn image(
+        &mut self,
+    ) -> elements::ImageBuilder<'_, 'render, ImageElementData, CustomElementData> {
         elements::ImageBuilder::new(self)
     }
 
     #[inline]
-    pub fn floating(&mut self) -> elements::FloatingBuilder {
+    pub fn floating(
+        &mut self,
+    ) -> elements::FloatingBuilder<'_, 'render, ImageElementData, CustomElementData> {
         elements::FloatingBuilder::new(self)
     }
 
     #[inline]
-    pub fn border(&mut self) -> elements::BorderBuilder {
+    pub fn border(
+        &mut self,
+    ) -> elements::BorderBuilder<'_, 'render, ImageElementData, CustomElementData> {
         elements::BorderBuilder::new(self)
     }
 
     #[inline]
-    pub fn corner_radius(&mut self) -> elements::CornerRadiusBuilder {
+    pub fn corner_radius(
+        &mut self,
+    ) -> elements::CornerRadiusBuilder<'_, 'render, ImageElementData, CustomElementData> {
         elements::CornerRadiusBuilder::new(self)
     }
 }
 
-impl Default for Declaration {
+impl<ImageElementData, CustomElementData> Default
+    for Declaration<'_, ImageElementData, CustomElementData>
+{
     fn default() -> Self {
         Self::new()
     }
@@ -135,13 +155,8 @@ unsafe extern "C" fn error_handler(error_data: Clay_ErrorData) {
     panic!("Clay Error: (type: {:?}) {}", error.type_, error.text);
 }
 
-pub struct DataRef<'a> {
-    pub(crate) ptr: *const core::ffi::c_void,
-    _phantom: core::marker::PhantomData<&'a ()>,
-}
-
 #[allow(dead_code)]
-pub struct Clay<'a> {
+pub struct Clay {
     /// Memory used internally by clay
     #[cfg(feature = "std")]
     _memory: Vec<u8>,
@@ -150,13 +165,148 @@ pub struct Clay<'a> {
     /// no_std case.
     #[cfg(not(feature = "std"))]
     _memory: *const core::ffi::c_void,
-    /// Phantom data to keep the lifetime of the memory
-    _phantom: core::marker::PhantomData<&'a ()>,
     /// Stores the raw pointer to the callback data for later cleanup
     text_measure_callback: Option<*const core::ffi::c_void>,
 }
 
-impl<'a> Clay<'a> {
+pub struct ClayLayoutScope<'clay, 'render, ImageElementData, CustomElementData> {
+    clay: &'clay mut Clay,
+    _phantom: core::marker::PhantomData<(&'render ImageElementData, &'render CustomElementData)>,
+    dropped: bool,
+}
+
+impl<'render, 'clay: 'render, ImageElementData: 'render, CustomElementData: 'render>
+    ClayLayoutScope<'clay, 'render, ImageElementData, CustomElementData>
+{
+    /// Create an element, passing its config and a function to add childrens
+    pub fn with<
+        F: FnOnce(&mut ClayLayoutScope<'clay, 'render, ImageElementData, CustomElementData>),
+    >(
+        &mut self,
+        declaration: &Declaration<'render, ImageElementData, CustomElementData>,
+        f: F,
+    ) {
+        unsafe {
+            Clay_SetCurrentContext(self.clay.context);
+            Clay__OpenElement();
+            Clay__ConfigureOpenElement(declaration.inner);
+        }
+
+        f(self);
+
+        unsafe {
+            Clay__CloseElement();
+        }
+    }
+
+    pub fn with_styling<
+        G: FnOnce(
+            &ClayLayoutScope<'clay, 'render, ImageElementData, CustomElementData>,
+        ) -> Declaration<'render, ImageElementData, CustomElementData>,
+        F: FnOnce(&ClayLayoutScope<'clay, 'render, ImageElementData, CustomElementData>),
+    >(
+        &self,
+        g: G,
+        f: F,
+    ) {
+        unsafe {
+            Clay_SetCurrentContext(self.clay.context);
+            Clay__OpenElement();
+        }
+
+        let declaration = g(self);
+
+        unsafe {
+            Clay__ConfigureOpenElement(declaration.inner);
+        }
+
+        f(self);
+
+        unsafe {
+            Clay__CloseElement();
+        }
+    }
+
+    pub fn end(&mut self,
+    ) -> impl Iterator<Item = RenderCommand<'render, ImageElementData, CustomElementData>> {
+        let array = unsafe { Clay_EndLayout() };
+        self.dropped = true;
+        let slice = unsafe { core::slice::from_raw_parts(array.internalArray, array.length as _) };
+        slice
+            .iter()
+            .map(|command| unsafe { RenderCommand::from_clay_render_command(*command) })
+    }
+
+    /// Generates a unique ID based on the given `label`.
+    ///
+    /// This ID is global and must be unique across the entire scope.
+    #[inline]
+    pub fn id(&self, label: &'render str) -> id::Id {
+        id::Id::new(label)
+    }
+
+    /// Generates a unique indexed ID based on the given `label` and `index`.
+    ///
+    /// This is useful when multiple elements share the same label but need distinct IDs.
+    #[inline]
+    pub fn id_index(&self, label: &'render str, index: u32) -> id::Id {
+        id::Id::new_index(label, index)
+    }
+
+    /// Generates a locally unique ID based on the given `label`.
+    ///
+    /// The ID is unique within a specific local scope but not globally.
+    #[inline]
+    pub fn id_local(&self, label: &'render str) -> id::Id {
+        id::Id::new_index_local(label, 0)
+    }
+
+    /// Generates a locally unique indexed ID based on the given `label` and `index`.
+    ///
+    /// This is useful for differentiating elements within a local scope while keeping their labels consistent.
+    #[inline]
+    pub fn id_index_local(&self, label: &'render str, index: u32) -> id::Id {
+        id::Id::new_index_local(label, index)
+    }
+
+    /// Adds a text element to the current open element or to the root layout
+    pub fn text(&self, text: &'render str, config: TextElementConfig) {
+        unsafe { Clay__OpenTextElement(text.into(), config.into()) };
+    }
+
+    pub fn hovered(&self) -> bool {
+        unsafe { Clay_Hovered() }
+    }
+
+    pub fn pointer_over(&self, cfg: Id) -> bool {
+        unsafe { Clay_PointerOver(cfg.id) }
+    }
+}
+
+impl<ImageElementData, CustomElementData> Drop
+    for ClayLayoutScope<'_, '_, ImageElementData, CustomElementData>
+{
+    fn drop(&mut self) {
+        if !self.dropped {
+            unsafe {
+                Clay_EndLayout();
+            }
+        }
+    }
+}
+
+impl Clay {
+    pub fn begin<'render, ImageElementData: 'render, CustomElementData: 'render>(
+        &mut self,
+    ) -> ClayLayoutScope<'_, 'render, ImageElementData, CustomElementData> {
+        unsafe { Clay_BeginLayout() };
+        ClayLayoutScope {
+            clay: self,
+            _phantom: core::marker::PhantomData,
+            dropped: false,
+        }
+    }
+
     #[cfg(feature = "std")]
     pub fn new(dimensions: Dimensions) -> Self {
         let memory_size = Self::required_memory_size();
@@ -180,17 +330,7 @@ impl<'a> Clay<'a> {
         Self {
             _memory: memory,
             context,
-            _phantom: core::marker::PhantomData,
             text_measure_callback: None,
-        }
-    }
-
-    /// Get a reference to the data to pass to clay or the builders. This is to ensure that the
-    /// data is not dropped before clay is done with it.
-    pub fn data<T>(&self, data: &T) -> DataRef<'a> {
-        DataRef {
-            ptr: data as *const T as *const core::ffi::c_void,
-            _phantom: core::marker::PhantomData,
         }
     }
 
@@ -211,7 +351,6 @@ impl<'a> Clay<'a> {
         Self {
             _memory: memory,
             context,
-            _phantom: core::marker::PhantomData,
             text_measure_callback: None,
         }
     }
@@ -223,10 +362,13 @@ impl<'a> Clay<'a> {
 
     /// Set the callback for text measurement with user data
     #[cfg(feature = "std")]
-    pub fn set_measure_text_function_user_data<F, T>(&mut self, userdata: T, callback: F)
-    where
-        F: Fn(&str, &TextConfig, &'a mut T) -> Dimensions + 'static,
-        T: 'a,
+    pub fn set_measure_text_function_user_data<'clay, F, T>(
+        &'clay mut self,
+        userdata: T,
+        callback: F,
+    ) where
+        F: Fn(&str, &TextConfig, &'clay mut T) -> Dimensions + 'static,
+        T: 'clay,
     {
         // Box the callback and userdata together
         let boxed = Box::new((callback, userdata));
@@ -281,41 +423,9 @@ impl<'a> Clay<'a> {
         Clay_SetMeasureTextFunction(Some(callback), user_data);
     }
 
-    /// Generates a unique ID based on the given `label`.
-    ///
-    /// This ID is global and must be unique across the entire scope.
-    #[inline]
-    pub fn id(&self, label: &'a str) -> Id {
-        Id::new(label)
-    }
-
-    /// Generates a unique indexed ID based on the given `label` and `index`.
-    ///
-    /// This is useful when multiple elements share the same label but need distinct IDs.
-    #[inline]
-    pub fn id_index(&self, label: &'a str, index: u32) -> Id {
-        Id::new_index(label, index)
-    }
-
-    /// Generates a locally unique ID based on the given `label`.
-    ///
-    /// The ID is unique within a specific local scope but not globally.
-    #[inline]
-    pub fn id_local(&self, label: &'a str) -> Id {
-        Id::new_index_local(label, 0)
-    }
-
-    /// Generates a locally unique indexed ID based on the given `label` and `index`.
-    ///
-    /// This is useful for differentiating elements within a local scope while keeping their labels consistent.
-    #[inline]
-    pub fn id_index_local(&self, label: &'a str, index: u32) -> Id {
-        Id::new_index_local(label, index)
-    }
-
     /// Sets the maximum number of element that clay supports
     /// **Use only if you know what you are doing or your getting errors from clay**
-    pub fn max_element_count(&self, max_element_count: u32) {
+    pub fn max_element_count(&mut self, max_element_count: u32) {
         unsafe {
             Clay_SetMaxElementCount(max_element_count as _);
         }
@@ -329,7 +439,7 @@ impl<'a> Clay<'a> {
     }
 
     /// Enables or disables the debug mode of clay
-    pub fn enable_debug_mode(&self, enable: bool) {
+    pub fn set_debug_mode(&self, enable: bool) {
         unsafe {
             Clay_SetDebugModeEnabled(enable);
         }
@@ -337,7 +447,7 @@ impl<'a> Clay<'a> {
 
     /// Sets the dimensions of the global layout, use if, for example the window size you render to
     /// changed
-    pub fn layout_dimensions(&self, dimensions: Dimensions) {
+    pub fn set_layout_dimensions(&self, dimensions: Dimensions) {
         unsafe {
             Clay_SetLayoutDimensions(dimensions.into());
         }
@@ -360,29 +470,6 @@ impl<'a> Clay<'a> {
         }
     }
 
-    /// Returns if the current element you are creating is hovered
-    pub fn hovered(&self) -> bool {
-        unsafe { Clay_Hovered() }
-    }
-
-    pub fn pointer_over(&self, cfg: Id) -> bool {
-        unsafe { Clay_PointerOver(cfg.id) }
-    }
-
-    fn get_element_data(id: Id) -> Clay_ElementData {
-        unsafe { Clay_GetElementData(id.id) }
-    }
-
-    pub fn bounding_box(&self, id: Id) -> Option<BoundingBox> {
-        let element_data = Self::get_element_data(id);
-
-        if element_data.found {
-            Some(element_data.boundingBox.into())
-        } else {
-            None
-        }
-    }
-
     pub fn scroll_container_data(&self, id: Id) -> Option<Clay_ScrollContainerData> {
         unsafe {
             Clay_SetCurrentContext(self.context);
@@ -396,44 +483,32 @@ impl<'a> Clay<'a> {
         }
     }
 
-    #[inline]
-    pub fn begin(&self) {
-        unsafe { Clay_BeginLayout() };
+    /// Returns if the current element you are creating is hovered
+    pub fn hovered(&self) -> bool {
+        unsafe { Clay_Hovered() }
     }
 
-    #[inline]
-    pub fn end(&self) -> impl Iterator<Item = RenderCommand> {
-        let array = unsafe { Clay_EndLayout() };
-        let slice = unsafe { core::slice::from_raw_parts(array.internalArray, array.length as _) };
-        slice.iter().map(|command| RenderCommand::from(*command))
+    pub fn pointer_over(&self, cfg: Id) -> bool {
+        unsafe { Clay_PointerOver(cfg.id) }
     }
 
-    /// Create an element, passing its config and a function to add childrens
-    /// ```
-    /// // TODO: Add Example
-    /// ```
-    pub fn with<F: FnOnce(&Clay)>(&self, declaration: &Declaration, f: F) {
-        unsafe {
-            Clay_SetCurrentContext(self.context);
-            Clay__OpenElement();
-            Clay__ConfigureOpenElement(declaration.inner);
-        };
+    fn element_data(id: Id) -> Clay_ElementData {
+        unsafe { Clay_GetElementData(id.id) }
+    }
 
-        f(self);
+    pub fn bounding_box(&self, id: Id) -> Option<BoundingBox> {
+        let element_data = Self::element_data(id);
 
-        unsafe {
-            Clay__CloseElement();
+        if element_data.found {
+            Some(element_data.boundingBox.into())
+        } else {
+            None
         }
-    }
-
-    /// Adds a text element to the current open element or to the root layout
-    pub fn text(&self, text: &str, config: TextElementConfig) {
-        unsafe { Clay__OpenTextElement(text.into(), config.into()) };
     }
 }
 
 #[cfg(feature = "std")]
-impl Drop for Clay<'_> {
+impl Drop for Clay {
     fn drop(&mut self) {
         unsafe {
             if let Some(ptr) = self.text_measure_callback {
@@ -496,9 +571,9 @@ mod tests {
             Dimensions::default()
         });
 
-        clay.begin();
+        let clay = clay.begin::<(), ()>();
 
-        clay.with(Declaration::new()
+        clay.with(&Declaration::new()
             .id(clay.id("parent_rect"))
             .layout()
                 .width(Sizing::Fixed(100.0))
@@ -507,7 +582,7 @@ mod tests {
                 .end()
             .background_color(Color::rgb(255., 255., 255.)), |clay|
         {
-            clay.with(Declaration::new()
+            clay.with(&Declaration::new()
                 .layout()
                     .width(Sizing::Fixed(100.0))
                     .height(Sizing::Fixed(100.0))
@@ -515,7 +590,7 @@ mod tests {
                     .end()
                 .background_color(Color::rgb(255., 255., 255.)), |clay| 
             {
-                clay.with(Declaration::new()
+                clay.with(&Declaration::new()
                     .id(clay.id("rect_under_rect"))
                     .layout()
                         .width(Sizing::Fixed(100.0))
@@ -533,7 +608,7 @@ mod tests {
             });
         });
 
-        clay.with(Declaration::new()
+        clay.with(&Declaration::new()
             .id(clay.id_index("border_container", 1))
             .layout()
                 .padding(Padding::all(16))
@@ -544,7 +619,7 @@ mod tests {
                 .end()
             .corner_radius().all(10.0).end(), |clay|
         {
-            clay.with(Declaration::new()
+            clay.with(&Declaration::new()
                 .id(clay.id("rect_under_border"))
                 .layout()
                     .width(Sizing::Fixed(50.0))

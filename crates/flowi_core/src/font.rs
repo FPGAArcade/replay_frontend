@@ -330,7 +330,7 @@ impl TextGenerator {
             async_state,
             sync_font_system: FontSystem::new(),
             sync_loaded_fonts: HashMap::new(),
-            font_id_counter: 0,
+            font_id_counter: 1,
             cached_strings: HashMap::new(),
             load_font_async_id,
             gen_text_async_id,

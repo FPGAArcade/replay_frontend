@@ -18,10 +18,7 @@ use glam::Vec4;
 
 use arena_allocator::Arena;
 use background_worker::WorkSystem;
-use clay_layout::{
-    render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig,
-    Clay, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig,
-};
+use clay_layout::{render_commands::RenderCommand as ClayRenderCommand, render_commands::RenderCommandConfig, Clay, ClayLayoutScope, Clay_Dimensions, Clay_StringSlice, Clay_TextElementConfig};
 use font::{CachedString};
 use internal_error::InternalResult;
 pub use io::io::IoHandler;
@@ -31,6 +28,7 @@ use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::time::Duration;
 use tracy_client::span;
+use log::warn;
 
 //pub use image::ImageInfo;
 
@@ -90,7 +88,7 @@ pub(crate) struct State<'a> {
     pub(crate) primitives: Arena,
     pub(crate) hot_item: FlowiKey,
     pub(crate) current_frame: u64,
-    pub(crate) layout: Clay<'a>,
+    pub(crate) layout: Clay,
     pub(crate) button_id: u32,
     pub(crate) renderer: Box<dyn Renderer>,
     pub(crate) bg_worker: WorkSystem,
@@ -103,6 +101,8 @@ pub(crate) struct State<'a> {
     pub(crate) job_system: JobSystem,
     pub(crate) screen_area: f32x4,
     pub(crate) fonts: Vec<FontHandle>,
+    pub(crate) font_size: u32,
+    pub(crate) clay_layout_scope: Option<UiLayoutScope<'a>>,
 }
 
 #[allow(dead_code)]
@@ -129,6 +129,7 @@ pub enum InputAction {
 }
 
 // TODO: We likely need something better than this
+#[derive(Copy, Clone)]
 pub enum FontStyle {
     Default,
     Bold,
@@ -146,7 +147,10 @@ struct ItemStatus {
 
  */
 
-impl<'a> Ui<'_> {
+pub type UiDeclaration<'a> = Declaration<'a, ImageInfo, ()>;
+pub type UiLayoutScope<'a> = ClayLayoutScope::<'a, 'a, ImageInfo, ()>;
+
+impl<'a> Ui<'a> {
     pub fn new(renderer: Box<dyn Renderer>) -> Box<Self> {
         let io_handler = IoHandler::new(Duration::from_millis(500));
         let bg_worker = WorkSystem::new(2);
@@ -164,7 +168,7 @@ impl<'a> Ui<'_> {
             button_id: 0,
             renderer,
             bg_worker,
-            active_font: 0,
+            active_font: 1,
             background_image: None,
             screen_size: (0, 0),
             delta_time: 0.0,
@@ -172,6 +176,8 @@ impl<'a> Ui<'_> {
             screen_area: f32x4::new_splat(0.0),
             job_system: JobSystem::new(2).unwrap(),
             fonts: vec![0; 16],
+            font_size: 16,
+            clay_layout_scope: None,
         };
 
         let data = Box::new(Ui {
@@ -232,27 +238,53 @@ impl<'a> Ui<'_> {
         Dimensions::new(size.0 as _, size.1 as _)
     }
 
+    #[inline]
     pub fn set_font(&self, font_id: FontHandle) {
         let state = unsafe { &mut *self.state.get() };
         state.active_font = font_id;
     }
 
-    pub fn register_font(&self, font_id: FontHandle, _font_style: FontStyle) {
+    /// Sets the font size for the UI.
+    ///
+    /// This function updates the active font size in the UI state to the specified `font_size`.
+    /// The new font size will be used for rendering text until another font size is set.
+    #[inline]
+    pub fn set_font_size(&self, font_size: u32) {
         let state = unsafe { &mut *self.state.get() };
-        state.fonts[font_id as usize] = font_id;
+        state.font_size = font_size;
     }
 
+    /// Registers a font with a specific style.
+    ///
+    /// This function associates a given `font_id` with a `font_style` in the UI state.
+    /// The registered font can later be selected and used for rendering text.
+    pub fn register_font(&self, font_id: FontHandle, font_style: FontStyle) {
+        let state = unsafe { &mut *self.state.get() };
+        state.fonts[font_style as usize] = font_id;
+    }
+    
+    /// Selects a font with a specific style.
+    ///
+    /// This function sets the active font in the UI state to the font associated with the given `font_style`.
+    /// The selected font will be used for rendering text until another font is selected. If no font
+    /// has been registered with the given `font_style`, the default font will be used.
     pub fn select_font(&self, font_style: FontStyle) {
         let state = unsafe { &mut *self.state.get() };
-        state.active_font = state.fonts[font_style as usize];
+        let index = font_style as usize;
+        
+        if state.fonts[index] != 0 {
+            state.active_font = state.fonts[index];
+        } else {
+            warn!("No font registered with the given style. Using default font.");
+        }
     }
-
+    
     pub fn begin(&mut self, delta_time: f32, width: usize, height: usize) {
         let state = unsafe { &mut *self.state.get() };
         state
             .layout
-            .layout_dimensions(Dimensions::new(width as f32, height as f32));
-        state.layout.begin();
+            .set_layout_dimensions(Dimensions::new(width as f32, height as f32));
+        state.clay_layout_scope = Some(state.layout.begin::<ImageInfo, ()>());
         //state.io_handler.update();
         state.primitives.rewind();
         state.button_id = 0;
@@ -261,19 +293,21 @@ impl<'a> Ui<'_> {
         state.screen_area = f32x4::new(0.0, 0.0, width as f32, height as f32);
     }
 
-    pub fn with_layout<F: FnOnce(&Ui)>(&self, declaration: &Declaration, f: F) {
+    pub fn with_layout<F: FnOnce(&Ui)>(&self, declaration: &Declaration<'a, ImageInfo, ()>, f: F) {
         let state = unsafe { &mut *self.state.get() };
+        let scope = unsafe { state.clay_layout_scope.as_mut().unwrap_unchecked() };
 
-        state.layout.with(declaration, |_clay| {
+        scope.with(declaration, |_clay| {
             f(self);
         });
     }
 
-    pub fn button_with_layout(&self, name: &str, declaration: &Declaration) -> Signal {
+    pub fn button_with_layout(&self, name: &str, declaration: &Declaration<'a, ImageInfo, ()>) -> Signal {
         let state = unsafe { &mut *self.state.get() };
         let mut signal = Signal::new();
+        let scope = unsafe { state.clay_layout_scope.as_mut().unwrap_unchecked() };
 
-        state.layout.with(declaration, |_clay| {
+        scope.with(declaration, |_clay| {
             signal = self.button_test(name);
         });
 
@@ -309,28 +343,27 @@ impl<'a> Ui<'_> {
 
     pub fn image_with_opts(&self, id: Id, handle: IoHandle, opacity: f32, size: (f32, f32)) {
         let state = unsafe { &mut *self.state.get() };
+        let scope = unsafe { state.clay_layout_scope.as_mut().unwrap_unchecked() };
 
         if let Some(image) = state.io_handler.get_loaded_as::<ImageInfo>(handle) {
             let source_dimensions = Dimensions::new(image.width as _, image.height as _);
 
-            unsafe {
-                state.layout.with(
-                    Declaration::new()
-                        .id(id)
-                        .layout()
-                        .width(fixed!(size.0))
-                        .height(fixed!(size.1))
-                        .end()
-                        .image()
-                        .data_ptr(image.data.as_ptr() as _)
-                        .source_dimensions(source_dimensions)
-                        .end()
-                        .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)),
-                    |_ui| {},
-                );
-            }
+            scope.with(
+                Declaration::new()
+                    .id(id)
+                    .layout()
+                    .width(fixed!(size.0))
+                    .height(fixed!(size.1))
+                    .end()
+                    .image()
+                    .data(image)
+                    .source_dimensions(source_dimensions)
+                    .end()
+                    .background_color(ClayColor::rgba(0.0, 0.0, 255.0, 255.0 * opacity)),
+                |_ui| {},
+            );
         } else {
-            state.layout.with(
+            scope.with(
                 Declaration::new()
                     .id(id)
                     .layout()
@@ -343,27 +376,36 @@ impl<'a> Ui<'_> {
         }
     }
 
-    pub fn text_with_layout(&self, text: &str, font_size: u32, col: ClayColor, decl: &Declaration) {
+    pub fn text_with_layout(&self, text: &str, col: ClayColor, decl: &Declaration<'a, ImageInfo, ()>) {
         let state = unsafe { &mut *self.state.get() };
-        state.layout.with(decl, |_clay| {
-            let font_id = state.active_font;
-            let _ = state.text_generator.queue_generate_text(
-                text,
-                font_size,
-                font_id,
-                &state.bg_worker,
-            );
+        let scope = unsafe { state.clay_layout_scope.as_mut().unwrap_unchecked() };
 
-            state.layout.text(
-                text,
-                TextConfig::new()
-                    .font_id(font_id as u16)
-                    .font_size(font_size as _)
-                    .wrap_mode(clay_layout::text::TextElementConfigWrapMode::None)
-                    .color(col)
-                    .end(),
-            );
+        scope.with(decl, |_clay| {
+            self.label(text, col);
         });
+    }
+
+    pub fn label(&self, text: &str, col: ClayColor) {
+        let state = unsafe { &mut *self.state.get() };
+        let font_id = state.active_font;
+        let scope = unsafe { state.clay_layout_scope.as_ref().unwrap_unchecked() };
+
+        let _ = state.text_generator.queue_generate_text(
+            text,
+            state.font_size,
+            font_id,
+            &state.bg_worker,
+        );
+
+        scope.text(
+            text,
+            TextConfig::new()
+                .font_id(font_id as u16)
+                .font_size(state.font_size as _)
+                .wrap_mode(clay_layout::text::TextElementConfigWrapMode::None)
+                .color(col)
+                .end(),
+        );
     }
 
     pub fn load_with_callback(
@@ -403,7 +445,7 @@ impl<'a> Ui<'_> {
             .update_scroll_containers(false, scroll_delta.into(), state.delta_time);
     }
 
-    fn bounding_box(render_command: &ClayRenderCommand) -> [f32; 4] {
+    fn bounding_box(render_command: &ClayRenderCommand::<ImageInfo, ()>) -> [f32; 4] {
         let bb = render_command.bounding_box;
         [bb.x, bb.y, bb.x + bb.width, bb.y + bb.height]
     }
@@ -435,6 +477,7 @@ impl<'a> Ui<'_> {
 
     pub fn end(&mut self) {
         let state = unsafe { &mut *self.state.get() };
+        let scope = unsafe { state.clay_layout_scope.as_mut().unwrap_unchecked() };
 
         let zone = span!("rendering");
         zone.emit_color(0x00FF00);
@@ -449,7 +492,7 @@ impl<'a> Ui<'_> {
         let focus_id = if let Some(id) = state.focus_id {
             id.id
         } else {
-            state.layout.id("").id
+            scope.id("").id
         };
 
         let anime_rate = 1.0 - 2f32.powf(-8.0 * state.delta_time);
@@ -481,7 +524,7 @@ impl<'a> Ui<'_> {
             }
         }
 
-        for command in state.layout.end() {
+        for command in scope.end() {
             let aabb = Self::bounding_box(&command);
 
             // Skip if we have no bounding box
@@ -553,7 +596,7 @@ impl<'a> Ui<'_> {
                         height: image.dimensions.height as _,
                         //stride: (image.dimensions.width as u32 + 1) as _, // HACK
                         stride: image.dimensions.width as u32, // HACK
-                        handle: image.data as _,
+                        handle: image.data.data.as_ptr() as _,
                         rounding: false,
                     }),
                     Self::color(image.background_color),
@@ -635,13 +678,15 @@ impl<'a> Ui<'_> {
     #[inline]
     pub fn id(&self, name: &str) -> Id {
         let state = unsafe { &mut *self.state.get() };
-        state.layout.id(name)
+        let scope = unsafe { state.clay_layout_scope.as_ref().unwrap_unchecked() };
+        scope.id(name)
     }
 
     #[inline]
     pub fn id_index(&self, name: &str, index: u32) -> Id {
         let state = unsafe { &mut *self.state.get() };
-        state.layout.id_index(name, index)
+        let scope = unsafe { state.clay_layout_scope.as_ref().unwrap_unchecked() };
+        scope.id_index(name, index)
     }
 
     pub fn is_visible(&self, id: Id) -> bool {
@@ -708,13 +753,15 @@ impl<'a> Ui<'_> {
     #[rustfmt::skip]
     pub fn button(&self, text: &str) -> Signal {
         let state = unsafe { &mut *self.state.get() };
+        let scope = unsafe { state.clay_layout_scope.as_mut().unwrap_unchecked() };
+
         let id_name = text;
         let mut signal = Signal::new();
 
         // TODO: Cache
         let text_size = state.text_generator.measure_text_size(text, state.active_font, 36).unwrap();
 
-        state.layout.with(Declaration::new()
+        scope.with(Declaration::new()
             .layout()
                 .width(fixed!(text_size.0 + 16.0))
                 .child_alignment(Alignment::new(LayoutAlignmentX::Center, LayoutAlignmentY::Center))
@@ -722,19 +769,19 @@ impl<'a> Ui<'_> {
             .end()
                 .corner_radius().all(16.0)
             .end()
-                .background_color(ClayColor::rgba(152.0, 20.0, 31.0, 255.0)), |_ui|
+                .background_color(ClayColor::rgba(152.0, 20.0, 31.0, 255.0)), |ui|
             {
                 let font_id = state.active_font;
                 // TODO: Fix me
                 let _ = state.text_generator.queue_generate_text(text, 36, font_id, &state.bg_worker);
 
-                state.layout.text(text, TextConfig::new()
+                ui.text(text, TextConfig::new()
                     .font_id(font_id as u16)
                     .font_size(36)
                     .color(ClayColor::rgba(255.0, 255.0, 255.0, 255.0))
                     .end());
 
-                let id = state.layout.id(id_name);
+                let id = ui.id(id_name);
 
                 if let Some(item) = state.item_states.get_mut(&id.id.id) {
                     signal = self.signal(item);
@@ -749,19 +796,21 @@ impl<'a> Ui<'_> {
     #[rustfmt::skip]
     pub fn button_test(&self, text: &str) -> Signal {
         let state = unsafe { &mut *self.state.get() };
+        let scope = unsafe { state.clay_layout_scope.as_ref().unwrap_unchecked() };
+
         let id_name = text;
         let mut signal = Signal::new();
 
         let font_id = state.active_font;
         let _ = state.text_generator.queue_generate_text(text, 36, font_id, &state.bg_worker);
 
-        state.layout.text(text, TextConfig::new()
+        scope.text(text, TextConfig::new()
             .font_id(font_id as u16)
             .font_size(36)
             .color(ClayColor::rgba(255.0, 255.0, 255.0, 205.0))
             .end());
 
-        let id = state.layout.id(id_name);
+        let id = scope.id(id_name);
 
         if let Some(item) = state.item_states.get_mut(&id.id.id) {
             signal = self.signal(item);

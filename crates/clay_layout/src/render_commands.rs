@@ -71,24 +71,24 @@ pub struct Border {
 
 /// Represents an image with defined dimensions and data.
 #[derive(Debug, Clone)]
-pub struct Image {
-    /// The background color of the custom element.
+pub struct Image<'a, ImageElementData> {
+    /// Background color
     pub background_color: Color,
     /// The dimensions of the image.
     pub dimensions: Dimensions,
     /// A pointer to the image data.
-    pub data: *const core::ffi::c_void,
+    pub data: &'a ImageElementData,
 }
 
 /// Represents a custom element with a background color, corner radii, and associated data.
 #[derive(Debug, Clone)]
-pub struct Custom {
+pub struct Custom<'a, CustomElementData> {
     /// The background color of the custom element.
     pub background_color: Color,
     /// The corner radii for rounded edges.
     pub corner_radii: CornerRadii,
     /// A pointer to additional custom data.
-    pub data: *const core::ffi::c_void,
+    pub data: &'a CustomElementData,
 }
 
 impl From<Clay_RectangleRenderData> for Rectangle {
@@ -120,12 +120,12 @@ impl From<Clay_TextRenderData> for Text<'_> {
     }
 }
 
-impl From<Clay_ImageRenderData> for Image {
-    fn from(value: Clay_ImageRenderData) -> Self {
+impl<ImageElementData> Image<'_, ImageElementData> {
+    pub(crate) unsafe fn from_clay_image_render_data(value: Clay_ImageRenderData) -> Self {
         Self {
-            background_color: value.backgroundColor.into(),
             dimensions: value.sourceDimensions.into(),
-            data: value.imageData,
+            data: unsafe { &*value.imageData.cast() },
+            background_color: value.backgroundColor.into(),
         }
     }
 }
@@ -158,31 +158,33 @@ impl From<Clay_BorderRenderData> for Border {
     }
 }
 
-impl From<Clay_CustomRenderData> for Custom {
-    fn from(value: Clay_CustomRenderData) -> Self {
+impl<CustomElementData> Custom<'_, CustomElementData> {
+    pub(crate) unsafe fn from_clay_custom_element_data(value: Clay_CustomRenderData) -> Self {
         Self {
             background_color: value.backgroundColor.into(),
             corner_radii: value.cornerRadius.into(),
-            data: value.customData,
+            data: unsafe { &*value.customData.cast() },
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum RenderCommandConfig<'a> {
+pub enum RenderCommandConfig<'a, ImageElementData, CustomElementData> {
     None(),
     Rectangle(Rectangle),
     Border(Border),
     Text(Text<'a>),
-    Image(Image),
+    Image(Image<'a, ImageElementData>),
     ScissorStart(),
     ScissorEnd(),
-    Custom(Custom),
+    Custom(Custom<'a, CustomElementData>),
 }
 
-impl From<&Clay_RenderCommand> for RenderCommandConfig<'_> {
+impl<ImageElementData, CustomElementData>
+    RenderCommandConfig<'_, ImageElementData, CustomElementData>
+{
     #[allow(non_upper_case_globals)]
-    fn from(value: &Clay_RenderCommand) -> Self {
+    pub(crate) unsafe fn from_clay_render_command(value: &Clay_RenderCommand) -> Self {
         match value.commandType {
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_NONE => Self::None(),
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_RECTANGLE => {
@@ -195,13 +197,13 @@ impl From<&Clay_RenderCommand> for RenderCommandConfig<'_> {
                 Self::Border(Border::from(*unsafe { &value.renderData.border }))
             }
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_IMAGE => {
-                Self::Image(Image::from(*unsafe { &value.renderData.image }))
+                Self::Image(unsafe { Image::from_clay_image_render_data(value.renderData.image) })
             }
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_SCISSOR_START => Self::ScissorStart(),
             Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_SCISSOR_END => Self::ScissorEnd(),
-            Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_CUSTOM => {
-                Self::Custom(Custom::from(*unsafe { &value.renderData.custom }))
-            }
+            Clay_RenderCommandType_CLAY_RENDER_COMMAND_TYPE_CUSTOM => Self::Custom(unsafe {
+                Custom::from_clay_custom_element_data(value.renderData.custom)
+            }),
             _ => unreachable!(),
         }
     }
@@ -209,11 +211,11 @@ impl From<&Clay_RenderCommand> for RenderCommandConfig<'_> {
 
 /// Represents a render command for drawing an element on the screen.
 #[derive(Debug, Clone)]
-pub struct RenderCommand<'a> {
+pub struct RenderCommand<'a, ImageElementData, CustomElementData> {
     /// The bounding box defining the area occupied by the element.
     pub bounding_box: BoundingBox,
     /// The specific configuration for rendering this command.
-    pub config: RenderCommandConfig<'a>,
+    pub config: RenderCommandConfig<'a, ImageElementData, CustomElementData>,
     /// A unique identifier for the render command.
     pub id: u32,
     /// The z-index determines the stacking order of elements.
@@ -221,13 +223,13 @@ pub struct RenderCommand<'a> {
     pub z_index: i16,
 }
 
-impl From<Clay_RenderCommand> for RenderCommand<'_> {
-    fn from(value: Clay_RenderCommand) -> Self {
+impl<ImageElementData, CustomElementData> RenderCommand<'_, ImageElementData, CustomElementData> {
+    pub(crate) unsafe fn from_clay_render_command(value: Clay_RenderCommand) -> Self {
         Self {
             id: value.id,
             z_index: value.zIndex,
             bounding_box: value.boundingBox.into(),
-            config: (&value).into(),
+            config: unsafe { RenderCommandConfig::from_clay_render_command(&value) },
         }
     }
 }

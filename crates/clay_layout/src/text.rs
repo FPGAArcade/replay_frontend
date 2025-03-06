@@ -11,6 +11,17 @@ pub enum TextElementConfigWrapMode {
     None = Clay_TextElementConfigWrapMode_CLAY_TEXT_WRAP_NONE,
 }
 
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum TextAlignment {
+    /// Aligns the text to the left.
+    Left = Clay_TextAlignment_CLAY_TEXT_ALIGN_LEFT,
+    /// Aligns the text to the center.
+    Center = Clay_TextAlignment_CLAY_TEXT_ALIGN_CENTER,
+    /// Aligns the text to the right.
+    Right = Clay_TextAlignment_CLAY_TEXT_ALIGN_RIGHT,
+}
+
 pub struct TextElementConfig {
     inner: *mut Clay_TextElementConfig,
 }
@@ -40,6 +51,8 @@ pub struct TextConfig {
     /// If `true`, the string contents are hashed to prevent unnecessary updates.
     /// Set this to `false` if the text element is updated frequently.
     pub hash_string_contents: bool,
+    /// The alignment of the text.
+    pub alignment: TextAlignment,
 }
 
 impl TextConfig {
@@ -49,30 +62,35 @@ impl TextConfig {
     }
 
     /// Sets the text color.
+    #[inline]
     pub fn color(&mut self, color: Color) -> &mut Self {
         self.color = color;
         self
     }
 
     /// Sets the font ID. The user is responsible for assigning unique font IDs.
+    #[inline]
     pub fn font_id(&mut self, id: u16) -> &mut Self {
         self.font_id = id;
         self
     }
 
     /// Sets the font size.
+    #[inline]
     pub fn font_size(&mut self, size: u16) -> &mut Self {
         self.font_size = size;
         self
     }
 
     /// Sets the letter spacing.
+    #[inline]
     pub fn letter_spacing(&mut self, spacing: u16) -> &mut Self {
         self.letter_spacing = spacing;
         self
     }
 
     /// Sets the line height.
+    #[inline]
     pub fn line_height(&mut self, height: u16) -> &mut Self {
         self.line_height = height;
         self
@@ -82,21 +100,30 @@ impl TextConfig {
     ///
     /// If the text content changes frequently, set this to `true` otherwise Clay will cache this
     /// and not rehash the content.
+    #[inline]
     pub fn hash_string_contents(&mut self, do_hash: bool) -> &mut Self {
         self.hash_string_contents = do_hash;
         self
     }
 
     /// Sets the text wrapping mode.
+    #[inline]
     pub fn wrap_mode(&mut self, mode: TextElementConfigWrapMode) -> &mut Self {
         self.wrap_mode = mode;
         self
     }
 
+    /// Sets the text alignment.
+    #[inline]
+    pub fn alignment(&mut self, alignment: TextAlignment) -> &mut Self {
+        self.alignment = alignment;
+        self
+    }
+
     /// Finalizes the text configuration and stores it in memory.
+    #[inline]
     pub fn end(&self) -> TextElementConfig {
         let memory = unsafe { Clay__StoreTextElementConfig((*self).into()) };
-
         TextElementConfig { inner: memory }
     }
 }
@@ -111,6 +138,7 @@ impl Default for TextConfig {
             line_height: 0,
             wrap_mode: TextElementConfigWrapMode::Words,
             hash_string_contents: true,
+            alignment: TextAlignment::Left,
         }
     }
 }
@@ -125,6 +153,7 @@ impl From<TextConfig> for Clay_TextElementConfig {
             lineHeight: value.line_height,
             wrapMode: value.wrap_mode as _,
             hashStringContents: value.hash_string_contents,
+            textAlignment: value.alignment as _,
         }
     }
 }
@@ -140,6 +169,7 @@ impl From<Clay_TextElementConfig> for TextConfig {
             wrap_mode: unsafe {
                 core::mem::transmute::<u8, TextElementConfigWrapMode>(value.wrapMode)
             },
+            alignment: unsafe { core::mem::transmute::<u8, TextAlignment>(value.textAlignment) },
             hash_string_contents: value.hashStringContents,
         }
     }

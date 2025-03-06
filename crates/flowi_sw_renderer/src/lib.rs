@@ -77,7 +77,7 @@ pub fn build_linear_to_srgb_table() -> [u8; 1 << SRGB_BIT_COUNT] {
     for (i, entry) in table.iter_mut().enumerate().take(1 << SRGB_BIT_COUNT) {
         let linear = i as f32 / ((1 << SRGB_BIT_COUNT) - 1) as f32;
         let srgb = linear_to_srgb(linear);
-        *entry = (srgb * (1 << 8) as f32) as u8;
+        *entry = (srgb * ((1 << 8) - 1) as f32) as u8;
     }
 
     table
@@ -394,7 +394,7 @@ impl flowi_core::Renderer for Renderer {
             tile_buffer,
             tiles,
             screen_size,
-            output: vec![0; screen_size.0 * screen_size.1 * 3],
+            output: vec![18u8; screen_size.0 * screen_size.1 * 3],
         }
     }
 

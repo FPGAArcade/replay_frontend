@@ -7,7 +7,7 @@ use flowi_core::content_selector::ContentSelector;
 /// selectors for many streaming services works. The user can scroll through a list of items and
 /// select one of them. The selected item will be displayed in a larger size than the other items.
 /// THe backend uses the Demozoo API to fetch the metadata along with screenshots from it's db.
-use flowi_core::{Alignment, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, fixed, grow, FontStyle};
+use flowi_core::{Alignment, UiDeclaration, Declaration, LayoutAlignmentX, LayoutAlignmentY, LayoutDirection, Padding, Ui, fixed, grow, FontStyle};
 use flowi_core::{IoHandle, LoadPriority, LoadState};
 use log::error;
 //use log::*;
@@ -272,7 +272,7 @@ impl OnlineDemoSelector {
 
 #[rustfmt::skip]
 fn display_entry(ui: &Ui, release: &Release, entry: &ProductionEntry) {
-    ui.with_layout(&Declaration::new()
+    ui.with_layout(&UiDeclaration::new()
         .id(ui.id("entry_info"))
         .layout()
             .width(grow!())
@@ -295,7 +295,8 @@ fn display_entry(ui: &Ui, release: &Release, entry: &ProductionEntry) {
 
             let text_size = ui.text_size(&entry.title, 78);
 
-            ui.text_with_layout(&entry.title, 78, (255.0, 255.0, 255.0, 255.0).into(),
+            ui.set_font_size(78);
+            ui.text_with_layout(&entry.title, (255.0, 255.0, 255.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(fixed!(text_size.width))
@@ -303,7 +304,7 @@ fn display_entry(ui: &Ui, release: &Release, entry: &ProductionEntry) {
                         .padding(Padding::horizontal(32))
                         .end());
 
-            ui.text_with_layout("1992", 78, (128.0, 128.0, 128.0, 255.0).into(),
+            ui.text_with_layout("1992", (128.0, 128.0, 128.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(grow!())
@@ -330,7 +331,9 @@ fn display_entry(ui: &Ui, release: &Release, entry: &ProductionEntry) {
                 ui.button(&entry.platforms[0].name);
             }
 
-            ui.text_with_layout("by", 36, (255.0, 255.0, 255.0, 255.0).into(),
+            ui.set_font_size(36);
+
+            ui.text_with_layout("by", (255.0, 255.0, 255.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(fixed!(44.0))
@@ -338,7 +341,7 @@ fn display_entry(ui: &Ui, release: &Release, entry: &ProductionEntry) {
 
             ui.select_font(FontStyle::Bold);
 
-            ui.text_with_layout(&entry.author_nicks[0].name, 36, (201.0, 22.0, 38.0, 255.0).into(),
+            ui.text_with_layout(&entry.author_nicks[0].name, (201.0, 22.0, 38.0, 255.0).into(),
                 &Declaration::new()
                     .layout()
                         .width(grow!())

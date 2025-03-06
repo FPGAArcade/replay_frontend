@@ -74,8 +74,8 @@ impl ContentSelector {
 
         let id = ui.id_index(name, row as _);
 
-        ui.text_with_layout(name, 36,
-            ClayColor::rgba(255.0, 255.0, 255.0, 255.0 * opacity),
+        ui.set_font_size(36);
+        ui.text_with_layout(name, ClayColor::rgba(255.0, 255.0, 255.0, 255.0 * opacity),
             &Declaration::new()
                 .layout()
                     .width(grow!())
